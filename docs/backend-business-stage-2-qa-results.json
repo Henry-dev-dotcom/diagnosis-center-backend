@@ -1,0 +1,19 @@
+{
+  "stage": "Business Logic Stage 2",
+  "name": "Doctor Order Creation and Order Registry",
+  "status": "passed",
+  "checkedAt": "2026-06-19T12:12:45.189Z",
+  "packageVersion": "2.1.0",
+  "checks": [
+    "doctor order creation uses real Prisma service/controller",
+    "catalog items are validated before order item creation",
+    "LAB and SCAN order items are split from catalog item type",
+    "shared order registry/detail/timeline endpoints use live handlers",
+    "order status transitions and cancellation are guarded",
+    "order status history is written for lifecycle changes",
+    "reception incoming order queue and confirmation use live handlers",
+    "invoice handoff helper exists for confirmed orders",
+    "lab and scan queues read real order items",
+    "documentation added"
+  ]
+}

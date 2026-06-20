@@ -1,0 +1,96 @@
+{
+  "status": "passed",
+  "checkedAt": "2026-06-19T12:04:31.031Z",
+  "results": [
+    {
+      "phase": 1,
+      "script": "scripts/check-phase1.mjs",
+      "status": "passed",
+      "startedAt": "2026-06-19T12:04:30.241Z",
+      "finishedAt": "2026-06-19T12:04:30.321Z",
+      "stdout": "Phase 1 static structure check passed.",
+      "stderr": ""
+    },
+    {
+      "phase": 2,
+      "script": "scripts/check-phase2.mjs",
+      "status": "passed",
+      "startedAt": "2026-06-19T12:04:30.324Z",
+      "finishedAt": "2026-06-19T12:04:30.403Z",
+      "stdout": "Backend Phase 2 static structure check passed.",
+      "stderr": ""
+    },
+    {
+      "phase": 3,
+      "script": "scripts/check-phase3.mjs",
+      "status": "passed",
+      "startedAt": "2026-06-19T12:04:30.403Z",
+      "finishedAt": "2026-06-19T12:04:30.472Z",
+      "stdout": "Backend Phase 3 core database schema static check passed.",
+      "stderr": ""
+    },
+    {
+      "phase": 4,
+      "script": "scripts/check-phase4.mjs",
+      "status": "passed",
+      "startedAt": "2026-06-19T12:04:30.472Z",
+      "finishedAt": "2026-06-19T12:04:30.550Z",
+      "stdout": "Backend Phase 4 authentication system static check passed.",
+      "stderr": ""
+    },
+    {
+      "phase": 5,
+      "script": "scripts/check-phase5.mjs",
+      "status": "passed",
+      "startedAt": "2026-06-19T12:04:30.550Z",
+      "finishedAt": "2026-06-19T12:04:30.623Z",
+      "stdout": "Backend Phase 5 role permissions and protected route structure static check passed.",
+      "stderr": ""
+    },
+    {
+      "phase": 6,
+      "script": "scripts/check-phase6.mjs",
+      "status": "passed",
+      "startedAt": "2026-06-19T12:04:30.624Z",
+      "finishedAt": "2026-06-19T12:04:30.705Z",
+      "stdout": "Backend Phase 6 API route structure static check passed.",
+      "stderr": ""
+    },
+    {
+      "phase": 7,
+      "script": "scripts/check-phase7.mjs",
+      "status": "passed",
+      "startedAt": "2026-06-19T12:04:30.705Z",
+      "finishedAt": "2026-06-19T12:04:30.794Z",
+      "stdout": "Backend Phase 7 validation and error handling static check passed.",
+      "stderr": ""
+    },
+    {
+      "phase": 8,
+      "script": "scripts/check-phase8.mjs",
+      "status": "passed",
+      "startedAt": "2026-06-19T12:04:30.794Z",
+      "finishedAt": "2026-06-19T12:04:30.874Z",
+      "stdout": "Backend Phase 8 audit logging foundation static check passed.",
+      "stderr": ""
+    },
+    {
+      "phase": 9,
+      "script": "scripts/check-phase9.mjs",
+      "status": "passed",
+      "startedAt": "2026-06-19T12:04:30.874Z",
+      "finishedAt": "2026-06-19T12:04:30.943Z",
+      "stdout": "Backend Phase 9 seed data static check passed.",
+      "stderr": ""
+    },
+    {
+      "phase": 10,
+      "script": "scripts/check-phase10.mjs",
+      "status": "passed",
+      "startedAt": "2026-06-19T12:04:30.944Z",
+      "finishedAt": "2026-06-19T12:04:31.030Z",
+      "stdout": "Backend Phase 10 foundation QA static check passed.",
+      "stderr": ""
+    }
+  ]
+}

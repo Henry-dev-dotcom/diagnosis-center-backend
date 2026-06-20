@@ -1,0 +1,21 @@
+{
+  "phase": 6,
+  "name": "API Route Structure",
+  "status": "passed",
+  "checks": [
+    "All planned route files are present",
+    "Route files are registered in src/routes/index.ts",
+    "Phase 6 endpoint markers are present",
+    "Frontend compatibility aliases are present",
+    "Route contract registry is present",
+    "GET /api/access/route-contracts is registered",
+    "OpenAPI document uses the Phase 6 route contract registry",
+    "Package version is 0.6.0",
+    "npm run qa points to scripts/check-phase6.mjs"
+  ],
+  "notes": [
+    "Business logic remains placeholder-based for later module phases.",
+    "Static QA passed inside this package.",
+    "Full TypeScript build requires running npm install first because node_modules is not included in this ZIP."
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "phase": 7,
+  "name": "Validation and Error Handling",
+  "packageVersion": "0.7.0",
+  "status": "passed-static-qa",
+  "checks": [
+    "Reusable validation middleware present",
+    "Zod validators present for auth, patients, orders, reception, lab, scan, billing, finance, admin, results, notifications, and files",
+    "Route-level validation wired into Phase 6 route groups",
+    "Standard validation error envelope present",
+    "Standard AppError envelope present",
+    "Prisma duplicate and missing-record error handling present",
+    "OpenAPI version updated to 0.7.0 with 400 response contract",
+    "QA script points to scripts/check-phase7.mjs"
+  ],
+  "notes": [
+    "node_modules is intentionally excluded from the ZIP deliverable.",
+    "Full TypeScript build should be run locally after npm install and prisma generate."
+  ]
+}

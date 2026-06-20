@@ -1,0 +1,31 @@
+{
+  "phase": 10,
+  "name": "Backend Foundation QA",
+  "status": "passed",
+  "checkedAt": "2026-06-19T12:12:45.052Z",
+  "packageVersion": "2.1.0",
+  "checks": [
+    "package version and scripts",
+    "phase-chain static QA command registered for phases 1 through 10",
+    "required foundation files",
+    "environment template",
+    "Docker PostgreSQL healthcheck",
+    "OpenAPI/Swagger version and path readiness",
+    "version endpoint freshness",
+    "route contract readiness",
+    "seed account markers",
+    "documentation and local QA checklist"
+  ],
+  "localRuntimeChecksToRunAfterExtracting": [
+    "npm install",
+    "npm run prisma:generate",
+    "npm run build",
+    "npm run lint",
+    "docker compose up -d",
+    "npm run prisma:migrate",
+    "npm run prisma:seed",
+    "npm run db:status",
+    "npm run dev",
+    "npm run health:local"
+  ]
+}

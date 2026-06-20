@@ -1,0 +1,23 @@
+{
+  "phase": "Backend Phase 5 — Role Permissions and Protected Route Structure",
+  "status": "passed",
+  "checks": [
+    "Permission registry exists",
+    "Role-to-permission mapping exists for all six platform roles",
+    "Price visibility guard exists",
+    "Route access policy registry exists",
+    "Protected route groups exist for all major modules",
+    "Route groups are registered in src/routes/index.ts",
+    "placeholderRoutes is no longer registered",
+    "Own-doctor, lab-only, scan-only and finance scope guards exist",
+    "Prisma duplicate User.email field corrected"
+  ],
+  "commandsRun": [
+    "node scripts/check-phase5.mjs",
+    "tsc --noEmit --pretty false (blocked locally because node_modules/@types/node is not installed in this artifact environment)"
+  ],
+  "notes": [
+    "Run npm install before typechecking locally.",
+    "Business logic implementations remain scheduled for later backend module phases."
+  ]
+}

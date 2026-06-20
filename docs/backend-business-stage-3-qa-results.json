@@ -1,0 +1,19 @@
+{
+  "stage": "Business Logic Stage 3",
+  "name": "Reception Workflow, Patient Check-in, Walk-ins, and Appointments",
+  "status": "passed",
+  "checkedAt": "2026-06-19T12:12:45.263Z",
+  "packageVersion": "2.1.0",
+  "checks": [
+    "reception placeholders were replaced with live controllers",
+    "patient check-in creates PatientVisit records and updates appointments/orders",
+    "walk-ins can create patients, confirmed orders, invoices, and visits",
+    "appointments can be listed, created, and updated",
+    "daily visit log reads real PatientVisit records",
+    "results inbox reads generated Report records",
+    "safe patient result notices create Notification and DeliveryLog entries",
+    "audit logging is emitted for major reception actions",
+    "Phase 6 route contracts were updated to implemented for reception endpoints",
+    "documentation added"
+  ]
+}

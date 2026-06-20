@@ -1,0 +1,25 @@
+import { Router } from 'express';
+import { UserRole } from '@prisma/client';
+import { moduleLanding } from '../controllers/protectedModule.controller.js';
+import { getDoctorProfileController, getOwnDoctorPatientsController, updateOwnDoctorProfileController } from '../controllers/doctor.controller.js';
+import { createDoctorOrderController, listDoctorActiveOrdersController, listDoctorCompletedOrdersController } from '../controllers/order.controller.js';
+import { patientTrendsController } from '../controllers/patient.controller.js';
+import { listResultsController } from '../controllers/results.controller.js';
+import { PERMISSIONS } from '../config/permissions.js';
+import { requireAuth, requireAnyPermission, requirePermission, requireRole } from '../middleware/auth.js';
+import { validateRequest } from '../middleware/validate.js';
+import { dateRangeQuerySchema, patientIdParamSchema } from '../validators/common.validators.js';
+import { createOrderSchema, orderListQuerySchema } from '../validators/order.validators.js';
+import { updateDoctorProfileSchema } from '../validators/admin.validators.js';
+
+export const doctorsRoutes = Router();
+doctorsRoutes.use('/doctor', requireAuth, requireRole(UserRole.ADMIN, UserRole.DOCTOR));
+doctorsRoutes.get('/doctor', requireAnyPermission(PERMISSIONS.DOCTOR_PROFILE_READ, PERMISSIONS.ADMIN_DOCTORS_MANAGE), moduleLanding('doctors'));
+doctorsRoutes.get('/doctor/profile', requireAnyPermission(PERMISSIONS.DOCTOR_PROFILE_READ, PERMISSIONS.ADMIN_DOCTORS_MANAGE), getDoctorProfileController);
+doctorsRoutes.patch('/doctor/profile', requirePermission(PERMISSIONS.DOCTOR_PROFILE_UPDATE), validateRequest({ body: updateDoctorProfileSchema }), updateOwnDoctorProfileController);
+doctorsRoutes.get('/doctor/patients', requirePermission(PERMISSIONS.DOCTOR_PATIENTS_READ_OWN), validateRequest({ query: dateRangeQuerySchema }), getOwnDoctorPatientsController);
+doctorsRoutes.post('/doctor/orders', requirePermission(PERMISSIONS.DOCTOR_ORDERS_CREATE), validateRequest({ body: createOrderSchema }), createDoctorOrderController);
+doctorsRoutes.get('/doctor/orders/active', requirePermission(PERMISSIONS.DOCTOR_ORDERS_READ_OWN), validateRequest({ query: orderListQuerySchema }), listDoctorActiveOrdersController);
+doctorsRoutes.get('/doctor/orders/completed', requirePermission(PERMISSIONS.DOCTOR_ORDERS_READ_OWN), validateRequest({ query: orderListQuerySchema }), listDoctorCompletedOrdersController);
+doctorsRoutes.get('/doctor/results', requirePermission(PERMISSIONS.DOCTOR_RESULTS_READ_OWN), validateRequest({ query: dateRangeQuerySchema }), listResultsController);
+doctorsRoutes.get('/doctor/patient-trends/:patientId', requirePermission(PERMISSIONS.DOCTOR_TRENDS_READ_OWN), validateRequest({ params: patientIdParamSchema, query: dateRangeQuerySchema }), patientTrendsController);

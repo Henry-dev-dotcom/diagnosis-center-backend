@@ -1,0 +1,19 @@
+{
+  "stage": "Business Logic Stage 8",
+  "name": "Notifications + Files + DICOM-ready Upload Layer",
+  "status": "passed",
+  "checkedAt": "2026-06-19T12:12:45.633Z",
+  "packageVersion": "2.1.0",
+  "checks": [
+    "notification creation, delivery, read/unread, read-all, preferences, and retry routes are live",
+    "SMS and WhatsApp notification delivery keeps privacy-safe body handling",
+    "file upload accepts JSON/base64 payloads and metadata-only records",
+    "scan file uploads persist ScanResultFile metadata and can store local bytes",
+    "lab file attachment endpoint stores/audits metadata-ready uploads without schema migration",
+    "download endpoint serves local bytes when available and exposes signed download payloads",
+    "DICOM-ready study list/detail endpoints group files by Study UID",
+    "upload environment settings are documented and validated",
+    "Phase 6 route contracts and OpenAPI metadata were updated",
+    "documentation added"
+  ]
+}

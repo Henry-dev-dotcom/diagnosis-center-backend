@@ -1,0 +1,38 @@
+import { Router } from 'express';
+import { systemRoutes } from './system.routes.js';
+import { authRoutes } from './auth.routes.js';
+import { accessRoutes } from './access.routes.js';
+import { usersRoutes } from './users.routes.js';
+import { patientsRoutes } from './patients.routes.js';
+import { doctorsRoutes } from './doctors.routes.js';
+import { ordersRoutes } from './orders.routes.js';
+import { receptionRoutes } from './reception.routes.js';
+import { labRoutes } from './lab.routes.js';
+import { scanRoutes } from './scan.routes.js';
+import { billingRoutes } from './billing.routes.js';
+import { financeRoutes } from './finance.routes.js';
+import { adminRoutes } from './admin.routes.js';
+import { resultsRoutes } from './results.routes.js';
+import { reportsRoutes } from './reports.routes.js';
+import { notificationsRoutes } from './notifications.routes.js';
+import { filesRoutes } from './files.routes.js';
+
+export const apiRouter = Router();
+
+apiRouter.use(systemRoutes);
+apiRouter.use(authRoutes);
+apiRouter.use(accessRoutes);
+apiRouter.use(usersRoutes);
+apiRouter.use(patientsRoutes);
+apiRouter.use(doctorsRoutes);
+apiRouter.use(ordersRoutes);
+apiRouter.use(receptionRoutes);
+apiRouter.use(labRoutes);
+apiRouter.use(scanRoutes);
+apiRouter.use(billingRoutes);
+apiRouter.use(financeRoutes);
+apiRouter.use(adminRoutes);
+apiRouter.use(resultsRoutes);
+apiRouter.use(reportsRoutes);
+apiRouter.use(notificationsRoutes);
+apiRouter.use(filesRoutes);

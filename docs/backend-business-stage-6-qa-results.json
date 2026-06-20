@@ -1,0 +1,21 @@
+{
+  "stage": "Business Logic Stage 6",
+  "name": "Scan / Imaging Workflow",
+  "status": "passed",
+  "checkedAt": "2026-06-19T12:12:45.482Z",
+  "packageVersion": "2.1.0",
+  "checks": [
+    "scan placeholders were replaced with live controllers",
+    "scan acceptance creates or updates ScanAcceptance records and order-item status",
+    "accepted scans and equipment booking queues are live",
+    "scan report drafting creates or updates ScanResult records",
+    "scan image and DICOM-ready metadata are persisted in ScanResultFile records",
+    "submit-for-review updates scan result, acceptance, and order item state",
+    "sign-off creates reviews, signs off results, and generates report records",
+    "retake workflow updates result, acceptance, order item, and ScanRetake records",
+    "review queue, rejected/retake queue, and prior scan comparison are live",
+    "major scan actions emit audit logs",
+    "Phase 6 route contracts were updated to implemented for scan endpoints",
+    "documentation added"
+  ]
+}

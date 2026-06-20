@@ -1,0 +1,22 @@
+{
+  "stage": "Business Logic Stage 7",
+  "name": "Results Delivery + Reporting",
+  "status": "passed",
+  "checkedAt": "2026-06-19T12:12:45.560Z",
+  "packageVersion": "2.1.0",
+  "checks": [
+    "result placeholders were replaced with live controllers",
+    "doctor result list is live and scoped through the shared results service",
+    "release workflow creates secure result links and notifications",
+    "PDF-ready report payload records PDF download delivery logs",
+    "email, SMS, and WhatsApp result delivery records notifications and delivery logs",
+    "SMS and WhatsApp delivery remain privacy-safe",
+    "delivery log list and retry workflow are live",
+    "reporting endpoints are backed by Prisma summaries/lists",
+    "notifications list/read/log/retry/settings routes are live",
+    "file metadata routes are live with scan/DICOM metadata persistence where supported",
+    "major result, delivery, notification, report, and file actions emit audit logs",
+    "Phase 6 route contracts were updated to implemented for Stage 7 endpoints",
+    "documentation added"
+  ]
+}

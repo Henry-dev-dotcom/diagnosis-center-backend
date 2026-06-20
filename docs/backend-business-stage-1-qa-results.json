@@ -1,0 +1,19 @@
+{
+  "stage": "Business Logic Stage 1",
+  "name": "Patient and Admin Catalog Foundation",
+  "status": "passed",
+  "checkedAt": "2026-06-19T12:12:45.119Z",
+  "packageVersion": "2.1.0",
+  "checks": [
+    "patient endpoints use real controllers",
+    "admin users/hospitals/doctors/catalog/reference ranges/departments/equipment use real controllers",
+    "doctor profile and referred patient endpoints use real controllers",
+    "patient duplicate checking implemented",
+    "doctor-scoped patient access guard implemented",
+    "admin user password hashing implemented",
+    "reference range upsert logic implemented",
+    "configuration export implemented",
+    "schema duplicate relation marker fixed",
+    "documentation added"
+  ]
+}

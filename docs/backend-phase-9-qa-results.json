@@ -1,0 +1,24 @@
+{
+  "phase": 9,
+  "name": "Seed Data",
+  "status": "passed",
+  "checkedAt": "2026-06-19T12:04:30.932Z",
+  "checks": [
+    "package version",
+    "qa script",
+    "OpenAPI version",
+    "README and docs",
+    "demo users",
+    "hospitals and doctors",
+    "patients",
+    "full catalog and reference ranges",
+    "orders and timelines",
+    "reception workflow records",
+    "lab workflow records",
+    "scan workflow and DICOM-ready metadata",
+    "billing and finance records",
+    "reports and notifications",
+    "inventory/QC records",
+    "audit/system events"
+  ]
+}

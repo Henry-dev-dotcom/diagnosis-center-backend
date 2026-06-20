@@ -1,0 +1,204 @@
+import { CatalogItemType, UserRole } from '@prisma/client';
+
+export const PERMISSIONS = {
+  SYSTEM_READ: 'system:read',
+  ACCESS_MATRIX_READ: 'access:matrix:read',
+
+  USERS_READ: 'users:read',
+  USERS_MANAGE: 'users:manage',
+
+  PATIENTS_READ: 'patients:read',
+  PATIENTS_CREATE: 'patients:create',
+  PATIENTS_UPDATE: 'patients:update',
+  PATIENTS_TRENDS_READ: 'patients:trends:read',
+  PATIENTS_DUPLICATES_MANAGE: 'patients:duplicates:manage',
+
+  DOCTOR_PROFILE_READ: 'doctor:profile:read',
+  DOCTOR_PROFILE_UPDATE: 'doctor:profile:update',
+  DOCTOR_PATIENTS_READ_OWN: 'doctor:patients:read-own',
+  DOCTOR_ORDERS_CREATE: 'doctor:orders:create',
+  DOCTOR_ORDERS_READ_OWN: 'doctor:orders:read-own',
+  DOCTOR_RESULTS_READ_OWN: 'doctor:results:read-own',
+  DOCTOR_TRENDS_READ_OWN: 'doctor:trends:read-own',
+
+  ORDERS_READ: 'orders:read',
+  ORDERS_READ_OWN: 'orders:read-own',
+  ORDERS_STATUS_UPDATE: 'orders:status:update',
+  ORDERS_CANCEL: 'orders:cancel',
+
+  RECEPTION_ORDERS_READ: 'reception:orders:read',
+  RECEPTION_ORDERS_CONFIRM: 'reception:orders:confirm',
+  RECEPTION_CHECK_IN: 'reception:patients:check-in',
+  RECEPTION_WALK_INS_CREATE: 'reception:walk-ins:create',
+  RECEPTION_APPOINTMENTS_MANAGE: 'reception:appointments:manage',
+  RECEPTION_RESULTS_READ: 'reception:results:read',
+  RECEPTION_NOTICES_SEND: 'reception:notices:send',
+
+  LAB_QUEUE_READ: 'lab:queue:read',
+  LAB_SAMPLES_ACCEPT: 'lab:samples:accept',
+  LAB_SAMPLES_REJECT: 'lab:samples:reject',
+  LAB_RESULTS_CREATE: 'lab:results:create',
+  LAB_RESULTS_SUBMIT_REVIEW: 'lab:results:submit-review',
+  LAB_RESULTS_SIGN_OFF: 'lab:results:sign-off',
+  LAB_REVIEW_QUEUE_READ: 'lab:review-queue:read',
+  LAB_TRENDS_READ: 'lab:trends:read',
+  LAB_QC_MANAGE: 'lab:qc:manage',
+  LAB_INVENTORY_MANAGE: 'lab:inventory:manage',
+
+  SCAN_QUEUE_READ: 'scan:queue:read',
+  SCAN_ACCEPT: 'scan:accept',
+  SCAN_BOOKINGS_MANAGE: 'scan:bookings:manage',
+  SCAN_RESULTS_CREATE: 'scan:results:create',
+  SCAN_RESULTS_SUBMIT_REVIEW: 'scan:results:submit-review',
+  SCAN_RESULTS_SIGN_OFF: 'scan:results:sign-off',
+  SCAN_REVIEW_QUEUE_READ: 'scan:review-queue:read',
+  SCAN_RETAKE_MANAGE: 'scan:retake:manage',
+  SCAN_FILES_UPLOAD: 'scan:files:upload',
+
+  BILLING_INVOICES_READ: 'billing:invoices:read',
+  BILLING_INVOICES_MANAGE: 'billing:invoices:manage',
+  BILLING_PAYMENTS_CREATE: 'billing:payments:create',
+  BILLING_REFUNDS_MANAGE: 'billing:refunds:manage',
+
+  FINANCE_SHIFTS_MANAGE: 'finance:shifts:manage',
+  FINANCE_FLOAT_MANAGE: 'finance:float:manage',
+  FINANCE_EXPENSES_MANAGE: 'finance:expenses:manage',
+  FINANCE_LEDGER_READ: 'finance:ledger:read',
+  FINANCE_ANALYTICS_READ: 'finance:analytics:read',
+
+  ADMIN_USERS_MANAGE: 'admin:users:manage',
+  ADMIN_HOSPITALS_MANAGE: 'admin:hospitals:manage',
+  ADMIN_DOCTORS_MANAGE: 'admin:doctors:manage',
+  ADMIN_CATALOG_MANAGE: 'admin:catalog:manage',
+  ADMIN_REFERENCE_RANGES_MANAGE: 'admin:reference-ranges:manage',
+  ADMIN_DEPARTMENTS_MANAGE: 'admin:departments:manage',
+  ADMIN_EQUIPMENT_MANAGE: 'admin:equipment:manage',
+  ADMIN_AUDIT_READ: 'admin:audit:read',
+
+  RESULTS_READ: 'results:read',
+  RESULTS_READ_OWN: 'results:read-own',
+  RESULTS_RELEASE: 'results:release',
+  RESULTS_REPORT_DOWNLOAD: 'results:report:download',
+  RESULTS_DELIVERY_MANAGE: 'results:delivery:manage',
+  RESULTS_DELIVERY_READ: 'results:delivery:read',
+
+  REPORTS_READ: 'reports:read',
+  REPORTS_FINANCE_READ: 'reports:finance:read',
+  REPORTS_EXPORT: 'reports:export',
+
+  NOTIFICATIONS_READ: 'notifications:read',
+  NOTIFICATIONS_MANAGE: 'notifications:manage',
+  NOTIFICATIONS_SETTINGS_MANAGE: 'notifications:settings:manage',
+
+  FILES_UPLOAD: 'files:upload',
+  FILES_READ: 'files:read',
+  FILES_DELETE: 'files:delete',
+
+  PRICING_READ: 'pricing:read'
+} as const;
+
+export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
+
+export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly ['*']> = {
+  [UserRole.ADMIN]: ['*'],
+  [UserRole.DOCTOR]: [
+    PERMISSIONS.SYSTEM_READ,
+    PERMISSIONS.DOCTOR_PROFILE_READ,
+    PERMISSIONS.DOCTOR_PROFILE_UPDATE,
+    PERMISSIONS.DOCTOR_PATIENTS_READ_OWN,
+    PERMISSIONS.DOCTOR_ORDERS_CREATE,
+    PERMISSIONS.DOCTOR_ORDERS_READ_OWN,
+    PERMISSIONS.DOCTOR_RESULTS_READ_OWN,
+    PERMISSIONS.DOCTOR_TRENDS_READ_OWN,
+    PERMISSIONS.PATIENTS_CREATE,
+    PERMISSIONS.RESULTS_REPORT_DOWNLOAD,
+    PERMISSIONS.NOTIFICATIONS_READ
+  ],
+  [UserRole.RECEPTIONIST]: [
+    PERMISSIONS.SYSTEM_READ,
+    PERMISSIONS.PATIENTS_READ,
+    PERMISSIONS.PATIENTS_CREATE,
+    PERMISSIONS.PATIENTS_UPDATE,
+    PERMISSIONS.PATIENTS_DUPLICATES_MANAGE,
+    PERMISSIONS.ORDERS_READ,
+    PERMISSIONS.RECEPTION_ORDERS_READ,
+    PERMISSIONS.RECEPTION_ORDERS_CONFIRM,
+    PERMISSIONS.RECEPTION_CHECK_IN,
+    PERMISSIONS.RECEPTION_WALK_INS_CREATE,
+    PERMISSIONS.RECEPTION_APPOINTMENTS_MANAGE,
+    PERMISSIONS.RECEPTION_RESULTS_READ,
+    PERMISSIONS.RECEPTION_NOTICES_SEND,
+    PERMISSIONS.RESULTS_DELIVERY_READ,
+    PERMISSIONS.RESULTS_REPORT_DOWNLOAD,
+    PERMISSIONS.NOTIFICATIONS_READ,
+    PERMISSIONS.PRICING_READ
+  ],
+  [UserRole.LAB_STAFF]: [
+    PERMISSIONS.SYSTEM_READ,
+    PERMISSIONS.PATIENTS_READ,
+    PERMISSIONS.PATIENTS_TRENDS_READ,
+    PERMISSIONS.LAB_QUEUE_READ,
+    PERMISSIONS.LAB_SAMPLES_ACCEPT,
+    PERMISSIONS.LAB_SAMPLES_REJECT,
+    PERMISSIONS.LAB_RESULTS_CREATE,
+    PERMISSIONS.LAB_RESULTS_SUBMIT_REVIEW,
+    PERMISSIONS.LAB_RESULTS_SIGN_OFF,
+    PERMISSIONS.LAB_REVIEW_QUEUE_READ,
+    PERMISSIONS.LAB_TRENDS_READ,
+    PERMISSIONS.LAB_QC_MANAGE,
+    PERMISSIONS.LAB_INVENTORY_MANAGE,
+    PERMISSIONS.REPORTS_READ,
+    PERMISSIONS.REPORTS_EXPORT,
+    PERMISSIONS.FILES_UPLOAD,
+    PERMISSIONS.FILES_READ,
+    PERMISSIONS.NOTIFICATIONS_READ
+  ],
+  [UserRole.SCAN_STAFF]: [
+    PERMISSIONS.SYSTEM_READ,
+    PERMISSIONS.PATIENTS_READ,
+    PERMISSIONS.SCAN_QUEUE_READ,
+    PERMISSIONS.SCAN_ACCEPT,
+    PERMISSIONS.SCAN_BOOKINGS_MANAGE,
+    PERMISSIONS.SCAN_RESULTS_CREATE,
+    PERMISSIONS.SCAN_RESULTS_SUBMIT_REVIEW,
+    PERMISSIONS.SCAN_RESULTS_SIGN_OFF,
+    PERMISSIONS.SCAN_REVIEW_QUEUE_READ,
+    PERMISSIONS.SCAN_RETAKE_MANAGE,
+    PERMISSIONS.SCAN_FILES_UPLOAD,
+    PERMISSIONS.REPORTS_READ,
+    PERMISSIONS.REPORTS_EXPORT,
+    PERMISSIONS.FILES_UPLOAD,
+    PERMISSIONS.FILES_READ,
+    PERMISSIONS.NOTIFICATIONS_READ
+  ],
+  [UserRole.BILLING_STAFF]: [
+    PERMISSIONS.SYSTEM_READ,
+    PERMISSIONS.PATIENTS_READ,
+    PERMISSIONS.ORDERS_READ,
+    PERMISSIONS.BILLING_INVOICES_READ,
+    PERMISSIONS.BILLING_INVOICES_MANAGE,
+    PERMISSIONS.BILLING_PAYMENTS_CREATE,
+    PERMISSIONS.BILLING_REFUNDS_MANAGE,
+    PERMISSIONS.FINANCE_SHIFTS_MANAGE,
+    PERMISSIONS.FINANCE_FLOAT_MANAGE,
+    PERMISSIONS.FINANCE_EXPENSES_MANAGE,
+    PERMISSIONS.FINANCE_LEDGER_READ,
+    PERMISSIONS.FINANCE_ANALYTICS_READ,
+    PERMISSIONS.REPORTS_FINANCE_READ,
+    PERMISSIONS.REPORTS_EXPORT,
+    PERMISSIONS.RESULTS_DELIVERY_READ,
+    PERMISSIONS.NOTIFICATIONS_READ,
+    PERMISSIONS.PRICING_READ
+  ]
+};
+
+export const PRICE_VISIBLE_ROLES = [UserRole.ADMIN, UserRole.RECEPTIONIST, UserRole.BILLING_STAFF] as const;
+
+export const ORDER_ITEM_TYPE_BY_ROLE: Partial<Record<UserRole, CatalogItemType>> = {
+  [UserRole.LAB_STAFF]: CatalogItemType.LAB,
+  [UserRole.SCAN_STAFF]: CatalogItemType.SCAN
+};
+
+export function roleCanViewPrices(role: UserRole) {
+  return PRICE_VISIBLE_ROLES.includes(role as (typeof PRICE_VISIBLE_ROLES)[number]);
+}

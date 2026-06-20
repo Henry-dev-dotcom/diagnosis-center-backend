@@ -1,0 +1,21 @@
+{
+  "stage": "Business Logic Stage 5",
+  "name": "Laboratory Workflow",
+  "status": "passed",
+  "checkedAt": "2026-06-19T12:12:45.409Z",
+  "packageVersion": "2.1.0",
+  "checks": [
+    "lab placeholders were replaced with live controllers",
+    "sample acceptance creates or updates LabSample records and order-item status",
+    "accepted samples, review queue, and rejected/retest queues are live",
+    "lab result drafting creates/upserts result parameters and computes flags from reference ranges",
+    "submit-for-review updates lab sample, result, and order item state",
+    "senior sign-off creates reviews, signs off results, and generates report records",
+    "sample rejection/recollection workflow updates sample and order item state",
+    "reference ranges and patient lab trends are live",
+    "quality control and inventory routes are live",
+    "major lab actions emit audit logs",
+    "Phase 6 route contracts were updated to implemented for lab endpoints",
+    "documentation added"
+  ]
+}
