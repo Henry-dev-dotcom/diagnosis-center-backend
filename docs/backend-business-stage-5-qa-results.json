@@ -2,7 +2,7 @@
   "stage": "Business Logic Stage 5",
   "name": "Laboratory Workflow",
   "status": "passed",
-  "checkedAt": "2026-06-19T12:12:45.409Z",
+  "checkedAt": "2026-06-21T15:22:51.648Z",
   "packageVersion": "2.1.0",
   "checks": [
     "lab placeholders were replaced with live controllers",

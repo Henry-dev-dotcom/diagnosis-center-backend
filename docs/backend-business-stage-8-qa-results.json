@@ -2,7 +2,7 @@
   "stage": "Business Logic Stage 8",
   "name": "Notifications + Files + DICOM-ready Upload Layer",
   "status": "passed",
-  "checkedAt": "2026-06-19T12:12:45.633Z",
+  "checkedAt": "2026-06-21T15:22:51.869Z",
   "packageVersion": "2.1.0",
   "checks": [
     "notification creation, delivery, read/unread, read-all, preferences, and retry routes are live",

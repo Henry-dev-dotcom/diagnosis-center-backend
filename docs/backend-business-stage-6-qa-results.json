@@ -2,7 +2,7 @@
   "stage": "Business Logic Stage 6",
   "name": "Scan / Imaging Workflow",
   "status": "passed",
-  "checkedAt": "2026-06-19T12:12:45.482Z",
+  "checkedAt": "2026-06-21T15:22:51.724Z",
   "packageVersion": "2.1.0",
   "checks": [
     "scan placeholders were replaced with live controllers",
