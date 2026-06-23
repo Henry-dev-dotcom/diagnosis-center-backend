@@ -85,8 +85,8 @@ export async function getExecutiveDashboard(query: Request['query'], req: Reques
     prisma.order.count({ where: { submittedAt: today } }),
     prisma.patientVisit.count({ where: { checkedInAt: today } }),
     prisma.payment.aggregate({ where: { createdAt: today }, _sum: { amount: true }, _count: { _all: true } }),
-    prisma.order.groupBy({ by: ['status'], where: orderWhere, _count: { _all: true } }),
-    prisma.invoice.groupBy({ by: ['status'], where: createdWhere, _sum: { total: true, amountPaid: true, balance: true }, _count: { _all: true } }),
+    prisma.order.groupBy({ by: ['status'], orderBy: { status: 'asc' }, where: orderWhere, _count: { _all: true } }),
+    prisma.invoice.groupBy({ by: ['status'], orderBy: { status: 'asc' }, where: createdWhere, _sum: { total: true, amountPaid: true, balance: true }, _count: { _all: true } }),
     prisma.labSample.count({ where: { status: { in: [LabSampleStatus.ACCEPTED, LabSampleStatus.DRAFT, LabSampleStatus.PENDING_REVIEW] } } }),
     prisma.scanAcceptance.count({ where: { status: { in: [ScanStatus.ACCEPTED, ScanStatus.DRAFT, ScanStatus.PENDING_REVIEW] } } }),
     prisma.report.count({ where: { status: ReportStatus.GENERATED } }),
@@ -100,9 +100,9 @@ export async function getExecutiveDashboard(query: Request['query'], req: Reques
 
   const invoiceTotals = invoiceStatus.reduce(
     (totals, row) => ({
-      total: totals.total + money(row._sum.total),
-      paid: totals.paid + money(row._sum.amountPaid),
-      balance: totals.balance + money(row._sum.balance)
+      total: totals.total + money(row._sum?.total),
+      paid: totals.paid + money(row._sum?.amountPaid),
+      balance: totals.balance + money(row._sum?.balance)
     }),
     { total: 0, paid: 0, balance: 0 }
   );
@@ -142,9 +142,9 @@ export async function getFinanceDashboard(query: Request['query'], req: Request)
 
   const [payments, paymentsByMethod, invoicesByStatus, expensesByStatus, openShifts, ledgerCredits, ledgerDebits, outstandingInvoices] = await prisma.$transaction([
     prisma.payment.aggregate({ where: paymentWhere, _sum: { amount: true }, _count: { _all: true } }),
-    prisma.payment.groupBy({ by: ['method'], where: paymentWhere, _sum: { amount: true }, _count: { _all: true } }),
-    prisma.invoice.groupBy({ by: ['status'], where: invoiceWhere, _sum: { total: true, amountPaid: true, balance: true }, _count: { _all: true } }),
-    prisma.expense.groupBy({ by: ['status'], where: expenseWhere, _sum: { totalAmount: true, amountPaid: true, balance: true }, _count: { _all: true } }),
+    prisma.payment.groupBy({ by: ['method'], orderBy: { method: 'asc' }, where: paymentWhere, _sum: { amount: true }, _count: { _all: true } }),
+    prisma.invoice.groupBy({ by: ['status'], orderBy: { status: 'asc' }, where: invoiceWhere, _sum: { total: true, amountPaid: true, balance: true }, _count: { _all: true } }),
+    prisma.expense.groupBy({ by: ['status'], orderBy: { status: 'asc' }, where: expenseWhere, _sum: { totalAmount: true, amountPaid: true, balance: true }, _count: { _all: true } }),
     prisma.cashierShift.findMany({ where: { status: ShiftStatus.OPEN }, include: { user: { select: { id: true, name: true, username: true, role: true } } }, orderBy: { startedAt: 'desc' } }),
     prisma.ledgerEntry.aggregate({ where: { ...(dateWhere(query, 'createdAt') as Prisma.LedgerEntryWhereInput), type: 'CREDIT' }, _sum: { amount: true }, _count: { _all: true } }),
     prisma.ledgerEntry.aggregate({ where: { ...(dateWhere(query, 'createdAt') as Prisma.LedgerEntryWhereInput), type: 'DEBIT' }, _sum: { amount: true }, _count: { _all: true } }),
@@ -177,9 +177,9 @@ export async function getFinanceDashboard(query: Request['query'], req: Request)
 
 export async function getLabDashboard(query: Request['query'], req: Request) {
   const [samplesByStatus, resultsByStatus, abnormalFlags, topTests, pendingReview, qcRuns, inventoryAlerts] = await prisma.$transaction([
-    prisma.labSample.groupBy({ by: ['status'], where: dateWhere(query, 'acceptedAt') as Prisma.LabSampleWhereInput, _count: { _all: true } }),
-    prisma.labResult.groupBy({ by: ['status'], where: dateWhere(query, 'createdAt') as Prisma.LabResultWhereInput, _count: { _all: true } }),
-    prisma.labResultParameter.groupBy({ by: ['flag'], where: { flag: { in: [ResultFlag.LOW, ResultFlag.HIGH, ResultFlag.CRITICAL] } }, _count: { _all: true } }),
+    prisma.labSample.groupBy({ by: ['status'], orderBy: { status: 'asc' }, where: dateWhere(query, 'acceptedAt') as Prisma.LabSampleWhereInput, _count: { _all: true } }),
+    prisma.labResult.groupBy({ by: ['status'], orderBy: { status: 'asc' }, where: dateWhere(query, 'createdAt') as Prisma.LabResultWhereInput, _count: { _all: true } }),
+    prisma.labResultParameter.groupBy({ by: ['flag'], orderBy: { flag: 'asc' }, where: { flag: { in: [ResultFlag.LOW, ResultFlag.HIGH, ResultFlag.CRITICAL] } }, _count: { _all: true } }),
     prisma.orderItem.groupBy({ by: ['catalogItemId'], where: { type: 'LAB', ...(dateWhere(query, 'createdAt') as Prisma.OrderItemWhereInput) }, _count: { _all: true }, orderBy: { _count: { catalogItemId: 'desc' } }, take: 10 }),
     prisma.labResult.findMany({ where: { status: LabResultStatus.PENDING_REVIEW }, include: { patient: true, orderItem: { include: { catalogItem: true, order: true } } }, orderBy: { updatedAt: 'desc' }, take: 20 }),
     prisma.qualityControlRun.findMany({ where: dateWhere(query, 'createdAt') as Prisma.QualityControlRunWhereInput, orderBy: { createdAt: 'desc' }, take: 20, include: { performedBy: { select: { id: true, name: true, role: true } } } }),
@@ -208,11 +208,11 @@ export async function getLabDashboard(query: Request['query'], req: Request) {
 
 export async function getScanDashboard(query: Request['query'], req: Request) {
   const [acceptanceByStatus, resultsByStatus, bookingByStatus, dicomFiles, retakes, pendingReview] = await prisma.$transaction([
-    prisma.scanAcceptance.groupBy({ by: ['status'], where: dateWhere(query, 'acceptedAt') as Prisma.ScanAcceptanceWhereInput, _count: { _all: true } }),
-    prisma.scanResult.groupBy({ by: ['status'], where: dateWhere(query, 'createdAt') as Prisma.ScanResultWhereInput, _count: { _all: true } }),
-    prisma.scanBooking.groupBy({ by: ['status'], where: dateWhere(query, 'startAt') as Prisma.ScanBookingWhereInput, _count: { _all: true } }),
-    prisma.scanResultFile.groupBy({ by: ['modality'], where: { isDicom: true }, _count: { _all: true }, _sum: { fileSize: true } }),
-    prisma.scanRetake.findMany({ where: dateWhere(query, 'createdAt') as Prisma.ScanRetakeWhereInput, include: { requestedBy: { select: { id: true, name: true, role: true } }, scanResult: { include: { orderItem: { include: { order: { include: { patient: true } }, catalogItem: true } } } } }, orderBy: { createdAt: 'desc' }, take: 20 }),
+    prisma.scanAcceptance.groupBy({ by: ['status'], orderBy: { status: 'asc' }, where: dateWhere(query, 'acceptedAt') as Prisma.ScanAcceptanceWhereInput, _count: { _all: true } }),
+    prisma.scanResult.groupBy({ by: ['status'], orderBy: { status: 'asc' }, where: dateWhere(query, 'createdAt') as Prisma.ScanResultWhereInput, _count: { _all: true } }),
+    prisma.scanBooking.groupBy({ by: ['status'], orderBy: { status: 'asc' }, where: dateWhere(query, 'startAt') as Prisma.ScanBookingWhereInput, _count: { _all: true } }),
+    prisma.scanResultFile.groupBy({ by: ['modality'], orderBy: { modality: 'asc' }, where: { isDicom: true }, _count: { _all: true }, _sum: { fileSize: true } }),
+    prisma.scanRetake.findMany({ where: dateWhere(query, 'createdAt') as Prisma.ScanRetakeWhereInput, include: { requestedBy: { select: { id: true, name: true, role: true } }, acceptance: { include: { orderItem: { include: { order: { include: { patient: true } }, catalogItem: true } } } } }, orderBy: { createdAt: 'desc' }, take: 20 }),
     prisma.scanResult.findMany({ where: { status: ScanStatus.PENDING_REVIEW }, include: { orderItem: { include: { catalogItem: true, order: { include: { patient: true, doctor: { include: { user: true } } } } } }, files: true }, orderBy: { updatedAt: 'desc' }, take: 20 })
   ]);
 
@@ -235,9 +235,9 @@ export async function getReceptionDashboard(query: Request['query'], req: Reques
   const [incomingOrders, dailyVisits, appointmentStatus, resultInbox, duplicateFlags, walkInOrders] = await prisma.$transaction([
     prisma.order.count({ where: { status: OrderStatus.SUBMITTED } }),
     prisma.patientVisit.findMany({ where: dateWhere(query, 'checkedInAt') as Prisma.PatientVisitWhereInput, include: { patient: true, order: true, checkedInBy: { select: { id: true, name: true, role: true } } }, orderBy: { checkedInAt: 'desc' }, take: 50 }),
-    prisma.appointment.groupBy({ by: ['status'], where: dateWhere(query, 'scheduledDate') as Prisma.AppointmentWhereInput, _count: { _all: true } }),
+    prisma.appointment.groupBy({ by: ['status'], orderBy: { status: 'asc' }, where: dateWhere(query, 'scheduledDate') as Prisma.AppointmentWhereInput, _count: { _all: true } }),
     prisma.report.count({ where: { status: ReportStatus.GENERATED } }),
-    prisma.patientDuplicateFlag.groupBy({ by: ['status'], where: dateWhere(query, 'createdAt') as Prisma.PatientDuplicateFlagWhereInput, _count: { _all: true } }),
+    prisma.patientDuplicateFlag.groupBy({ by: ['status'], orderBy: { status: 'asc' }, where: dateWhere(query, 'createdAt') as Prisma.PatientDuplicateFlagWhereInput, _count: { _all: true } }),
     prisma.order.count({ where: { ...(dateWhere(query, 'submittedAt') as Prisma.OrderWhereInput), clinicalNotes: { contains: 'Walk-in', mode: 'insensitive' } } })
   ]);
 
@@ -262,11 +262,11 @@ export async function getAuditReviewDashboard(query: Request['query'], req: Requ
   const [byModule, byAction, byActorRole, unauthorizedAttempts, apiErrors, slowRequests, systemEvents] = await prisma.$transaction([
     prisma.auditLog.groupBy({ by: ['module'], where: auditWhere, _count: { _all: true }, orderBy: { _count: { module: 'desc' } }, take: 20 }),
     prisma.auditLog.groupBy({ by: ['action'], where: auditWhere, _count: { _all: true }, orderBy: { _count: { action: 'desc' } }, take: 20 }),
-    prisma.auditLog.groupBy({ by: ['actorRole'], where: auditWhere, _count: { _all: true } }),
+    prisma.auditLog.groupBy({ by: ['actorRole'], orderBy: { actorRole: 'asc' }, where: auditWhere, _count: { _all: true } }),
     prisma.auditLog.findMany({ where: { ...auditWhere, OR: [{ action: { contains: 'DENIED', mode: 'insensitive' } }, { action: { contains: 'UNAUTHORIZED', mode: 'insensitive' } }, { action: { contains: 'FAILED', mode: 'insensitive' } }] }, include: { actor: { select: { id: true, name: true, username: true, role: true } } }, orderBy: { createdAt: 'desc' }, take: 30 }),
     prisma.apiRequestLog.groupBy({ by: ['statusCode'], where: { ...requestWhere, statusCode: { gte: 400 } }, _count: { _all: true }, orderBy: { statusCode: 'asc' } }),
     prisma.apiRequestLog.findMany({ where: { ...requestWhere, durationMs: { gte: 1000 } }, include: { user: { select: { id: true, name: true, username: true, role: true } } }, orderBy: { durationMs: 'desc' }, take: 25 }),
-    prisma.systemEvent.groupBy({ by: ['level'], where: dateWhere(query, 'createdAt') as Prisma.SystemEventWhereInput, _count: { _all: true } })
+    prisma.systemEvent.groupBy({ by: ['level'], orderBy: { level: 'asc' }, where: dateWhere(query, 'createdAt') as Prisma.SystemEventWhereInput, _count: { _all: true } })
   ]);
 
   const payload = {

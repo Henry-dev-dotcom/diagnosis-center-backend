@@ -92,7 +92,7 @@ function createSecureToken() {
 }
 
 function isPrivacySafeChannel(channel: DeliveryChannel) {
-  return [DeliveryChannel.SMS, DeliveryChannel.WHATSAPP].includes(channel);
+  return ([DeliveryChannel.SMS, DeliveryChannel.WHATSAPP] as DeliveryChannel[]).includes(channel);
 }
 
 // SMS and WhatsApp notices must not include clinical values, diagnosis, findings, or lab parameters.
@@ -130,7 +130,7 @@ function buildReportWhere(query: Request['query'], req?: Request): Prisma.Report
     where.order = {
       ...(typeof where.order === 'object' && !Array.isArray(where.order) ? where.order : {}),
       doctor: { userId: req.user.id }
-    };
+    } as Prisma.OrderWhereInput;
   }
 
   return where;
@@ -174,7 +174,7 @@ async function updateOrderReleaseState(tx: Prisma.TransactionClient, report: { o
   const order = await tx.order.findUnique({ where: { id: report.orderId }, include: { items: true } });
   if (!order) return null;
 
-  const allClinicalItemsComplete = order.items.every((item) => [OrderItemStatus.SIGNED_OFF, OrderItemStatus.FINAL_RELEASED, OrderItemStatus.REJECTED, OrderItemStatus.CANCELLED].includes(item.status));
+  const allClinicalItemsComplete = order.items.every((item) => ([OrderItemStatus.SIGNED_OFF, OrderItemStatus.FINAL_RELEASED, OrderItemStatus.REJECTED, OrderItemStatus.CANCELLED] as OrderItemStatus[]).includes(item.status));
   if (!allClinicalItemsComplete) return order;
 
   await tx.orderItem.updateMany({

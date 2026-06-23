@@ -296,18 +296,18 @@ export async function getPatientTrends(patientId: string, query: Request['query'
       orderBy: { createdAt: 'desc' },
       take: 100
     }),
-    prisma.labResult.groupBy({ by: ['status'], where: { patientId }, _count: { _all: true } }),
-    prisma.scanResult.groupBy({ by: ['status'], where: { orderItem: { order: { patientId } } }, _count: { _all: true } }),
-    prisma.order.groupBy({ by: ['status'], where: { patientId }, _count: { _all: true } })
+    prisma.labResult.groupBy({ by: ['status'], orderBy: { status: 'asc' }, where: { patientId }, _count: { _all: true } }),
+    prisma.scanResult.groupBy({ by: ['status'], orderBy: { status: 'asc' }, where: { orderItem: { order: { patientId } } }, _count: { _all: true } }),
+    prisma.order.groupBy({ by: ['status'], orderBy: { status: 'asc' }, where: { patientId }, _count: { _all: true } })
   ]);
 
   return {
     patientId,
     filters: { from: from?.toISOString() ?? null, to: to?.toISOString() ?? null },
     summaries: {
-      orders: orderSummary.map((item: { status: unknown; _count: { _all: number } }) => ({ status: item.status, count: item._count._all })),
-      labResults: labSummary.map((item: { status: unknown; _count: { _all: number } }) => ({ status: item.status, count: item._count._all })),
-      scanResults: scanSummary.map((item: { status: unknown; _count: { _all: number } }) => ({ status: item.status, count: item._count._all }))
+      orders: orderSummary.map((item) => ({ status: item.status, count: (item._count as { _all: number } | undefined)?._all ?? 0 })),
+      labResults: labSummary.map((item) => ({ status: item.status, count: (item._count as { _all: number } | undefined)?._all ?? 0 })),
+      scanResults: scanSummary.map((item) => ({ status: item.status, count: (item._count as { _all: number } | undefined)?._all ?? 0 }))
     },
     labParameters: labParameters.map((item: { id: string; name: string; value: string | null; numericValue: unknown; unit: string | null; referenceRange: string | null; flag: unknown; createdAt: Date; labResult: { resultCode: string; status: unknown } }) => ({
       id: item.id,

@@ -208,7 +208,7 @@ async function setParentOrderProgress(orderId: string, tx: Prisma.TransactionCli
   if (order.status === OrderStatus.CANCELLED || order.status === OrderStatus.FINAL_RELEASED) return;
 
   const hasAnyStarted = order.items.some((item) => item.status !== OrderItemStatus.REQUESTED);
-  const allReadyForReview = order.items.length > 0 && order.items.every((item) => [OrderItemStatus.PENDING_REVIEW, OrderItemStatus.SIGNED_OFF, OrderItemStatus.FINAL_RELEASED].includes(item.status));
+  const allReadyForReview = order.items.length > 0 && order.items.every((item) => ([OrderItemStatus.PENDING_REVIEW, OrderItemStatus.SIGNED_OFF, OrderItemStatus.FINAL_RELEASED] as OrderItemStatus[]).includes(item.status));
   const nextStatus = allReadyForReview ? OrderStatus.PENDING_REVIEW : hasAnyStarted ? OrderStatus.IN_PROGRESS : order.status;
 
   if (nextStatus !== order.status) {

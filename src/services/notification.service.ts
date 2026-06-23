@@ -1,4 +1,4 @@
-import { DeliveryStatus, NotificationType, Prisma } from '@prisma/client';
+import { DeliveryChannel, DeliveryStatus, NotificationType, Prisma } from '@prisma/client';
 import type { Request } from 'express';
 import { prisma } from './prisma.service.js';
 import { createAuditLog, getRequestAuditContext } from './audit.service.js';
@@ -204,7 +204,7 @@ export async function createNotification(body: CreateNotificationPayload, req: R
     data: channels.map((channel) => ({
       notificationId: notification.id,
       performedById: req.user?.id ?? null,
-      channel,
+      channel: channel as DeliveryChannel,
       status: channel === 'IN_APP' ? DeliveryStatus.DELIVERED : DeliveryStatus.QUEUED,
       target: targetForChannel(notification, channel),
       safeMessage: channel === 'SMS' || channel === 'WHATSAPP',
@@ -265,7 +265,7 @@ export async function deliverNotification(id: string, body: DeliverNotificationP
     data: channels.map((channel) => ({
       notificationId: notification.id,
       performedById: req.user?.id ?? null,
-      channel,
+      channel: channel as DeliveryChannel,
       status: channel === 'IN_APP' ? DeliveryStatus.DELIVERED : DeliveryStatus.SENT,
       target: targetForChannel(notification, channel, body.target),
       safeMessage: body.safeMessage ?? (channel === 'SMS' || channel === 'WHATSAPP'),

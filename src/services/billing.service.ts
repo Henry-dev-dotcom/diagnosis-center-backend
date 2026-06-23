@@ -9,6 +9,7 @@ import {
 } from '@prisma/client';
 import type { Request } from 'express';
 import { prisma } from './prisma.service.js';
+import { roundMoney, calculateInvoiceStatus } from '../utils/money.js';
 import { createAuditLog, getRequestAuditContext } from './audit.service.js';
 import { getPagination, paginationMeta, safeOrderBy } from './query.service.js';
 import { AppError } from '../utils/appError.js';
@@ -87,19 +88,6 @@ function clean(value: unknown) {
 function toDate(value?: Date | string | null) {
   if (!value) return new Date();
   return value instanceof Date ? value : new Date(value);
-}
-
-function roundMoney(value: number) {
-  return Math.round(value * 100) / 100;
-}
-
-function calculateInvoiceStatus(total: number, paid: number, currentStatus?: InvoiceStatus) {
-  if (currentStatus === InvoiceStatus.INSURANCE_PENDING) return InvoiceStatus.INSURANCE_PENDING;
-  if (currentStatus === InvoiceStatus.WRITTEN_OFF) return InvoiceStatus.WRITTEN_OFF;
-  if (currentStatus === InvoiceStatus.REFUNDED) return InvoiceStatus.REFUNDED;
-  if (paid <= 0) return InvoiceStatus.UNPAID;
-  if (paid >= total) return InvoiceStatus.PAID;
-  return InvoiceStatus.PARTIAL;
 }
 
 async function nextPaymentCode(tx: Prisma.TransactionClient = prisma) {
@@ -229,7 +217,7 @@ export async function updateInvoice(invoiceId: string, body: UpdateInvoicePayloa
 export async function recordInvoicePayment(invoiceId: string, body: PaymentPayload, req: Request) {
   if (!req.user) throw new AppError('Authentication is required', 401, 'AUTH_REQUIRED');
   const before = await assertInvoice(invoiceId);
-  if ([InvoiceStatus.REFUNDED, InvoiceStatus.WRITTEN_OFF].includes(before.status)) {
+  if (([InvoiceStatus.REFUNDED, InvoiceStatus.WRITTEN_OFF] as InvoiceStatus[]).includes(before.status)) {
     throw new AppError('Payments cannot be added to refunded or written-off invoices', 409, 'INVOICE_PAYMENT_BLOCKED');
   }
   const amount = roundMoney(Number(body.amount));

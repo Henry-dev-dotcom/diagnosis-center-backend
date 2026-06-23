@@ -26,7 +26,7 @@ function dateWindow(query: { from?: Date; to?: Date }) {
 }
 
 export const listAuditLogs = asyncHandler(async (req: Request, res: Response) => {
-  const query = req.query as z.infer<typeof auditLogQuerySchema>;
+  const query = req.query as unknown as z.infer<typeof auditLogQuerySchema>;
   const { page, limit, skip } = pagination(query);
 
   const where: Prisma.AuditLogWhereInput = {
@@ -79,7 +79,7 @@ export const listAuditLogs = asyncHandler(async (req: Request, res: Response) =>
 });
 
 export const listSystemEvents = asyncHandler(async (req: Request, res: Response) => {
-  const query = req.query as z.infer<typeof systemEventQuerySchema>;
+  const query = req.query as unknown as z.infer<typeof systemEventQuerySchema>;
   const { page, limit, skip } = pagination(query);
 
   const where: Prisma.SystemEventWhereInput = {
@@ -129,7 +129,7 @@ export const listSystemEvents = asyncHandler(async (req: Request, res: Response)
 });
 
 export const listApiRequestLogs = asyncHandler(async (req: Request, res: Response) => {
-  const query = req.query as z.infer<typeof apiRequestLogQuerySchema>;
+  const query = req.query as unknown as z.infer<typeof apiRequestLogQuerySchema>;
   const { page, limit, skip } = pagination(query);
 
   const where: Prisma.ApiRequestLogWhereInput = {

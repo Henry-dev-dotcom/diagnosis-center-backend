@@ -222,7 +222,7 @@ async function setParentOrderProgress(orderId: string, tx: Prisma.TransactionCli
   if (order.status === OrderStatus.CANCELLED || order.status === OrderStatus.FINAL_RELEASED) return;
 
   const hasAnyStarted = order.items.some((item) => item.status !== OrderItemStatus.REQUESTED);
-  const allReadyForReview = order.items.length > 0 && order.items.every((item) => [OrderItemStatus.PENDING_REVIEW, OrderItemStatus.SIGNED_OFF, OrderItemStatus.FINAL_RELEASED].includes(item.status));
+  const allReadyForReview = order.items.length > 0 && order.items.every((item) => ([OrderItemStatus.PENDING_REVIEW, OrderItemStatus.SIGNED_OFF, OrderItemStatus.FINAL_RELEASED] as OrderItemStatus[]).includes(item.status));
   const nextStatus = allReadyForReview ? OrderStatus.PENDING_REVIEW : hasAnyStarted ? OrderStatus.IN_PROGRESS : order.status;
 
   if (nextStatus !== order.status) {
@@ -248,7 +248,7 @@ export async function acceptLabSamples(body: AcceptSamplePayload, req: Request, 
   const accepted = await prisma.$transaction(async (tx) => {
     const samples = [];
     for (const item of orderItems) {
-      if (item.labSample && [LabSampleStatus.ACCEPTED, LabSampleStatus.DRAFT, LabSampleStatus.PENDING_REVIEW, LabSampleStatus.SIGNED_OFF].includes(item.labSample.status)) {
+      if (item.labSample && ([LabSampleStatus.ACCEPTED, LabSampleStatus.DRAFT, LabSampleStatus.PENDING_REVIEW, LabSampleStatus.SIGNED_OFF] as LabSampleStatus[]).includes(item.labSample.status)) {
         samples.push(
           await tx.labSample.update({
             where: { id: item.labSample.id },
@@ -346,7 +346,7 @@ async function resolveSampleForResult(body: LabResultPayload) {
       : null;
 
   if (!sample) throw new AppError('An accepted sample is required before entering lab results', 404, 'LAB_SAMPLE_NOT_FOUND');
-  if ([LabSampleStatus.REJECTED, LabSampleStatus.RECOLLECTION_REQUESTED].includes(sample.status)) throw new AppError('Rejected samples cannot receive results until recollection is accepted', 409, 'LAB_SAMPLE_REJECTED');
+  if (([LabSampleStatus.REJECTED, LabSampleStatus.RECOLLECTION_REQUESTED] as LabSampleStatus[]).includes(sample.status)) throw new AppError('Rejected samples cannot receive results until recollection is accepted', 409, 'LAB_SAMPLE_REJECTED');
   return { existingResult: null, sample, orderItem: sample.orderItem };
 }
 

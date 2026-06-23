@@ -411,7 +411,7 @@ export async function updateOrderStatus(orderId: string, body: StatusPayload, re
 
 export async function cancelOrder(orderId: string, body: CancelPayload, req: Request) {
   const before = await assertOrderAccess(orderId, req.user);
-  if ([OrderStatus.CANCELLED, OrderStatus.FINAL_RELEASED].includes(before.status)) {
+  if (([OrderStatus.CANCELLED, OrderStatus.FINAL_RELEASED] as OrderStatus[]).includes(before.status)) {
     throw new AppError('Final or already cancelled orders cannot be cancelled', 409, 'ORDER_CANNOT_BE_CANCELLED');
   }
 

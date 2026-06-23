@@ -35,8 +35,8 @@ function money(value: Prisma.Decimal | number | null | undefined) {
 async function deliverySummary(query: Request['query']) {
   const where = dateWhere(query, 'createdAt') as Prisma.DeliveryLogWhereInput;
   const [byStatus, byChannel, recentFailures] = await prisma.$transaction([
-    prisma.deliveryLog.groupBy({ by: ['status'], where, _count: { _all: true } }),
-    prisma.deliveryLog.groupBy({ by: ['channel'], where, _count: { _all: true } }),
+    prisma.deliveryLog.groupBy({ by: ['status'], orderBy: { status: 'asc' }, where, _count: { _all: true } }),
+    prisma.deliveryLog.groupBy({ by: ['channel'], orderBy: { channel: 'asc' }, where, _count: { _all: true } }),
     prisma.deliveryLog.findMany({
       where: { ...where, status: DeliveryStatus.FAILED },
       include: { report: { select: { id: true, reportCode: true } }, notification: { select: { id: true, title: true } } },
@@ -51,9 +51,9 @@ export async function getReportsOverview(query: Request['query']) {
   const reportWhere = dateWhere(query, 'generatedAt') as Prisma.ReportWhereInput;
   const orderWhere = dateWhere(query, 'submittedAt') as Prisma.OrderWhereInput;
   const [reportsByStatus, ordersByStatus, invoicesByStatus] = await prisma.$transaction([
-    prisma.report.groupBy({ by: ['status'], where: reportWhere, _count: { _all: true } }),
-    prisma.order.groupBy({ by: ['status'], where: orderWhere, _count: { _all: true } }),
-    prisma.invoice.groupBy({ by: ['status'], where: dateWhere(query, 'createdAt') as Prisma.InvoiceWhereInput, _sum: { total: true, amountPaid: true, balance: true }, _count: { _all: true } })
+    prisma.report.groupBy({ by: ['status'], orderBy: { status: 'asc' }, where: reportWhere, _count: { _all: true } }),
+    prisma.order.groupBy({ by: ['status'], orderBy: { status: 'asc' }, where: orderWhere, _count: { _all: true } }),
+    prisma.invoice.groupBy({ by: ['status'], orderBy: { status: 'asc' }, where: dateWhere(query, 'createdAt') as Prisma.InvoiceWhereInput, _sum: { total: true, amountPaid: true, balance: true }, _count: { _all: true } })
   ]);
   const delivery = await deliverySummary(query);
 
@@ -97,8 +97,8 @@ export async function getTurnaroundTimeReport(query: Request['query']) {
 export async function getOrderVolumeReport(query: Request['query']) {
   const where = dateWhere(query, 'submittedAt') as Prisma.OrderWhereInput;
   const [byStatus, byUrgency, labItems, scanItems, recentOrders] = await prisma.$transaction([
-    prisma.order.groupBy({ by: ['status'], where, _count: { _all: true } }),
-    prisma.order.groupBy({ by: ['urgency'], where, _count: { _all: true } }),
+    prisma.order.groupBy({ by: ['status'], orderBy: { status: 'asc' }, where, _count: { _all: true } }),
+    prisma.order.groupBy({ by: ['urgency'], orderBy: { urgency: 'asc' }, where, _count: { _all: true } }),
     prisma.orderItem.count({ where: { type: 'LAB', order: where } }),
     prisma.orderItem.count({ where: { type: 'SCAN', order: where } }),
     prisma.order.findMany({
@@ -117,7 +117,7 @@ export async function getRevenueReport(query: Request['query']) {
   const [invoiceTotals, paymentTotals, paymentsByMethod, ledgerCredits] = await prisma.$transaction([
     prisma.invoice.aggregate({ where: invoiceWhere, _sum: { total: true, amountPaid: true, balance: true }, _count: { _all: true } }),
     prisma.payment.aggregate({ where: paymentWhere, _sum: { amount: true }, _count: { _all: true } }),
-    prisma.payment.groupBy({ by: ['method'], where: paymentWhere, _sum: { amount: true }, _count: { _all: true } }),
+    prisma.payment.groupBy({ by: ['method'], orderBy: { method: 'asc' }, where: paymentWhere, _sum: { amount: true }, _count: { _all: true } }),
     prisma.ledgerEntry.aggregate({ where: { ...(dateWhere(query, 'createdAt') as Prisma.LedgerEntryWhereInput), type: LedgerEntryType.CREDIT }, _sum: { amount: true }, _count: { _all: true } })
   ]);
   return { invoiceTotals, paymentTotals, paymentsByMethod, ledgerCredits };
@@ -167,7 +167,7 @@ export async function getAbnormalResultsReport(query: Request['query']) {
       take
     }),
     prisma.labResultParameter.count({ where }),
-    prisma.labResultParameter.groupBy({ by: ['flag'], where, _count: { _all: true } })
+    prisma.labResultParameter.groupBy({ by: ['flag'], orderBy: { flag: 'asc' }, where, _count: { _all: true } })
   ]);
   return { items, byFlag, meta: paginationMeta(total, page, limit) };
 }
@@ -175,10 +175,10 @@ export async function getAbnormalResultsReport(query: Request['query']) {
 export async function getStaffProductivityReport(query: Request['query']) {
   const auditWhere = dateWhere(query, 'createdAt') as Prisma.AuditLogWhereInput;
   const [auditByActor, labSigned, scanSigned, payments] = await prisma.$transaction([
-    prisma.auditLog.groupBy({ by: ['actorId', 'action', 'module'], where: auditWhere, _count: { _all: true } }),
-    prisma.labResult.groupBy({ by: ['enteredById', 'status'], where: { ...(dateWhere(query, 'updatedAt') as Prisma.LabResultWhereInput), status: LabResultStatus.SIGNED_OFF }, _count: { _all: true } }),
-    prisma.scanResult.groupBy({ by: ['reportedById', 'status'], where: { ...(dateWhere(query, 'updatedAt') as Prisma.ScanResultWhereInput), status: ScanStatus.SIGNED_OFF }, _count: { _all: true } }),
-    prisma.payment.groupBy({ by: ['receivedById'], where: dateWhere(query, 'createdAt') as Prisma.PaymentWhereInput, _sum: { amount: true }, _count: { _all: true } })
+    prisma.auditLog.groupBy({ by: ['actorId', 'action', 'module'], orderBy: { actorId: 'asc' }, where: auditWhere, _count: { _all: true } }),
+    prisma.labResult.groupBy({ by: ['enteredById', 'status'], orderBy: { enteredById: 'asc' }, where: { ...(dateWhere(query, 'updatedAt') as Prisma.LabResultWhereInput), status: LabResultStatus.SIGNED_OFF }, _count: { _all: true } }),
+    prisma.scanResult.groupBy({ by: ['reportedById', 'status'], orderBy: { reportedById: 'asc' }, where: { ...(dateWhere(query, 'updatedAt') as Prisma.ScanResultWhereInput), status: ScanStatus.SIGNED_OFF }, _count: { _all: true } }),
+    prisma.payment.groupBy({ by: ['receivedById'], orderBy: { receivedById: 'asc' }, where: dateWhere(query, 'createdAt') as Prisma.PaymentWhereInput, _sum: { amount: true }, _count: { _all: true } })
   ]);
   return { auditByActor, labSigned, scanSigned, payments };
 }

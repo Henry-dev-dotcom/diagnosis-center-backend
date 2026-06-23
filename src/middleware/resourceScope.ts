@@ -70,7 +70,7 @@ export function requireFinanceRole() {
   return async (req: Request, _res: Response, next: NextFunction) => {
     try {
       if (!req.user) throw new AppError('Authentication is required', 401, 'AUTH_REQUIRED');
-      if (![UserRole.ADMIN, UserRole.BILLING_STAFF, UserRole.RECEPTIONIST].includes(req.user.role)) {
+      if (!([UserRole.ADMIN, UserRole.BILLING_STAFF, UserRole.RECEPTIONIST] as UserRole[]).includes(req.user.role)) {
         await auditScopeDenied(req, 'Non-finance role attempted finance access');
         throw new AppError('This resource is restricted to finance or reception roles', 403, 'FORBIDDEN_FINANCE_SCOPE');
       }

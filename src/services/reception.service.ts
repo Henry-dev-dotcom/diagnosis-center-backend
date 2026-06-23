@@ -148,7 +148,7 @@ async function assertOrder(orderId: string, patientId?: string | null) {
   const order = await prisma.order.findUnique({ where: { id: orderId }, include: { invoice: true } });
   if (!order) throw new AppError('Order was not found', 404, 'ORDER_NOT_FOUND');
   if (patientId && order.patientId !== patientId) throw new AppError('Order does not belong to the selected patient', 409, 'ORDER_PATIENT_MISMATCH');
-  if ([OrderStatus.CANCELLED, OrderStatus.FINAL_RELEASED].includes(order.status)) {
+  if (([OrderStatus.CANCELLED, OrderStatus.FINAL_RELEASED] as OrderStatus[]).includes(order.status)) {
     throw new AppError('Final or cancelled orders cannot be checked in at reception', 409, 'ORDER_NOT_CHECK_IN_ELIGIBLE');
   }
   return order;

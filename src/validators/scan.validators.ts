@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { dateRangeQuerySchema, optionalNotesSchema, requiredReasonSchema } from './common.validators.js';
+import { dateRangeQueryBaseSchema, optionalNotesSchema, requiredReasonSchema } from './common.validators.js';
 
 const scanFileMetadataSchema = z.object({
   fileName: z.string().trim().min(1, 'File name is required'),
@@ -79,7 +79,12 @@ export const scanResultFilesSchema = z.object({
   files: z.array(scanFileMetadataSchema).min(1, 'At least one scan file or DICOM metadata record is required')
 });
 
-export const scanWorkflowQuerySchema = dateRangeQuerySchema.extend({
-  status: z.string().trim().optional(),
-  equipmentId: z.string().trim().optional()
-});
+export const scanWorkflowQuerySchema = dateRangeQueryBaseSchema
+  .extend({
+    status: z.string().trim().optional(),
+    equipmentId: z.string().trim().optional()
+  })
+  .refine((value) => !value.from || !value.to || value.from <= value.to, {
+    message: 'From date cannot be after to date',
+    path: ['from']
+  });

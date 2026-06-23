@@ -8,6 +8,7 @@ import {
 } from '@prisma/client';
 import type { Request } from 'express';
 import { prisma } from './prisma.service.js';
+import { roundMoney } from '../utils/money.js';
 import { createAuditLog, getRequestAuditContext } from './audit.service.js';
 import { getPagination, paginationMeta, safeOrderBy } from './query.service.js';
 import { AppError } from '../utils/appError.js';
@@ -74,9 +75,6 @@ function clean(value: unknown) {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-function roundMoney(value: number) {
-  return Math.round(value * 100) / 100;
-}
 
 function toDate(value?: Date | string | null) {
   if (!value) return new Date();
@@ -288,7 +286,7 @@ export async function listFloatTransactions(query: Request['query'], req: Reques
       take
     }),
     prisma.floatTransaction.count({ where }),
-    prisma.floatTransaction.groupBy({ by: ['type'], where, _sum: { amount: true } })
+    prisma.floatTransaction.groupBy({ by: ['type'], orderBy: { type: 'asc' }, where, _sum: { amount: true } })
   ]);
 
   return { items, totals, meta: paginationMeta(total, page, limit) };
@@ -567,7 +565,7 @@ export async function listLedger(query: Request['query']) {
       take
     }),
     prisma.ledgerEntry.count({ where }),
-    prisma.ledgerEntry.groupBy({ by: ['type'], where, _sum: { amount: true } })
+    prisma.ledgerEntry.groupBy({ by: ['type'], orderBy: { type: 'asc' }, where, _sum: { amount: true } })
   ]);
 
   return { items, totals, meta: paginationMeta(total, page, limit) };
@@ -577,16 +575,16 @@ export async function getFinanceAnalytics(query: Request['query']) {
   const dateWhere = buildDateWhere(query);
   const [invoiceTotals, invoiceStatus, paymentsByMethod, expenseTotals, expenseByStatus, ledgerTotals, openShifts] = await prisma.$transaction([
     prisma.invoice.aggregate({ where: dateWhere, _sum: { total: true, amountPaid: true, balance: true }, _count: true }),
-    prisma.invoice.groupBy({ by: ['status'], where: dateWhere, _sum: { total: true, balance: true }, _count: true }),
-    prisma.payment.groupBy({ by: ['method'], where: dateWhere, _sum: { amount: true }, _count: true }),
+    prisma.invoice.groupBy({ by: ['status'], orderBy: { status: 'asc' }, where: dateWhere, _sum: { total: true, balance: true }, _count: true }),
+    prisma.payment.groupBy({ by: ['method'], orderBy: { method: 'asc' }, where: dateWhere, _sum: { amount: true }, _count: true }),
     prisma.expense.aggregate({ where: dateWhere, _sum: { totalAmount: true, amountPaid: true, balance: true }, _count: true }),
-    prisma.expense.groupBy({ by: ['status'], where: dateWhere, _sum: { totalAmount: true, balance: true }, _count: true }),
-    prisma.ledgerEntry.groupBy({ by: ['type'], where: dateWhere, _sum: { amount: true }, _count: true }),
+    prisma.expense.groupBy({ by: ['status'], orderBy: { status: 'asc' }, where: dateWhere, _sum: { totalAmount: true, balance: true }, _count: true }),
+    prisma.ledgerEntry.groupBy({ by: ['type'], orderBy: { type: 'asc' }, where: dateWhere, _sum: { amount: true }, _count: true }),
     prisma.cashierShift.count({ where: { status: ShiftStatus.OPEN } })
   ]);
 
-  const credit = ledgerTotals.find((item) => item.type === LedgerEntryType.CREDIT)?._sum.amount ?? 0;
-  const debit = ledgerTotals.find((item) => item.type === LedgerEntryType.DEBIT)?._sum.amount ?? 0;
+  const credit = ledgerTotals.find((item) => item.type === LedgerEntryType.CREDIT)?._sum?.amount ?? 0;
+  const debit = ledgerTotals.find((item) => item.type === LedgerEntryType.DEBIT)?._sum?.amount ?? 0;
 
   return {
     invoices: {
