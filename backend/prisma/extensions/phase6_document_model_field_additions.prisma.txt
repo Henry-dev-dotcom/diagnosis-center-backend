@@ -1,0 +1,32 @@
+Add these optional fields to the existing Phase 2 models in backend/prisma/schema.prisma.
+Do not duplicate fields if they already exist.
+
+model LabTestResultDocument {
+  storageProvider String?  @default("LOCAL")
+  storageKey      String?
+  checksumSha256  String?
+  documentType    String?  @default("LAB_RESULT_ATTACHMENT")
+  extension       String?
+  isDeleted       Boolean  @default(false)
+  deletedAt       DateTime?
+  deletedById     String?
+
+  @@index([facilityId, uploadedAt])
+  @@index([orderId, patientId])
+  @@index([isDeleted])
+}
+
+model ScanResultDocument {
+  storageProvider String?  @default("LOCAL")
+  storageKey      String?
+  checksumSha256  String?
+  documentType    String?  @default("SCAN_RESULT_ATTACHMENT")
+  extension       String?
+  isDeleted       Boolean  @default(false)
+  deletedAt       DateTime?
+  deletedById     String?
+
+  @@index([facilityId, uploadedAt])
+  @@index([orderId, patientId])
+  @@index([isDeleted])
+}
