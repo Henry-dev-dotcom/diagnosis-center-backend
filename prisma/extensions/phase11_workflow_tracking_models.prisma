@@ -1,0 +1,57 @@
+// Merge this into backend/prisma/schema.prisma if your project keeps Prisma models in the schema file.
+// The migration also works through raw SQL for safer incremental adoption.
+
+model FacilityWorkflowEvent {
+  id             String   @id @default(uuid())
+  facilityId     String   @map("facility_id")
+  actorId        String?  @map("actor_id")
+  actorRole      String?  @map("actor_role")
+  actorIp        String?  @map("actor_ip")
+  actorUserAgent String?  @map("actor_user_agent")
+  eventType      String   @map("event_type")
+  eventGroup     String   @map("event_group")
+  entityType     String   @map("entity_type")
+  entityId       String   @map("entity_id")
+  orderId        String?  @map("order_id")
+  patientId      String?  @map("patient_id")
+  clinicianId    String?  @map("clinician_id")
+  resultId       String?  @map("result_id")
+  documentId     String?  @map("document_id")
+  scanId         String?  @map("scan_id")
+  sampleId       String?  @map("sample_id")
+  invoiceId      String?  @map("invoice_id")
+  paymentId      String?  @map("payment_id")
+  severity       String   @default("INFO")
+  title          String
+  message        String
+  payload        Json     @default("{}")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([facilityId, createdAt])
+  @@index([eventType])
+  @@index([eventGroup])
+  @@index([entityType, entityId])
+  @@index([orderId])
+  @@index([patientId])
+  @@index([clinicianId])
+  @@index([resultId])
+  @@map("facility_workflow_events")
+}
+
+model WorkflowNotificationDeliveryLog {
+  id               String    @id @default(uuid())
+  workflowEventId  String    @map("workflow_event_id")
+  facilityId       String    @map("facility_id")
+  recipientUserIds Json      @default("[]") @map("recipient_user_ids")
+  recipientTargets Json      @default("[]") @map("recipient_targets")
+  channels         Json      @default("[\"IN_APP\"]")
+  title            String
+  message          String
+  status           String    @default("CREATED")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  deliveredAt      DateTime? @map("delivered_at")
+
+  @@index([workflowEventId])
+  @@index([facilityId, createdAt])
+  @@map("workflow_notification_delivery_logs")
+}

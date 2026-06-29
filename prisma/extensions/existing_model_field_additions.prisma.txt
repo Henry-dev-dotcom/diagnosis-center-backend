@@ -1,0 +1,62 @@
+Add these fields to existing models where the model exists in your schema.
+Do not create duplicate fields if they already exist.
+
+model User {
+  facilityId String?
+  @@index([facilityId])
+}
+
+model Patient {
+  facilityId String?
+  @@index([facilityId])
+}
+
+model Order {
+  facilityId String?
+  @@index([facilityId])
+}
+
+model OrderItem {
+  facilityId String?
+  @@index([facilityId])
+}
+
+model LabRequest {
+  facilityId String?
+  @@index([facilityId])
+}
+
+model ScanRequest {
+  facilityId String?
+  @@index([facilityId])
+}
+
+model Result {
+  facilityId String?
+  @@index([facilityId])
+}
+
+model Notification {
+  facilityId String?
+  @@index([facilityId])
+}
+
+model AuditLog {
+  facilityId String?
+  @@index([facilityId])
+}
+
+model File {
+  facilityId String?
+  @@index([facilityId])
+}
+
+model Invoice {
+  facilityId String?
+  @@index([facilityId])
+}
+
+model Payment {
+  facilityId String?
+  @@index([facilityId])
+}

@@ -1,0 +1,286 @@
+// Phase 2 Prisma schema extension
+// Merge these models into backend/prisma/schema.prisma after the generator and datasource blocks.
+// These models are intentionally additive and avoid direct relations to existing User/Patient/Order models
+// until existing model names are confirmed in your live schema.
+
+model DiagnosticFacility {
+  id             String                   @id @default(cuid())
+  name           String
+  code           String                   @unique
+  type           String                   @default("DIAGNOSTIC_CENTER")
+  status         String                   @default("ACTIVE")
+  phone          String?
+  email          String?
+  address        String?
+  city           String?
+  region         String?
+  country        String                   @default("Ghana")
+  logoName       String?
+  primaryColor   String                   @default("#2f2925")
+  secondaryColor String                   @default("#efe5d5")
+  notes          String?
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+
+  features       FacilityFeature[]
+  departments    FacilityDepartment[]
+  catalog         FacilityServiceCatalog[]
+  routingRules    FacilityRoutingRule[]
+  limits          FacilityLimit[]
+  users           FacilityUserAssignment[]
+  labSamples      LabAcceptedSample[]
+  labDocuments    LabTestResultDocument[]
+  resultInbox     ResultDeliveryInbox[]
+  scanRequests    ScanAcceptedRequest[]
+  scanDocuments   ScanResultDocument[]
+}
+
+model FacilityFeature {
+  id         String             @id @default(cuid())
+  facilityId String
+  featureKey String
+  isEnabled Boolean            @default(true)
+  config     Json?
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+
+  facility   DiagnosticFacility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+
+  @@unique([facilityId, featureKey])
+  @@index([facilityId])
+}
+
+model FacilityDepartment {
+  id             String             @id @default(cuid())
+  facilityId     String
+  departmentKey  String
+  departmentName String
+  isEnabled      Boolean            @default(true)
+  config         Json?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  facility       DiagnosticFacility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+
+  @@unique([facilityId, departmentKey])
+  @@index([facilityId])
+}
+
+model FacilityServiceCatalog {
+  id              String             @id @default(cuid())
+  facilityId      String
+  serviceType     String             // LAB | SCAN | OTHER
+  serviceCode     String
+  serviceName     String
+  departmentKey   String?
+  price           Decimal?
+  turnaroundHours Int?
+  isActive        Boolean            @default(true)
+  config          Json?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  facility        DiagnosticFacility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+
+  @@unique([facilityId, serviceType, serviceCode])
+  @@index([facilityId])
+  @@index([serviceType])
+}
+
+model FacilityRoutingRule {
+  id                    String             @id @default(cuid())
+  facilityId            String
+  sourceRole            String
+  requestType           String             // LAB | SCAN
+  targetDepartment      String
+  resultRecipient       String             @default("CLINICIAN")
+  requiresReceptionPush Boolean            @default(false)
+  isEnabled             Boolean            @default(true)
+  config                Json?
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  facility              DiagnosticFacility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+
+  @@index([facilityId])
+}
+
+model FacilityLimit {
+  id         String             @id @default(cuid())
+  facilityId String
+  limitKey   String
+  limitValue Int
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+
+  facility   DiagnosticFacility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+
+  @@unique([facilityId, limitKey])
+}
+
+model FacilityUserAssignment {
+  id         String             @id @default(cuid())
+  facilityId String
+  userId     String
+  roleKey    String
+  isPrimary  Boolean            @default(false)
+  status     String             @default("ACTIVE")
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+
+  facility   DiagnosticFacility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+
+  @@unique([facilityId, userId, roleKey])
+  @@index([facilityId])
+  @@index([userId])
+}
+
+model LabAcceptedSample {
+  id                 String                  @id @default(cuid())
+  facilityId         String
+  orderId            String
+  patientId          String
+  clinicianId        String?
+  acceptedById       String
+  sampleCode         String                  @unique
+  priority           String                  @default("ROUTINE")
+  status             String                  @default("ACCEPTED")
+  acceptedAt         DateTime                @default(now())
+  completedAt        DateTime?
+  sentToClinicianAt  DateTime?
+  notes              String?
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+
+  facility           DiagnosticFacility      @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+  tests              LabAcceptedSampleTest[]
+  documents          LabTestResultDocument[]
+
+  @@index([facilityId, status])
+  @@index([patientId])
+  @@index([orderId])
+}
+
+model LabAcceptedSampleTest {
+  id               String                  @id @default(cuid())
+  facilityId       String
+  acceptedSampleId String
+  orderItemId      String?
+  testId           String?
+  testCode         String?
+  testName         String
+  referenceRange   String?
+  unit             String?
+  resultValue      String?
+  resultFlag       String?
+  resultNotes      String?
+  equipmentNotes   String?
+  status           String                  @default("PENDING")
+  enteredById      String?
+  enteredAt        DateTime?
+  completedAt      DateTime?
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+
+  facility         DiagnosticFacility      @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+  acceptedSample   LabAcceptedSample       @relation(fields: [acceptedSampleId], references: [id], onDelete: Cascade)
+  documents        LabTestResultDocument[]
+
+  @@index([acceptedSampleId, status])
+}
+
+model LabTestResultDocument {
+  id               String                @id @default(cuid())
+  facilityId       String
+  acceptedSampleId String
+  sampleTestId     String
+  orderId          String
+  patientId        String
+  fileName         String
+  originalName     String
+  mimeType         String
+  fileSize         Int
+  fileUrl          String
+  uploadedById     String
+  uploadedAt       DateTime              @default(now())
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  facility         DiagnosticFacility    @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+  acceptedSample   LabAcceptedSample     @relation(fields: [acceptedSampleId], references: [id], onDelete: Cascade)
+  sampleTest       LabAcceptedSampleTest @relation(fields: [sampleTestId], references: [id], onDelete: Cascade)
+
+  @@index([sampleTestId])
+}
+
+model ResultDeliveryInbox {
+  id             String             @id @default(cuid())
+  facilityId     String
+  resultType     String             // LAB | SCAN
+  sourceId       String
+  orderId        String
+  patientId      String
+  clinicianId    String
+  deliveredById  String?
+  status         String             @default("SENT")
+  deliveredAt    DateTime           @default(now())
+  readAt         DateTime?
+  metadata       Json?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  facility       DiagnosticFacility @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+
+  @@index([clinicianId, status])
+  @@index([facilityId])
+}
+
+model ScanAcceptedRequest {
+  id                 String               @id @default(cuid())
+  facilityId         String
+  orderId            String
+  patientId          String
+  clinicianId        String?
+  acceptedById       String
+  scanCode           String               @unique
+  modality           String?
+  room               String?
+  machine            String?
+  technicianNotes    String?
+  findings           String?
+  impression         String?
+  priority           String               @default("ROUTINE")
+  status             String               @default("ACCEPTED")
+  acceptedAt         DateTime             @default(now())
+  completedAt        DateTime?
+  sentToClinicianAt  DateTime?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  facility           DiagnosticFacility   @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+  documents          ScanResultDocument[]
+
+  @@index([facilityId, status])
+}
+
+model ScanResultDocument {
+  id                    String              @id @default(cuid())
+  facilityId            String
+  scanAcceptedRequestId String
+  orderId               String
+  patientId             String
+  fileName              String
+  originalName          String
+  mimeType              String
+  fileSize              Int
+  fileUrl               String
+  uploadedById          String
+  uploadedAt            DateTime            @default(now())
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+
+  facility              DiagnosticFacility  @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+  scanAcceptedRequest   ScanAcceptedRequest @relation(fields: [scanAcceptedRequestId], references: [id], onDelete: Cascade)
+
+  @@index([scanAcceptedRequestId])
+}
