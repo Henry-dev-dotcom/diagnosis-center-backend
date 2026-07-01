@@ -5,8 +5,10 @@ export const loginSchema = z.object({
   password: z.string().min(1, 'Password is required')
 });
 
+// Refresh token may arrive in the body (API clients) or via the httpOnly
+// refresh cookie (browser sessions); the controller enforces that one exists.
 export const refreshTokenSchema = z.object({
-  refreshToken: z.string().min(20, 'Refresh token is required')
+  refreshToken: z.string().min(20).optional()
 });
 
 export const logoutSchema = z.object({

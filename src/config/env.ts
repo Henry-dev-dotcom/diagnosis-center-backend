@@ -27,12 +27,17 @@ const envSchema = z
     JWT_REFRESH_SECRET: z.string().min(10).default(defaultRefreshSecret),
     ACCESS_TOKEN_EXPIRES_IN: z.string().default('15m'),
     REFRESH_TOKEN_EXPIRES_IN: z.string().default('7d'),
+    AUTH_COOKIE_SECURE: z.coerce.boolean().optional(),
+    AUTH_COOKIE_SAMESITE: z.enum(['lax', 'strict', 'none']).default('lax'),
+    AUTH_COOKIE_DOMAIN: z.string().optional(),
     LOG_LEVEL: z.string().default('dev'),
     TRUST_PROXY: z.coerce.boolean().default(false),
     ENABLE_API_DOCS: z.coerce.boolean().default(true),
     BODY_LIMIT: z.string().default('10mb'),
     RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
     RATE_LIMIT_MAX_REQUESTS: z.coerce.number().int().positive().default(240),
+    AUTH_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(5 * 60_000),
+    AUTH_RATE_LIMIT_MAX_REQUESTS: z.coerce.number().int().positive().default(10),
     UPLOAD_STORAGE_DRIVER: z.enum(['local', 'metadata']).default('local'),
     UPLOAD_ROOT: z.string().default('uploads'),
     MAX_UPLOAD_BYTES: z.coerce.number().int().positive().default(25 * 1024 * 1024),
@@ -81,3 +86,16 @@ export const env = parsed.data;
 export const isProduction = env.NODE_ENV === 'production';
 export const isDevelopment = env.NODE_ENV === 'development';
 export const allowedFrontendOrigins = Array.from(new Set([env.FRONTEND_URL, ...csv(env.FRONTEND_URLS)]));
+
+// Cross-site cookies (SameSite=None) are only sent by browsers over HTTPS, so
+// force Secure on. Otherwise default Secure to on in production.
+const cookieSecure = env.AUTH_COOKIE_SECURE ?? (env.AUTH_COOKIE_SAMESITE === 'none' ? true : isProduction);
+export const authCookieConfig = {
+  accessTokenName: 'access_token',
+  refreshTokenName: 'refresh_token',
+  secure: env.AUTH_COOKIE_SAMESITE === 'none' ? true : cookieSecure,
+  sameSite: env.AUTH_COOKIE_SAMESITE,
+  domain: env.AUTH_COOKIE_DOMAIN,
+  // Refresh cookie is only ever sent to the auth endpoints, limiting exposure.
+  refreshPath: `${env.API_PREFIX}/auth`
+} as const;

@@ -6,6 +6,7 @@ import { auditAccessFailure } from './audit.js';
 import { createAuditLog } from '../services/audit.service.js';
 import { verifyAccessToken } from '../utils/token.js';
 import { AppError } from '../utils/appError.js';
+import { getAccessTokenFromCookie } from '../utils/authCookies.js';
 
 function getBearerToken(req: Request) {
   const header = req.header('authorization');
@@ -17,7 +18,9 @@ function getBearerToken(req: Request) {
 
 export async function requireAuth(req: Request, _res: Response, next: NextFunction) {
   try {
-    const token = getBearerToken(req);
+    // Prefer the Authorization header (API clients); fall back to the httpOnly
+    // cookie set for browser sessions.
+    const token = getBearerToken(req) || getAccessTokenFromCookie(req);
     if (!token) {
       auditAccessFailure(req, 401, 'AUTH_TOKEN_REQUIRED', 'Authentication token is required');
       throw new AppError('Authentication token is required', 401, 'AUTH_TOKEN_REQUIRED');

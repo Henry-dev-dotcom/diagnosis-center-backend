@@ -9,37 +9,78 @@ import { allowedFrontendOrigins, env, isProduction } from '../config/env.js';
 import { requestId } from './requestId.js';
 
 const rateLimitBuckets = new Map<string, { count: number; resetAt: number }>();
+let lastSweepAt = Date.now();
 
 function getClientKey(req: Request) {
   return req.ip || req.headers['x-forwarded-for']?.toString().split(',')[0]?.trim() || 'unknown-client';
 }
 
-function rateLimit(req: Request, res: Response, next: NextFunction) {
-  if (env.NODE_ENV === 'test') {
-    return next();
+// Opportunistically evict expired buckets so the Map cannot grow unbounded as
+// new client IPs arrive. Runs at most once per window; no timer is used so the
+// process can exit cleanly and tests stay deterministic.
+function sweepExpiredBuckets(now: number) {
+  if (now - lastSweepAt < env.RATE_LIMIT_WINDOW_MS) return;
+  lastSweepAt = now;
+  for (const [key, bucket] of rateLimitBuckets) {
+    if (bucket.resetAt <= now) rateLimitBuckets.delete(key);
   }
-
-  const now = Date.now();
-  const key = getClientKey(req);
-  const bucket = rateLimitBuckets.get(key);
-
-  if (!bucket || bucket.resetAt <= now) {
-    rateLimitBuckets.set(key, { count: 1, resetAt: now + env.RATE_LIMIT_WINDOW_MS });
-    return next();
-  }
-
-  bucket.count += 1;
-
-  if (bucket.count > env.RATE_LIMIT_MAX_REQUESTS) {
-    return res.status(429).json({
-      success: false,
-      message: 'Too many requests. Please try again shortly.',
-      errors: [{ field: 'request', message: 'Rate limit exceeded' }]
-    });
-  }
-
-  return next();
 }
+
+interface RateLimitOptions {
+  windowMs: number;
+  max: number;
+  keyPrefix: string;
+  message?: string;
+}
+
+function createRateLimiter({ windowMs, max, keyPrefix, message }: RateLimitOptions) {
+  return function rateLimiter(req: Request, res: Response, next: NextFunction) {
+    if (env.NODE_ENV === 'test') {
+      return next();
+    }
+
+    const now = Date.now();
+    sweepExpiredBuckets(now);
+
+    const key = `${keyPrefix}:${getClientKey(req)}`;
+    const bucket = rateLimitBuckets.get(key);
+
+    if (!bucket || bucket.resetAt <= now) {
+      rateLimitBuckets.set(key, { count: 1, resetAt: now + windowMs });
+      return next();
+    }
+
+    bucket.count += 1;
+
+    if (bucket.count > max) {
+      const retryAfterSeconds = Math.max(1, Math.ceil((bucket.resetAt - now) / 1000));
+      res.setHeader('Retry-After', retryAfterSeconds);
+      return res.status(429).json({
+        success: false,
+        message: message ?? 'Too many requests. Please try again shortly.',
+        errors: [{ field: 'request', message: 'Rate limit exceeded' }]
+      });
+    }
+
+    return next();
+  };
+}
+
+const rateLimit = createRateLimiter({
+  windowMs: env.RATE_LIMIT_WINDOW_MS,
+  max: env.RATE_LIMIT_MAX_REQUESTS,
+  keyPrefix: 'global'
+});
+
+// Stricter, dedicated limiter for authentication endpoints to slow credential
+// brute-forcing. Kept in its own key namespace so it is not diluted by the
+// generous global API budget.
+export const authRateLimit = createRateLimiter({
+  windowMs: env.AUTH_RATE_LIMIT_WINDOW_MS,
+  max: env.AUTH_RATE_LIMIT_MAX_REQUESTS,
+  keyPrefix: 'auth',
+  message: 'Too many authentication attempts. Please try again later.'
+});
 
 export function applyGlobalMiddleware(app: Express) {
   if (env.TRUST_PROXY) {
