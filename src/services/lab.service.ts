@@ -129,9 +129,30 @@ function toDate(value: Date | string | undefined, fallback = new Date()) {
   return Number.isNaN(date.getTime()) ? fallback : date;
 }
 
+const uniqueCodeFieldByModel: Record<string, string> = {
+  labSample: 'sampleCode',
+  labResult: 'resultCode',
+  report: 'reportCode',
+  inventoryItem: 'itemCode'
+};
+
 async function nextCode(model: 'labSample' | 'labResult' | 'report' | 'qualityControlRun' | 'inventoryItem' | 'inventoryTransaction', prefix: string, tx: Prisma.TransactionClient = prisma) {
-  const count = await (tx as any)[model].count();
-  return `${prefix}-${String(count + 1).padStart(4, '0')}`;
+  const codeField = uniqueCodeFieldByModel[model];
+  if (!codeField) {
+    const count = await (tx as any)[model].count();
+    return `${prefix}-${String(count + 1).padStart(4, '0')}`;
+  }
+  // Existing codes can be non-contiguous (seed gaps, deletions), so a row
+  // count collides with the unique constraint; derive from the max suffix.
+  const rows = await (tx as any)[model].findMany({
+    where: { [codeField]: { startsWith: `${prefix}-` } },
+    select: { [codeField]: true }
+  });
+  const max = rows.reduce((current: number, row: Record<string, string>) => {
+    const suffix = Number(String(row[codeField]).slice(prefix.length + 1));
+    return Number.isFinite(suffix) && suffix > current ? suffix : current;
+  }, 0);
+  return `${prefix}-${String(max + 1).padStart(4, '0')}`;
 }
 
 async function nextSampleCode(tx: Prisma.TransactionClient = prisma) {
@@ -151,8 +172,7 @@ async function nextQcCode(tx: Prisma.TransactionClient = prisma) {
 }
 
 async function nextInventoryCode(tx: Prisma.TransactionClient = prisma) {
-  const count = await tx.inventoryItem.count({ where: { itemCode: { startsWith: 'LAB-' } } });
-  return `LAB-INV-${String(count + 1).padStart(4, '0')}`;
+  return nextCode('inventoryItem', 'LAB-INV', tx);
 }
 
 async function getLabOrderItemsForAcceptance(body: AcceptSamplePayload, routeOrderId?: string) {

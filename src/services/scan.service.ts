@@ -154,9 +154,25 @@ function toDate(value: Date | string | undefined, fallback = new Date()) {
   return Number.isNaN(date.getTime()) ? fallback : date;
 }
 
+const uniqueCodeFieldByModel: Record<string, string> = {
+  scanBooking: 'bookingCode',
+  scanResult: 'resultCode',
+  report: 'reportCode'
+};
+
 async function nextCode(model: 'scanBooking' | 'scanResult' | 'report', prefix: string, tx: Prisma.TransactionClient = prisma) {
-  const count = await (tx as any)[model].count();
-  return `${prefix}-${String(count + 1).padStart(4, '0')}`;
+  // Existing codes can be non-contiguous (seed gaps, deletions), so a row
+  // count collides with the unique constraint; derive from the max suffix.
+  const codeField = uniqueCodeFieldByModel[model];
+  const rows = await (tx as any)[model].findMany({
+    where: { [codeField]: { startsWith: `${prefix}-` } },
+    select: { [codeField]: true }
+  });
+  const max = rows.reduce((current: number, row: Record<string, string>) => {
+    const suffix = Number(String(row[codeField]).slice(prefix.length + 1));
+    return Number.isFinite(suffix) && suffix > current ? suffix : current;
+  }, 0);
+  return `${prefix}-${String(max + 1).padStart(4, '0')}`;
 }
 
 async function nextBookingCode(tx: Prisma.TransactionClient = prisma) {
