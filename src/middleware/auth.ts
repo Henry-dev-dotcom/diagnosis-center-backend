@@ -26,7 +26,18 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
       throw new AppError('Authentication token is required', 401, 'AUTH_TOKEN_REQUIRED');
     }
 
-    const payload = verifyAccessToken(token);
+    let payload: ReturnType<typeof verifyAccessToken>;
+    try {
+      payload = verifyAccessToken(token);
+    } catch (verifyError) {
+      // Expired or malformed tokens are an auth failure (401), not a server
+      // error — the client relies on 401 to trigger its refresh flow.
+      const expired = verifyError instanceof Error && verifyError.name === 'TokenExpiredError';
+      const code = expired ? 'ACCESS_TOKEN_EXPIRED' : 'INVALID_ACCESS_TOKEN';
+      const message = expired ? 'Access token has expired' : 'Invalid access token';
+      auditAccessFailure(req, 401, code, message);
+      throw new AppError(message, 401, code);
+    }
     if (payload.type !== 'access') {
       auditAccessFailure(req, 401, 'INVALID_ACCESS_TOKEN', 'Invalid access token');
       throw new AppError('Invalid access token', 401, 'INVALID_ACCESS_TOKEN');
