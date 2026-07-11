@@ -1,5 +1,35 @@
 # Deployment Runbook
 
+## Option A — Render (free cloud, recommended)
+
+The repo ships a `render.yaml` blueprint that provisions a free PostgreSQL
+database and a Node web service in one step.
+
+1. Push this backend repo to GitHub (already done for `master`).
+2. In Render, choose **New + → Blueprint** and select this repository. Render
+   reads `render.yaml`, creates `diagnosis-center-db` and
+   `diagnosis-center-backend`, wires `DATABASE_URL`, and generates the two JWT
+   secrets automatically.
+3. When prompted (the `sync:false` vars), set:
+   - `SEED_ADMIN_PASSWORD` — a strong password for the first admin login.
+   - `SEED_ADMIN_EMAIL` — the admin's email.
+   - `FRONTEND_URL` and `FRONTEND_URLS` — the GitHub Pages **origin only**
+     (no repo path), e.g. `https://henry-dev-dotcom.github.io`.
+4. Deploy. The build runs `prisma generate` + `tsc`; the start command runs
+   `prisma migrate deploy`, the idempotent production seed (admin + reference
+   data only), then the server.
+5. Note the service URL, e.g. `https://diagnosis-center-backend.onrender.com`.
+   Health check: `https://<service>.onrender.com/api/health`.
+6. Point the frontend at it: in the **frontend** repo settings, set the repo
+   variable `VITE_API_BASE_URL=https://<service>.onrender.com/api` (and
+   `VITE_API_MODE=live`), then trigger the Pages deploy.
+
+Free-tier notes: the web service sleeps after inactivity (first request after
+idle takes ~30s to wake); the free Postgres is capped and expires after 90
+days unless upgraded. Fine for pilots, not for a busy clinic.
+
+## Option B — Docker / self-hosted
+
 ## 1. Prepare environment files
 
 Copy the production examples:
