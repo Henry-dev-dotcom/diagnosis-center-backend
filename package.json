@@ -15,7 +15,11 @@
     "qa": "node scripts/check-phase10.mjs && node scripts/check-business-stage1.mjs && node scripts/check-business-stage2.mjs && node scripts/check-business-stage3.mjs && node scripts/check-business-stage4.mjs && node scripts/check-business-stage5.mjs && node scripts/check-business-stage6.mjs && node scripts/check-business-stage7.mjs && node scripts/check-business-stage8.mjs && node scripts/check-business-stage9.mjs && node scripts/check-business-stage10.mjs && node scripts/check-production-readiness.mjs",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
+    "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:seed": "tsx prisma/seed.ts",
+    "seed:production": "tsx prisma/seed.production.ts",
+    "render:build": "npm ci --include=dev && npm run prisma:generate && npm run build",
+    "render:start": "npm run prisma:migrate:deploy && npm run seed:production && npm run start",
     "db:status": "tsx scripts/check-database.ts",
     "prisma:studio": "prisma studio",
     "prisma:reset": "prisma migrate reset",
@@ -43,17 +47,19 @@
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
+    "bcryptjs": "^2.4.3",
     "compression": "^1.7.4",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
+    "prisma": "^5.22.0",
     "swagger-ui-express": "^5.0.1",
-    "zod": "^3.24.1",
-    "bcryptjs": "^2.4.3",
-    "jsonwebtoken": "^9.0.2"
+    "tsx": "^4.19.2",
+    "zod": "^3.24.1"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
@@ -70,8 +76,6 @@
     "@vitest/coverage-v8": "^2.1.8",
     "eslint": "^9.17.0",
     "prettier": "^3.4.2",
-    "prisma": "^5.22.0",
-    "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
   },

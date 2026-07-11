@@ -29,7 +29,7 @@ import {
   VisitStatus
 } from '@prisma/client';
 
-const prisma = new PrismaClient();
+export const prisma = new PrismaClient();
 
 const DEMO_PASSWORDS: Record<string, string> = {
   admin: 'admin123',
@@ -369,7 +369,7 @@ async function resetDemoData() {
   ]);
 }
 
-async function seedUsersAndDoctors() {
+export async function seedUsersAndDoctors() {
   const users = [
     { id: 'USR-006', username: 'admin', name: 'System Admin', email: 'admin@sunkwa.local', role: UserRole.ADMIN },
     { id: 'USR-001', username: 'doctor', name: 'Dr. Abena Mensah', email: 'doctor@sunkwa.local', role: UserRole.DOCTOR },
@@ -404,7 +404,7 @@ async function seedUsersAndDoctors() {
   });
 }
 
-async function seedDepartmentsAndEquipment() {
+export async function seedDepartmentsAndEquipment() {
   await prisma.department.createMany({
     data: [
       { id: 'DEP-001', code: 'REC', name: 'Reception', type: DepartmentType.RECEPTION, leadName: 'Grace Osei' },
@@ -472,7 +472,7 @@ async function seedPatients() {
   }
 }
 
-async function seedCatalogAndReferenceRanges() {
+export async function seedCatalogAndReferenceRanges() {
   for (const item of catalog) {
     await prisma.catalogItem.create({
       data: {
@@ -1091,11 +1091,16 @@ async function main() {
   console.log('Demo logins: admin/admin123, doctor/doctor123, reception/reception123, lab/lab123, scan/scan123, billing/billing123');
 }
 
-main()
-  .catch((error) => {
-    console.error(error);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+// Only auto-run the full demo seed when this file is the entry point; the
+// production seed imports the reference seeders without triggering it.
+const isEntryPoint = process.argv[1] && /seed\.ts$/.test(process.argv[1].replace(/\\/g, '/'));
+if (isEntryPoint) {
+  main()
+    .catch((error) => {
+      console.error(error);
+      process.exit(1);
+    })
+    .finally(async () => {
+      await prisma.$disconnect();
+    });
+}

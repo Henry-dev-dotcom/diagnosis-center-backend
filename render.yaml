@@ -1,0 +1,85 @@
+# Render blueprint for the Diagnosis Center backend + PostgreSQL.
+# Deploy: push this repo to GitHub, then in Render choose "New +" -> "Blueprint"
+# and point it at this repository. Render reads this file, creates the database
+# and web service, wires DATABASE_URL, and generates the JWT secrets.
+#
+# After the first deploy, set FRONTEND_URL / FRONTEND_URLS to the GitHub Pages
+# origin and SEED_ADMIN_PASSWORD to a strong value (both marked sync:false
+# below so Render prompts for them).
+
+databases:
+  - name: diagnosis-center-db
+    plan: free
+    databaseName: diagnosis_center
+    user: diagnosis
+
+services:
+  - type: web
+    name: diagnosis-center-backend
+    runtime: node
+    plan: free
+    region: oregon
+    branch: master
+    buildCommand: npm run render:build
+    startCommand: npm run render:start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: API_PREFIX
+        value: /api
+      - key: DATABASE_URL
+        fromDatabase:
+          name: diagnosis-center-db
+          property: connectionString
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: ACCESS_TOKEN_EXPIRES_IN
+        value: 15m
+      - key: REFRESH_TOKEN_EXPIRES_IN
+        value: 7d
+      # Cross-origin cookies (GitHub Pages -> onrender.com) require SameSite=None,
+      # which the backend automatically pairs with Secure.
+      - key: AUTH_COOKIE_SAMESITE
+        value: none
+      - key: TRUST_PROXY
+        value: "true"
+      - key: LOG_LEVEL
+        value: combined
+      - key: ENABLE_API_DOCS
+        value: "false"
+      - key: BODY_LIMIT
+        value: 10mb
+      - key: RATE_LIMIT_WINDOW_MS
+        value: "60000"
+      - key: RATE_LIMIT_MAX_REQUESTS
+        value: "240"
+      - key: AUTH_RATE_LIMIT_WINDOW_MS
+        value: "300000"
+      - key: AUTH_RATE_LIMIT_MAX_REQUESTS
+        value: "10"
+      - key: UPLOAD_STORAGE_DRIVER
+        value: local
+      - key: UPLOAD_ROOT
+        value: uploads
+      - key: MAX_UPLOAD_BYTES
+        value: "26214400"
+      - key: SIGNED_FILE_URL_TTL_MINUTES
+        value: "15"
+      - key: DICOM_GATEWAY_MODE
+        value: metadata-only
+      # Set these in the Render dashboard after the first deploy.
+      - key: FRONTEND_URL
+        sync: false
+      - key: FRONTEND_URLS
+        sync: false
+      - key: SEED_ADMIN_PASSWORD
+        sync: false
+      - key: SEED_ADMIN_USERNAME
+        value: admin
+      - key: SEED_ADMIN_EMAIL
+        sync: false
