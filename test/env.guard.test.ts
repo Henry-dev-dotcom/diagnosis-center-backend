@@ -20,7 +20,7 @@ function loadEnvWith(vars: Record<string, string>): { ok: boolean; stderr: strin
   const code = `import(${JSON.stringify(pathToFileURL(envModule).href)}).then(() => process.exit(0)).catch(() => process.exit(1));`;
   try {
     execFileSync(process.execPath, ['--import', 'tsx', '--input-type=module', '-e', code], {
-      env: { ...vars, PATH: process.env.PATH ?? '' },
+      env: { ...vars, SKIP_DOTENV: '1', PATH: process.env.PATH ?? '' },
       stdio: ['ignore', 'ignore', 'pipe']
     });
     return { ok: true, stderr: '' };

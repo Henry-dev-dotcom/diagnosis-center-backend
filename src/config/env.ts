@@ -1,7 +1,11 @@
 import dotenv from 'dotenv';
 import { z } from 'zod';
 
-dotenv.config();
+// Tests that validate env parsing set SKIP_DOTENV so a developer's local .env
+// cannot leak values into the process under test.
+if (process.env.SKIP_DOTENV !== '1') {
+  dotenv.config();
+}
 
 const defaultAccessSecret = 'change-this-access-secret';
 const defaultRefreshSecret = 'change-this-refresh-secret';

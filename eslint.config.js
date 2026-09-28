@@ -28,6 +28,9 @@ export default [
     },
     rules: {
       ...tseslint.configs.recommended.rules,
+      // TypeScript already reports undefined identifiers; this core rule
+      // misfires on type-only globals such as the Express namespace.
+      'no-undef': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }]
     }

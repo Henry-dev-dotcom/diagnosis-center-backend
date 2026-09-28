@@ -3,7 +3,10 @@ dist
 .env
 .env.*
 !.env.example
+!.env.production.example
 coverage
-uploads
+# Keep the folder (the Dockerfile copies it) but never the uploaded files.
+uploads/*
+!uploads/.gitkeep
 *.log
 .DS_Store
