@@ -8,6 +8,7 @@ import {
   InvoiceStatus,
   Prisma,
   PrescriptionStatus,
+  SurgeryStatus,
   WardGender,
   type AdministrationStatus,
   type WardType
@@ -254,6 +255,8 @@ export async function admit(
           });
         }
         await tx.encounter.update({ where: { id: source.id }, data: { status: EncounterStatus.COMPLETED, outcome: 'ADMITTED', completedAt: new Date() } });
+        // Operations booked in the visit move with the patient, so their notes and charges land on the stay.
+        await tx.surgery.updateMany({ where: { encounterId: source.id, status: { in: [SurgeryStatus.SCHEDULED, SurgeryStatus.IN_THEATRE] } }, data: { encounterId: encounter.id } });
       }
       const admission = await tx.admission.create({
         data: {

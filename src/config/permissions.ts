@@ -126,7 +126,14 @@ export const PERMISSIONS = {
   INPATIENT_DISCHARGE: 'inpatient:discharge',
   INPATIENT_ADMINISTER: 'inpatient:administer',
   INPATIENT_BED_STATUS: 'inpatient:beds:status',
-  INPATIENT_WARDS_MANAGE: 'inpatient:wards:manage'
+  INPATIENT_WARDS_MANAGE: 'inpatient:wards:manage',
+
+  // Operating theatre, Phase 4B.
+  THEATRE_READ: 'theatre:read',
+  THEATRE_SCHEDULE: 'theatre:schedule',
+  THEATRE_CHECKLIST: 'theatre:checklist',
+  THEATRE_OPERATE: 'theatre:operate',
+  THEATRE_MANAGE: 'theatre:theatres:manage'
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -159,7 +166,12 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly
     PERMISSIONS.INPATIENT_READ,
     PERMISSIONS.INPATIENT_ADMIT,
     PERMISSIONS.INPATIENT_TRANSFER,
-    PERMISSIONS.INPATIENT_DISCHARGE
+    PERMISSIONS.INPATIENT_DISCHARGE,
+    // Book operations, run the safety checklist and write the operation note (Theatre module).
+    PERMISSIONS.THEATRE_READ,
+    PERMISSIONS.THEATRE_SCHEDULE,
+    PERMISSIONS.THEATRE_CHECKLIST,
+    PERMISSIONS.THEATRE_OPERATE
   ],
   [UserRole.NURSE]: [
     PERMISSIONS.SYSTEM_READ,
@@ -174,7 +186,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly
     PERMISSIONS.INPATIENT_READ,
     PERMISSIONS.INPATIENT_TRANSFER,
     PERMISSIONS.INPATIENT_ADMINISTER,
-    PERMISSIONS.INPATIENT_BED_STATUS
+    PERMISSIONS.INPATIENT_BED_STATUS,
+    // Theatre nurses run the surgical safety checklist.
+    PERMISSIONS.THEATRE_READ,
+    PERMISSIONS.THEATRE_CHECKLIST
   ],
   [UserRole.PHARMACIST]: [
     PERMISSIONS.SYSTEM_READ,

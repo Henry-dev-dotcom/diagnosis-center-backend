@@ -360,6 +360,8 @@ async function resetDemoData() {
     prisma.order.updateMany({ where: { encounterId: { not: null } }, data: { encounterId: null } }),
     prisma.invoice.updateMany({ where: { encounterId: { not: null } }, data: { encounterId: null } }),
     // Inpatient care (Phase 4B) points at prescriptions and encounters, so it goes first.
+    prisma.surgery.deleteMany(),
+    prisma.theatre.deleteMany(),
     prisma.medicationAdministration.deleteMany(),
     prisma.bedAssignment.deleteMany(),
     prisma.admission.deleteMany(),
@@ -1188,6 +1190,25 @@ async function seedWards() {
   }
 }
 
+async function seedTheatres() {
+  await prisma.theatre.createMany({
+    data: [
+      { id: 'THR-MAIN', code: 'MAIN', name: 'Main Theatre' },
+      { id: 'THR-MINOR', code: 'MINOR', name: 'Minor Theatre' }
+    ]
+  });
+  // Procedures are service items, charged when the operation note is signed out.
+  const procedures = [
+    ['SVC-PROC-APPX', 'PROC-APPX', 'Appendicectomy', '2500'],
+    ['SVC-PROC-HERN', 'PROC-HERN', 'Inguinal hernia repair', '1800'],
+    ['SVC-PROC-CS', 'PROC-CS', 'Caesarean section', '3000'],
+    ['SVC-PROC-ID', 'PROC-ID', 'Incision and drainage of abscess', '300']
+  ] as const;
+  await prisma.catalogItem.createMany({
+    data: procedures.map(([id, catalogCode, name, price]) => ({ id, catalogCode, name, type: CatalogItemType.SERVICE, price }))
+  });
+}
+
 async function seedAuditAndSystemEvents() {
   await prisma.auditLog.createMany({
     data: [
@@ -1229,6 +1250,7 @@ export async function seedFacility(facility: DemoFacility) {
       await seedCatalogAndReferenceRanges();
       await seedPharmacy();
       await seedWards();
+      await seedTheatres();
       await seedOrders();
       await seedReceptionWorkflow();
       await seedLabAndScanWorkflow();

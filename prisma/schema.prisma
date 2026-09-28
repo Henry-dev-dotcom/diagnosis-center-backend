@@ -98,6 +98,8 @@ model Facility {
   admissions                Admission[]
   bedAssignments            BedAssignment[]
   medicationAdministrations MedicationAdministration[]
+  theatres                  Theatre[]
+  surgeries                 Surgery[]
 
   @@index([status])
 }
@@ -390,6 +392,8 @@ model User {
   dischargesDone      Admission[]                @relation("DischargedBy")
   bedMovesMade        BedAssignment[]            @relation("BedAssignedBy")
   medicationsGiven    MedicationAdministration[] @relation("AdministeredBy")
+  surgeriesBooked     Surgery[]                  @relation("SurgeryBookedBy")
+  surgeriesPerformed  Surgery[]                  @relation("SurgerySurgeon")
 
   @@unique([facilityId, username])
   @@unique([facilityId, email])
@@ -535,6 +539,7 @@ model Patient {
   allergies     PatientAllergy[]
   prescriptions Prescription[]
   admissions    Admission[]
+  surgeries     Surgery[]
 
   @@unique([facilityId, patientCode])
   @@index([facilityId])
@@ -671,6 +676,7 @@ model CatalogItem {
   parameters   ReferenceParameter[]
   orderItems   OrderItem[]
   invoiceItems InvoiceItem[]
+  surgeries    Surgery[]
 
   facility Facility @relation(fields: [facilityId], references: [id])
 
@@ -1782,6 +1788,7 @@ enum ClinicalNoteType {
   PROGRESS
   DISCHARGE
   NURSING
+  OPERATION
 }
 
 enum DiagnosisType {
@@ -1845,6 +1852,7 @@ model Encounter {
   admission         Admission?     @relation("AdmissionEncounter")
   /// Admissions that started from this (OPD/emergency) visit.
   admissionsStarted Admission[]    @relation("AdmissionSource")
+  surgeries         Surgery[]
 
   @@unique([facilityId, encounterCode])
   @@index([facilityId])
@@ -2320,4 +2328,100 @@ model MedicationAdministration {
 
   @@index([facilityId])
   @@index([admissionId, administeredAt])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4B: operating theatre. A Surgery belongs to an open visit or inpatient
+// stay; the WHO Surgical Safety Checklist (sign in, time out, sign out) gates
+// each step, and the operation note is written to that encounter.
+// ---------------------------------------------------------------------------
+
+enum SurgeryStatus {
+  SCHEDULED
+  IN_THEATRE
+  COMPLETED
+  CANCELLED
+}
+
+enum SurgeryUrgency {
+  ELECTIVE
+  URGENT
+  EMERGENCY
+}
+
+enum AnaesthesiaType {
+  GENERAL
+  SPINAL
+  EPIDURAL
+  REGIONAL_BLOCK
+  LOCAL
+  SEDATION
+}
+
+model Theatre {
+  id         String   @id @default(cuid())
+  facilityId String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  code       String
+  name       String
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  facility  Facility  @relation(fields: [facilityId], references: [id])
+  surgeries Surgery[]
+
+  @@unique([facilityId, code])
+  @@index([facilityId])
+}
+
+model Surgery {
+  id                 String           @id @default(cuid())
+  facilityId         String           @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  surgeryCode        String
+  patientId          String
+  /// The open visit or inpatient stay the operation is part of.
+  encounterId        String
+  theatreId          String
+  /// The SERVICE catalog item charged when the operation is completed.
+  procedureItemId    String?
+  procedureName      String
+  urgency            SurgeryUrgency   @default(ELECTIVE)
+  anaesthesia        AnaesthesiaType?
+  status             SurgeryStatus    @default(SCHEDULED)
+  scheduledStart     DateTime
+  scheduledEnd       DateTime
+  surgeonId          String?
+  anaesthetistName   String?
+  assistants         String?
+  preopDiagnosis     String?
+  bookedById         String?
+  /// WHO checklist answers, keyed by phase (signIn, timeOut, signOut), with who and when.
+  checklist          Json             @default("{}")
+  signInAt           DateTime?
+  timeOutAt          DateTime?
+  signOutAt          DateTime?
+  startedAt          DateTime?
+  endedAt            DateTime?
+  procedurePerformed String?
+  findings           String?
+  complications      String?
+  bloodLossMl        Int?
+  specimens          String?
+  postOpPlan         String?
+  cancelReason       String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  facility      Facility     @relation(fields: [facilityId], references: [id])
+  patient       Patient      @relation(fields: [patientId], references: [id])
+  encounter     Encounter    @relation(fields: [encounterId], references: [id])
+  theatre       Theatre      @relation(fields: [theatreId], references: [id])
+  procedureItem CatalogItem? @relation(fields: [procedureItemId], references: [id])
+  surgeon       User?        @relation("SurgerySurgeon", fields: [surgeonId], references: [id])
+  bookedBy      User?        @relation("SurgeryBookedBy", fields: [bookedById], references: [id])
+
+  @@unique([facilityId, surgeryCode])
+  @@index([facilityId])
+  @@index([theatreId, scheduledStart])
+  @@index([encounterId])
 }

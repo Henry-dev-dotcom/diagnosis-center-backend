@@ -22,7 +22,8 @@ export const MODULE_KEYS = [
   'finance',
   'clinician_portal',
   'results_delivery',
-  'reports'
+  'reports',
+  'theatre'
 ] as const;
 
 export type ModuleKey = (typeof MODULE_KEYS)[number];
@@ -48,7 +49,8 @@ export const MODULES: readonly ModuleDefinition[] = [
   { key: 'finance', name: 'Finance', category: 'finance', dependsOn: ['billing'], description: 'Cashier shifts, float, expenses and the account ledger.' },
   { key: 'clinician_portal', name: 'Clinician Portal', category: 'clinical', dependsOn: [], description: 'Clinicians place orders, track them and view released results.' },
   { key: 'results_delivery', name: 'Results Delivery', category: 'clinical', dependsOn: [], description: 'Releasing results and delivering them by email, SMS, WhatsApp or PDF.' },
-  { key: 'reports', name: 'Reports & Analytics', category: 'insights', dependsOn: [], description: 'Operational, turnaround, revenue and audit reports.' }
+  { key: 'reports', name: 'Reports & Analytics', category: 'insights', dependsOn: [], description: 'Operational, turnaround, revenue and audit reports.' },
+  { key: 'theatre', name: 'Theatre & Surgery', category: 'clinical', dependsOn: [], description: 'Operating theatre list, surgical safety checklist, operation notes and procedure charges.' }
 ];
 
 export function isModuleKey(value: string): value is ModuleKey {
