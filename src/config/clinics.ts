@@ -15,7 +15,8 @@ export const CLINIC_MODULE: Record<Clinic, ModuleKey> = {
   [Clinic.PHYSIOTHERAPY]: 'physiotherapy',
   [Clinic.DIETETICS]: 'dietetics',
   [Clinic.ANTENATAL]: 'maternity',
-  [Clinic.POSTNATAL]: 'maternity'
+  [Clinic.POSTNATAL]: 'maternity',
+  [Clinic.CHILD_WELFARE]: 'child_health'
 };
 
 export const CLINIC_NAME: Record<Clinic, string> = {
@@ -25,7 +26,8 @@ export const CLINIC_NAME: Record<Clinic, string> = {
   [Clinic.PHYSIOTHERAPY]: 'Physiotherapy',
   [Clinic.DIETETICS]: 'Dietetics',
   [Clinic.ANTENATAL]: 'Antenatal clinic',
-  [Clinic.POSTNATAL]: 'Postnatal clinic'
+  [Clinic.POSTNATAL]: 'Postnatal clinic',
+  [Clinic.CHILD_WELFARE]: 'Child welfare clinic'
 };
 
 /** Who may record a form: clinicians (consult permission), or also triage/nursing staff. */
@@ -42,5 +44,6 @@ export const FORM_RULES: Record<ClinicalFormType, { module: ModuleKey; writers: 
   [ClinicalFormType.NUTRITION_ASSESSMENT]: { module: 'dietetics', writers: 'clinical_staff' },
   // Midwives are nurses in the role model, so antenatal and postnatal care is open to clinical staff.
   [ClinicalFormType.ANC_VISIT]: { module: 'maternity', writers: 'clinical_staff', pregnancy: 'ACTIVE' },
-  [ClinicalFormType.POSTNATAL_CHECK]: { module: 'maternity', writers: 'clinical_staff', pregnancy: 'DELIVERED' }
+  [ClinicalFormType.POSTNATAL_CHECK]: { module: 'maternity', writers: 'clinical_staff', pregnancy: 'DELIVERED' },
+  [ClinicalFormType.GROWTH]: { module: 'child_health', writers: 'clinical_staff' }
 };

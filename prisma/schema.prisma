@@ -103,6 +103,7 @@ model Facility {
   pregnancies               Pregnancy[]
   deliveries                Delivery[]
   newborns                  Newborn[]
+  immunizations             Immunization[]
   surgeries                 Surgery[]
 
   @@index([status])
@@ -401,6 +402,8 @@ model User {
   formsWritten        ClinicalForm[]             @relation("FormAuthor")
   pregnanciesBooked   Pregnancy[]                @relation("PregnancyBookedBy")
   deliveriesAttended  Delivery[]                 @relation("DeliveryAttendant")
+  immunizationsGiven  Immunization[]             @relation("ImmunizationGivenBy")
+  immunizationsVoided Immunization[]             @relation("ImmunizationVoidedBy")
 
   @@unique([facilityId, username])
   @@unique([facilityId, email])
@@ -551,6 +554,7 @@ model Patient {
   pregnancies   Pregnancy[]
   /// Set when this patient was born here and registered at delivery.
   birthRecord   Newborn?         @relation("NewbornPatient")
+  immunizations Immunization[]
 
   @@unique([facilityId, patientCode])
   @@index([facilityId])
@@ -1869,6 +1873,7 @@ model Encounter {
   surgeries         Surgery[]
   forms             ClinicalForm[]
   deliveries        Delivery[]
+  immunizations     Immunization[]
 
   @@unique([facilityId, encounterCode])
   @@index([facilityId])
@@ -2457,6 +2462,7 @@ enum Clinic {
   DIETETICS
   ANTENATAL
   POSTNATAL
+  CHILD_WELFARE
 }
 
 enum ClinicalFormType {
@@ -2467,6 +2473,7 @@ enum ClinicalFormType {
   NUTRITION_ASSESSMENT
   ANC_VISIT
   POSTNATAL_CHECK
+  GROWTH
 }
 
 model ClinicalForm {
@@ -2628,4 +2635,42 @@ model Newborn {
 
   @@unique([deliveryId, birthOrder])
   @@index([facilityId])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4C: child health. Immunizations are recorded per vaccine dose (the
+// vaccine code carries the dose, e.g. PENTA2) against the schedule in
+// src/config/immunizationSchedule.ts. A record entered in error is voided,
+// never deleted; the database allows one live record per child per dose.
+// ---------------------------------------------------------------------------
+
+model Immunization {
+  id             String    @id @default(cuid())
+  facilityId     String    @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  patientId      String
+  /// Schedule code including the dose, e.g. BCG, OPV0, PENTA1, MR2.
+  vaccine        String
+  givenAt        DateTime
+  batchNumber    String?
+  expiryDate     DateTime?
+  site           String?
+  /// Copied from a child health card: given at another facility or before this system.
+  givenElsewhere Boolean   @default(false)
+  givenById      String?
+  encounterId    String?
+  notes          String?
+  voidedAt       DateTime?
+  voidedById     String?
+  voidReason     String?
+  createdAt      DateTime  @default(now())
+
+  facility  Facility   @relation(fields: [facilityId], references: [id])
+  patient   Patient    @relation(fields: [patientId], references: [id])
+  encounter Encounter? @relation(fields: [encounterId], references: [id])
+  givenBy   User?      @relation("ImmunizationGivenBy", fields: [givenById], references: [id])
+  voidedBy  User?      @relation("ImmunizationVoidedBy", fields: [voidedById], references: [id])
+
+  @@index([facilityId])
+  @@index([patientId])
+  @@index([givenAt])
 }

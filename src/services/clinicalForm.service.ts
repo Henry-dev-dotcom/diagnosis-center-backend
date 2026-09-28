@@ -45,7 +45,9 @@ export function muacCategory(muacCm: number, ageMonths: number | null) {
 
 type PregnancyForDerive = { lmp: Date | null; eddByLmp: Date | null; eddByScan: Date | null; delivery: { deliveredAt: Date } | null } | null;
 
-function derive(type: ClinicalFormType, data: Record<string, unknown>, ageMonths: number | null, pregnancy: PregnancyForDerive) {
+type PreviousGrowth = { at: Date; weightKg: number } | null;
+
+function derive(type: ClinicalFormType, data: Record<string, unknown>, ageMonths: number | null, pregnancy: PregnancyForDerive, previousGrowth: PreviousGrowth = null) {
   const now = new Date();
   if (type === ClinicalFormType.ANC_VISIT) {
     const ga = pregnancy ? gestationalAge(pregnancy, now) : null;
@@ -55,6 +57,21 @@ function derive(type: ClinicalFormType, data: Record<string, unknown>, ageMonths
   if (type === ClinicalFormType.POSTNATAL_CHECK) {
     const dayPostpartum = pregnancy?.delivery ? daysBetween(pregnancy.delivery.deliveredAt, now) : null;
     return { ...data, derived: { dayPostpartum, alerts: postnatalAlerts(data as Parameters<typeof postnatalAlerts>[0]) } };
+  }
+  if (type === ClinicalFormType.GROWTH) {
+    const muac = data.muacCm as number | undefined;
+    const oedema = data.oedema && data.oedema !== 'NONE';
+    const derived: Record<string, unknown> = { ageMonths };
+    if (muac !== undefined) derived.muacCategory = muacCategory(muac, ageMonths);
+    if (oedema && ageMonths !== null && ageMonths < 60) derived.muacCategory = 'Severe acute malnutrition (oedema)';
+    if (previousGrowth) {
+      const days = Math.max(1, daysBetween(previousGrowth.at, now));
+      const change = Math.round(((data.weightKg as number) - previousGrowth.weightKg) * 1000);
+      derived.weightChange = { grams: change, days, since: previousGrowth.at.toISOString() };
+      // A child under two who has not gained weight in a month is growth-faltering.
+      if (ageMonths !== null && ageMonths < 24 && days >= 28 && change <= 0) derived.alerts = ['Growth faltering: no weight gain since the last visit'];
+    }
+    return { ...data, derived };
   }
   if (type !== ClinicalFormType.NUTRITION_ASSESSMENT) return data;
   const weight = data.weightKg as number;
@@ -118,7 +135,13 @@ export async function addClinicalForm(
     throw new AppError('Only antenatal and postnatal forms belong to a pregnancy', 400, 'PREGNANCY_NOT_EXPECTED');
   }
 
-  const data = derive(body.type, parsed.data as Record<string, unknown>, ageInMonths(encounter.patient.dateOfBirth, new Date()), pregnancy);
+  let previousGrowth: PreviousGrowth = null;
+  if (body.type === ClinicalFormType.GROWTH) {
+    const last = await prisma.clinicalForm.findFirst({ where: { patientId: encounter.patientId, type: ClinicalFormType.GROWTH }, orderBy: { createdAt: 'desc' } });
+    const weight = last && typeof last.data === 'object' && last.data && !Array.isArray(last.data) ? Number((last.data as Record<string, unknown>).weightKg) : NaN;
+    if (last && Number.isFinite(weight)) previousGrowth = { at: last.createdAt, weightKg: weight };
+  }
+  const data = derive(body.type, parsed.data as Record<string, unknown>, ageInMonths(encounter.patient.dateOfBirth, new Date()), pregnancy, previousGrowth);
   const form = await prisma.clinicalForm.create({
     data: {
       encounterId,

@@ -23,6 +23,7 @@ import { pharmacyRoutes } from './pharmacy.routes.js';
 import { inpatientRoutes } from './inpatient.routes.js';
 import { theatreRoutes } from './theatre.routes.js';
 import { maternityRoutes } from './maternity.routes.js';
+import { childHealthRoutes } from './childHealth.routes.js';
 
 export const apiRouter = Router();
 
@@ -51,3 +52,4 @@ apiRouter.use(pharmacyRoutes);
 apiRouter.use(inpatientRoutes);
 apiRouter.use(theatreRoutes);
 apiRouter.use(maternityRoutes);
+apiRouter.use(childHealthRoutes);

@@ -159,6 +159,21 @@ const postnatalCheck = z.object({
   plan: optionalText(2000)
 });
 
+const growth = z.object({
+  weightKg: z.coerce.number().min(0.3).max(60),
+  lengthCm: z.coerce.number().min(25).max(150).optional(),
+  // Recumbent length under 2 years, standing height after.
+  measuredLying: z.boolean().optional(),
+  headCircumferenceCm: z.coerce.number().min(20).max(60).optional(),
+  muacCm: z.coerce.number().min(5).max(30).optional(),
+  oedema: z.enum(['NONE', 'MILD', 'MODERATE', 'SEVERE']).default('NONE'),
+  feeding: z.enum(['EXCLUSIVE_BREASTFEEDING', 'MIXED', 'COMPLEMENTARY', 'FAMILY_FOOD']).optional(),
+  milestones: optionalText(1000),
+  counselling: optionalText(1000),
+  vitaminAGiven: z.boolean().default(false),
+  dewormingGiven: z.boolean().default(false)
+});
+
 export const FORM_SCHEMAS: Record<ClinicalFormType, z.ZodTypeAny> = {
   [ClinicalFormType.DENTAL_CHART]: dentalChart,
   [ClinicalFormType.EYE_EXAM]: eyeExam,
@@ -166,7 +181,8 @@ export const FORM_SCHEMAS: Record<ClinicalFormType, z.ZodTypeAny> = {
   [ClinicalFormType.PHYSIO_SESSION]: physioSession,
   [ClinicalFormType.NUTRITION_ASSESSMENT]: nutritionAssessment,
   [ClinicalFormType.ANC_VISIT]: ancVisit,
-  [ClinicalFormType.POSTNATAL_CHECK]: postnatalCheck
+  [ClinicalFormType.POSTNATAL_CHECK]: postnatalCheck,
+  [ClinicalFormType.GROWTH]: growth
 };
 
 // The envelope; the data itself is checked against FORM_SCHEMAS[type] in the service.

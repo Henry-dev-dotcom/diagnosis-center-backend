@@ -138,7 +138,11 @@ export const PERMISSIONS = {
   // Maternity, Phase 4C.
   MATERNITY_READ: 'maternity:read',
   MATERNITY_REGISTER: 'maternity:register',
-  MATERNITY_DELIVER: 'maternity:deliver'
+  MATERNITY_DELIVER: 'maternity:deliver',
+
+  // Child health and immunisation, Phase 4C.
+  IMMUNIZATION_READ: 'immunization:read',
+  IMMUNIZATION_RECORD: 'immunization:record'
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -180,7 +184,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly
     // Pregnancy care and deliveries (Maternity module).
     PERMISSIONS.MATERNITY_READ,
     PERMISSIONS.MATERNITY_REGISTER,
-    PERMISSIONS.MATERNITY_DELIVER
+    PERMISSIONS.MATERNITY_DELIVER,
+    // Immunisations (Child Health module).
+    PERMISSIONS.IMMUNIZATION_READ,
+    PERMISSIONS.IMMUNIZATION_RECORD
   ],
   [UserRole.NURSE]: [
     PERMISSIONS.SYSTEM_READ,
@@ -202,7 +209,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly
     // Midwives: pregnancy booking, antenatal care and deliveries.
     PERMISSIONS.MATERNITY_READ,
     PERMISSIONS.MATERNITY_REGISTER,
-    PERMISSIONS.MATERNITY_DELIVER
+    PERMISSIONS.MATERNITY_DELIVER,
+    // Child welfare clinic: immunisations and growth monitoring.
+    PERMISSIONS.IMMUNIZATION_READ,
+    PERMISSIONS.IMMUNIZATION_RECORD
   ],
   [UserRole.PHARMACIST]: [
     PERMISSIONS.SYSTEM_READ,

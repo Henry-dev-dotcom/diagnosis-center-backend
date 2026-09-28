@@ -360,6 +360,7 @@ async function resetDemoData() {
     prisma.order.updateMany({ where: { encounterId: { not: null } }, data: { encounterId: null } }),
     prisma.invoice.updateMany({ where: { encounterId: { not: null } }, data: { encounterId: null } }),
     // Inpatient care (Phase 4B) points at prescriptions and encounters, so it goes first.
+    prisma.immunization.deleteMany(),
     prisma.clinicalForm.deleteMany(),
     prisma.newborn.deleteMany(),
     prisma.delivery.deleteMany(),
