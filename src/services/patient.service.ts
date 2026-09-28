@@ -1,6 +1,7 @@
 import { Prisma, UserRole } from '@prisma/client';
 import type { Request } from 'express';
 import { prisma } from './prisma.service.js';
+import { nextCode as issueCode } from './codeSequence.service.js';
 import { createAuditLog, getRequestAuditContext } from './audit.service.js';
 import { getPagination, paginationMeta, safeOrderBy } from './query.service.js';
 import { AppError } from '../utils/appError.js';
@@ -110,8 +111,7 @@ async function assertPatientAccess(patientId: string, user?: AuthUser) {
 }
 
 async function nextPatientCode() {
-  const count = await prisma.patient.count();
-  return `PAT-${String(count + 1).padStart(4, '0')}`;
+  return issueCode(prisma, 'PAT');
 }
 
 function patientCreateData(body: PatientPayload, actorId?: string | null): Prisma.PatientCreateInput {

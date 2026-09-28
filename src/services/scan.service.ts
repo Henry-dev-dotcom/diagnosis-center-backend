@@ -10,6 +10,7 @@ import {
 } from '@prisma/client';
 import type { Request } from 'express';
 import { prisma } from './prisma.service.js';
+import { nextCode as issueCode } from './codeSequence.service.js';
 import { normalizeAndStoreFile } from './fileStorage.service.js';
 import { createAuditLog, getRequestAuditContext } from './audit.service.js';
 import { getPagination, paginationMeta, safeOrderBy } from './query.service.js';
@@ -154,37 +155,20 @@ function toDate(value: Date | string | undefined, fallback = new Date()) {
   return Number.isNaN(date.getTime()) ? fallback : date;
 }
 
-const uniqueCodeFieldByModel: Record<string, string> = {
-  scanBooking: 'bookingCode',
-  scanResult: 'resultCode',
-  report: 'reportCode'
-};
-
-async function nextCode(model: 'scanBooking' | 'scanResult' | 'report', prefix: string, tx: Prisma.TransactionClient = prisma) {
-  // Existing codes can be non-contiguous (seed gaps, deletions), so a row
-  // count collides with the unique constraint; derive from the max suffix.
-  const codeField = uniqueCodeFieldByModel[model];
-  const rows = await (tx as any)[model].findMany({
-    where: { [codeField]: { startsWith: `${prefix}-` } },
-    select: { [codeField]: true }
-  });
-  const max = rows.reduce((current: number, row: Record<string, string>) => {
-    const suffix = Number(String(row[codeField]).slice(prefix.length + 1));
-    return Number.isFinite(suffix) && suffix > current ? suffix : current;
-  }, 0);
-  return `${prefix}-${String(max + 1).padStart(4, '0')}`;
+function nextCode(series: 'SCN-BKG' | 'SCN-RES' | 'RPT', tx: Prisma.TransactionClient = prisma) {
+  return issueCode(tx, series);
 }
 
 async function nextBookingCode(tx: Prisma.TransactionClient = prisma) {
-  return nextCode('scanBooking', 'SCN-BKG', tx);
+  return nextCode('SCN-BKG', tx);
 }
 
 async function nextScanResultCode(tx: Prisma.TransactionClient = prisma) {
-  return nextCode('scanResult', 'SCN-RES', tx);
+  return nextCode('SCN-RES', tx);
 }
 
 async function nextReportCode(tx: Prisma.TransactionClient = prisma) {
-  return nextCode('report', 'RPT', tx);
+  return nextCode('RPT', tx);
 }
 
 async function getScanOrderItemsForAcceptance(body: AcceptScanPayload, routeOrderId?: string) {

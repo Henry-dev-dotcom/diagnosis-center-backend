@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { sendCreated, sendSuccess } from '../utils/apiResponse.js';
 import { searchIcd10 } from '../data/icd10Common.js';
+import { formulary } from '../services/pharmacy.service.js';
 import {
   addAllergy,
   addDiagnosis,
@@ -15,6 +16,7 @@ import {
   patientTimeline,
   prescribe,
   recordVitals,
+  registerEmergencyArrival,
   resolveDiagnosis,
   setAllergyActive,
   startConsultation,
@@ -72,4 +74,11 @@ export const updateAllergyController = asyncHandler(async (req: Request, res: Re
 );
 export const patientTimelineController = asyncHandler(async (req: Request, res: Response) =>
   sendSuccess(res, 'Patient timeline loaded', await patientTimeline(req.params.id))
+);
+
+export const formularyController = asyncHandler(async (req: Request, res: Response) =>
+  sendSuccess(res, 'Drug list loaded', await formulary(typeof req.query.q === 'string' ? req.query.q : undefined))
+);
+export const emergencyRegistrationController = asyncHandler(async (req: Request, res: Response) =>
+  sendCreated(res, 'Emergency arrival registered', await registerEmergencyArrival(req.body, req))
 );

@@ -2,12 +2,14 @@ import { Router } from 'express';
 import { UserRole } from '@prisma/client';
 import { PERMISSIONS } from '../config/permissions.js';
 import { requireAnyPermission, requireAuth, requirePermission, requireRole } from '../middleware/auth.js';
-import { requireModule } from '../middleware/requireModule.js';
+import { requireAnyModule } from '../middleware/requireModule.js';
 import { validateRequest } from '../middleware/validate.js';
 import { idParamSchema } from '../validators/common.validators.js';
 import {
   allergySchema,
   cancelSchema,
+  emergencyRegistrationSchema,
+  formularyQuerySchema,
   completeEncounterSchema,
   diagnosisSchema,
   encounterOrderSchema,
@@ -26,6 +28,8 @@ import {
   addNoteController,
   cancelEncounterController,
   completeEncounterController,
+  emergencyRegistrationController,
+  formularyController,
   getEncounterController,
   icd10SearchController,
   listAllergiesController,
@@ -48,12 +52,14 @@ export const encountersRoutes = Router();
 encountersRoutes.use(
   '/encounters',
   requireAuth,
-  requireModule('opd'),
+  requireAnyModule('opd', 'emergency'),
   requireRole(UserRole.ADMIN, UserRole.DOCTOR, UserRole.NURSE, UserRole.RECEPTIONIST)
 );
 encountersRoutes.get('/encounters', requirePermission(P.ENCOUNTERS_READ), validateRequest({ query: encounterQuerySchema }), listEncountersController);
 encountersRoutes.post('/encounters', requirePermission(P.ENCOUNTERS_CREATE), validateRequest({ body: startEncounterSchema }), startEncounterController);
 encountersRoutes.get('/encounters/diagnosis-codes', requirePermission(P.ENCOUNTERS_READ), validateRequest({ query: icd10QuerySchema }), icd10SearchController);
+encountersRoutes.get('/encounters/formulary', requirePermission(P.PHARMACY_FORMULARY_READ), validateRequest({ query: formularyQuerySchema }), formularyController);
+encountersRoutes.post('/encounters/emergency-arrivals', requirePermission(P.ENCOUNTERS_CREATE), validateRequest({ body: emergencyRegistrationSchema }), emergencyRegistrationController);
 encountersRoutes.get('/encounters/:id', requirePermission(P.ENCOUNTERS_READ), validateRequest({ params: idParamSchema }), getEncounterController);
 encountersRoutes.post('/encounters/:id/vitals', requireAnyPermission(P.ENCOUNTERS_TRIAGE, P.ENCOUNTERS_CONSULT), validateRequest({ params: idParamSchema, body: vitalsSchema }), recordVitalsController);
 encountersRoutes.post('/encounters/:id/start-consultation', requirePermission(P.ENCOUNTERS_CONSULT), validateRequest({ params: idParamSchema }), startConsultationController);

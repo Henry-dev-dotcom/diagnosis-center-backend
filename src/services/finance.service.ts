@@ -8,6 +8,7 @@ import {
 } from '@prisma/client';
 import type { Request } from 'express';
 import { prisma } from './prisma.service.js';
+import { nextCode as issueCode } from './codeSequence.service.js';
 import { roundMoney } from '../utils/money.js';
 import { createAuditLog, getRequestAuditContext } from './audit.service.js';
 import { getPagination, paginationMeta, safeOrderBy } from './query.service.js';
@@ -88,18 +89,15 @@ function expenseStatus(total: number, paid: number) {
 }
 
 async function nextShiftCode(tx: Prisma.TransactionClient = prisma) {
-  const count = await tx.cashierShift.count();
-  return `SHIFT-${String(count + 1).padStart(4, '0')}`;
+  return issueCode(tx, 'SHIFT');
 }
 
 async function nextExpenseCode(tx: Prisma.TransactionClient = prisma) {
-  const count = await tx.expense.count();
-  return `EXP-${String(count + 1).padStart(4, '0')}`;
+  return issueCode(tx, 'EXP');
 }
 
 async function nextLedgerCode(tx: Prisma.TransactionClient = prisma) {
-  const count = await tx.ledgerEntry.count();
-  return `LED-${String(count + 1).padStart(4, '0')}`;
+  return issueCode(tx, 'LED');
 }
 
 async function getOpenShift(actorId: string) {

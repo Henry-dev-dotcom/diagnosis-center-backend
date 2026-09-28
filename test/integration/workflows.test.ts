@@ -70,11 +70,12 @@ describe('reception walk-in', () => {
       expect(patient.orders[0].invoice?.facilityId).toBe(facilityId);
       expect(patient.visits[0]?.facilityId).toBe(facilityId);
     }
-    // Each facility numbers its own records: the new code follows that
-    // facility's own count, and the same human-readable code can exist in both.
+    // Each facility numbers its own records: the new code is the next after that
+    // facility's highest standard code, and the same code can exist in both.
     for (const [patient, facilityId] of [[inA, FACILITY_A.id], [inB, FACILITY_B.id]] as const) {
-      const count = await runWithFacility(facilityId, () => prisma.patient.count());
-      expect(patient.patientCode).toBe(`PAT-${String(count).padStart(4, '0')}`);
+      const others = await runWithFacility(facilityId, () => prisma.patient.findMany({ where: { id: { not: patient.id } }, select: { patientCode: true } }));
+      const highest = Math.max(0, ...others.map((p) => /^PAT-(\d+)$/.exec(p.patientCode)?.[1]).filter(Boolean).map(Number));
+      expect(patient.patientCode).toBe(`PAT-${String(highest + 1).padStart(4, '0')}`);
     }
     const shared = await Promise.all(
       [FACILITY_A.id, FACILITY_B.id].map((facilityId) =>
@@ -82,6 +83,19 @@ describe('reception walk-in', () => {
       )
     );
     expect(shared.map((p) => p?.facilityId)).toEqual([FACILITY_A.id, FACILITY_B.id]);
+  });
+
+  it('simultaneous walk-ins all succeed with distinct codes', async () => {
+    const aToken = await token(FACILITY_A.code, 'reception');
+    const results = await Promise.all(
+      Array.from({ length: 8 }, (_, i) => post('/reception/walk-ins', aToken, walkIn('t2', `Rush${i}`)))
+    );
+    expect(results.map((r) => r.status), results.map((r) => r.text.slice(0, 120)).join('\n')).toEqual(Array(8).fill(201));
+    const patients = await runWithFacility(FACILITY_A.id, () =>
+      prisma.patient.findMany({ where: { lastName: { startsWith: 'Rush' } }, include: { orders: true } })
+    );
+    expect(new Set(patients.map((p) => p.patientCode)).size).toBe(8);
+    expect(new Set(patients.flatMap((p) => p.orders.map((o) => o.orderCode))).size).toBe(8);
   });
 
   it('cannot order another facility\'s catalog item', async () => {

@@ -78,9 +78,13 @@ export const encounterOrderSchema = z.object({
 
 export const prescriptionSchema = z.object({
   notes: optionalText(1000),
+  // Required when a line conflicts with a recorded allergy.
+  allergyOverrideReason: optionalText(300),
   items: z
     .array(
       z.object({
+        // Set when picked from the pharmacy's drug list (Pharmacy module).
+        drugId: z.string().min(1).optional(),
         drugName: text(160).min(2, 'Drug name is required'),
         strength: optionalText(60),
         dosageForm: optionalText(60),
@@ -112,5 +116,19 @@ export const allergySchema = z.object({
 export const updateAllergySchema = z.object({ active: z.boolean() });
 
 export const icd10QuerySchema = z.object({ q: z.string().trim().max(80).default('') });
+
+export const formularyQuerySchema = z.object({ q: z.string().trim().max(80).optional() });
+
+// Emergency arrivals who cannot give details yet: register now, identify later.
+export const emergencyRegistrationSchema = z.object({
+  firstName: optionalText(80),
+  lastName: optionalText(80),
+  gender: z.enum(['MALE', 'FEMALE', 'OTHER', 'UNKNOWN']).default('UNKNOWN'),
+  estimatedAgeYears: z.coerce.number().int().min(0).max(120).optional(),
+  phone: optionalText(30),
+  chiefComplaint: text(500).min(2, 'Describe why the patient came in'),
+  triageLevel: z.nativeEnum(TriageLevel).optional(),
+  feeItemId: z.string().min(1).optional()
+});
 
 export const subIdParamSchema = z.object({ id: z.string().min(1), subId: z.string().min(1) });

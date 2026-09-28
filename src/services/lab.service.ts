@@ -12,6 +12,7 @@ import {
 } from '@prisma/client';
 import type { Request } from 'express';
 import { prisma } from './prisma.service.js';
+import { nextCode as issueCode } from './codeSequence.service.js';
 import { normalizeAndStoreFile, type IncomingFilePayload } from './fileStorage.service.js';
 import { createAuditLog, getRequestAuditContext } from './audit.service.js';
 import { getPagination, paginationMeta, safeOrderBy } from './query.service.js';
@@ -129,50 +130,24 @@ function toDate(value: Date | string | undefined, fallback = new Date()) {
   return Number.isNaN(date.getTime()) ? fallback : date;
 }
 
-const uniqueCodeFieldByModel: Record<string, string> = {
-  labSample: 'sampleCode',
-  labResult: 'resultCode',
-  report: 'reportCode',
-  inventoryItem: 'itemCode'
-};
-
-async function nextCode(model: 'labSample' | 'labResult' | 'report' | 'qualityControlRun' | 'inventoryItem' | 'inventoryTransaction', prefix: string, tx: Prisma.TransactionClient = prisma) {
-  const codeField = uniqueCodeFieldByModel[model];
-  if (!codeField) {
-    const count = await (tx as any)[model].count();
-    return `${prefix}-${String(count + 1).padStart(4, '0')}`;
-  }
-  // Existing codes can be non-contiguous (seed gaps, deletions), so a row
-  // count collides with the unique constraint; derive from the max suffix.
-  const rows = await (tx as any)[model].findMany({
-    where: { [codeField]: { startsWith: `${prefix}-` } },
-    select: { [codeField]: true }
-  });
-  const max = rows.reduce((current: number, row: Record<string, string>) => {
-    const suffix = Number(String(row[codeField]).slice(prefix.length + 1));
-    return Number.isFinite(suffix) && suffix > current ? suffix : current;
-  }, 0);
-  return `${prefix}-${String(max + 1).padStart(4, '0')}`;
+function nextCode(series: 'SMP' | 'RES' | 'RPT' | 'LAB-INV', tx: Prisma.TransactionClient = prisma) {
+  return issueCode(tx, series);
 }
 
 async function nextSampleCode(tx: Prisma.TransactionClient = prisma) {
-  return nextCode('labSample', 'SMP', tx);
+  return nextCode('SMP', tx);
 }
 
 async function nextResultCode(tx: Prisma.TransactionClient = prisma) {
-  return nextCode('labResult', 'RES', tx);
+  return nextCode('RES', tx);
 }
 
 async function nextReportCode(tx: Prisma.TransactionClient = prisma) {
-  return nextCode('report', 'RPT', tx);
-}
-
-async function nextQcCode(tx: Prisma.TransactionClient = prisma) {
-  return nextCode('qualityControlRun', 'QC', tx);
+  return nextCode('RPT', tx);
 }
 
 async function nextInventoryCode(tx: Prisma.TransactionClient = prisma) {
-  return nextCode('inventoryItem', 'LAB-INV', tx);
+  return nextCode('LAB-INV', tx);
 }
 
 async function getLabOrderItemsForAcceptance(body: AcceptSamplePayload, routeOrderId?: string) {
@@ -710,7 +685,6 @@ export async function createQualityControlRun(body: QcPayload, req: Request) {
   if (body.catalogItemId) await getReferenceRanges(body.catalogItemId);
   const run = await prisma.qualityControlRun.create({
     data: {
-      id: await nextQcCode(),
       catalogItemId: cleanString(body.catalogItemId) as string | null,
       parameterName: body.parameterName,
       controlLevel: cleanString(body.controlLevel) as string | null,

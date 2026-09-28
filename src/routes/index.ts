@@ -19,6 +19,7 @@ import { notificationsRoutes } from './notifications.routes.js';
 import { filesRoutes } from './files.routes.js';
 import { platformRoutes } from './platform.routes.js';
 import { encountersRoutes, patientClinicalRoutes } from './encounters.routes.js';
+import { pharmacyRoutes } from './pharmacy.routes.js';
 
 export const apiRouter = Router();
 
@@ -43,3 +44,4 @@ apiRouter.use(filesRoutes);
 apiRouter.use(platformRoutes);
 apiRouter.use(encountersRoutes);
 apiRouter.use(patientClinicalRoutes);
+apiRouter.use(pharmacyRoutes);

@@ -30,6 +30,7 @@ model Facility {
   updatedAt DateTime       @updatedAt
 
   modules               FacilityModule[]
+  sequences             FacilitySequence[]
   facilityRoles         FacilityRole[]
   users                 User[]
   hospitals             Hospital[]
@@ -87,6 +88,11 @@ model Facility {
   patientAllergies      PatientAllergy[]
   prescriptions         Prescription[]
   prescriptionItems     PrescriptionItem[]
+  drugs                 Drug[]
+  drugBatches           DrugBatch[]
+  stockMovements        StockMovement[]
+  dispensations         Dispensation[]
+  dispensationItems     DispensationItem[]
 
   @@index([status])
 }
@@ -100,6 +106,7 @@ enum UserRole {
   SCAN_STAFF
   BILLING_STAFF
   NURSE
+  PHARMACIST
 }
 
 enum UserStatus {
@@ -370,6 +377,9 @@ model User {
   recordedDiagnoses   Diagnosis[]      @relation("DiagnosisRecordedBy")
   recordedAllergies   PatientAllergy[] @relation("AllergyRecordedBy")
   prescriptionsIssued Prescription[]   @relation("Prescriber")
+  receivedBatches     DrugBatch[]      @relation("BatchReceivedBy")
+  stockMovements      StockMovement[]  @relation("StockMovedBy")
+  dispensations       Dispensation[]   @relation("DispensedBy")
 
   @@unique([facilityId, username])
   @@unique([facilityId, email])
@@ -1289,10 +1299,11 @@ model Invoice {
   items     InvoiceItem[]
   payments  Payment[]
 
-  facility    Facility   @relation(fields: [facilityId], references: [id])
+  facility     Facility      @relation(fields: [facilityId], references: [id])
   /// Set for encounter charges (e.g. consultation fee) that are not tied to an order.
-  encounterId String?
-  encounter   Encounter? @relation(fields: [encounterId], references: [id])
+  encounterId  String?
+  encounter    Encounter?    @relation(fields: [encounterId], references: [id])
+  dispensation Dispensation?
 
   @@unique([facilityId, invoiceCode])
   @@index([facilityId])
@@ -1780,6 +1791,7 @@ enum AllergySeverity {
 
 enum PrescriptionStatus {
   ACTIVE
+  PARTIALLY_DISPENSED
   DISPENSED
   CANCELLED
 }
@@ -1937,14 +1949,17 @@ model Prescription {
   status           PrescriptionStatus @default(ACTIVE)
   notes            String?
   cancelReason     String?
+  /// Why the prescriber went ahead despite a recorded allergy.
+  allergyOverride  String?
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
 
-  facility   Facility           @relation(fields: [facilityId], references: [id])
-  encounter  Encounter          @relation(fields: [encounterId], references: [id])
-  patient    Patient            @relation(fields: [patientId], references: [id])
-  prescriber User?              @relation("Prescriber", fields: [prescriberId], references: [id])
-  items      PrescriptionItem[]
+  facility      Facility           @relation(fields: [facilityId], references: [id])
+  encounter     Encounter          @relation(fields: [encounterId], references: [id])
+  patient       Patient            @relation(fields: [patientId], references: [id])
+  prescriber    User?              @relation("Prescriber", fields: [prescriberId], references: [id])
+  items         PrescriptionItem[]
+  dispensations Dispensation[]
 
   @@unique([facilityId, prescriptionCode])
   @@index([facilityId])
@@ -1967,9 +1982,156 @@ model PrescriptionItem {
   quantity       Int?
   instructions   String?
 
-  facility     Facility     @relation(fields: [facilityId], references: [id])
-  prescription Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  facility          Facility           @relation(fields: [facilityId], references: [id])
+  prescription      Prescription       @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  /// The formulary drug, when the prescriber picked one; free-text lines are matched at dispensing.
+  drugId            String?
+  quantityDispensed Int                @default(0)
+  drug              Drug?              @relation(fields: [drugId], references: [id])
+  dispensedLines    DispensationItem[]
 
   @@index([facilityId])
   @@index([prescriptionId])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4A: pharmacy. Stock is held in batches; every change is a StockMovement.
+// Dispensing takes from the batches that expire first (FEFO).
+// ---------------------------------------------------------------------------
+
+enum StockMovementType {
+  RECEIPT
+  DISPENSE
+  ADJUSTMENT
+  EXPIRY_WRITE_OFF
+}
+
+model Drug {
+  id           String   @id @default(cuid())
+  facilityId   String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  drugCode     String
+  genericName  String
+  brandName    String?
+  strength     String?
+  dosageForm   String?
+  /// The unit stock is counted and sold in (tablet, capsule, bottle, vial...).
+  unit         String   @default("unit")
+  unitPrice    Decimal  @default(0) @db.Decimal(10, 2)
+  reorderLevel Int      @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  facility          Facility           @relation(fields: [facilityId], references: [id])
+  batches           DrugBatch[]
+  movements         StockMovement[]
+  prescriptionItems PrescriptionItem[]
+  dispensedLines    DispensationItem[]
+
+  @@unique([facilityId, drugCode])
+  @@index([facilityId])
+  @@index([genericName])
+}
+
+model DrugBatch {
+  id               String   @id @default(cuid())
+  facilityId       String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  drugId           String
+  batchNumber      String
+  expiryDate       DateTime
+  quantityReceived Int
+  quantityOnHand   Int
+  costPrice        Decimal? @db.Decimal(10, 2)
+  supplier         String?
+  receivedById     String?
+  receivedAt       DateTime @default(now())
+
+  facility   Facility        @relation(fields: [facilityId], references: [id])
+  drug       Drug            @relation(fields: [drugId], references: [id])
+  receivedBy User?           @relation("BatchReceivedBy", fields: [receivedById], references: [id])
+  movements  StockMovement[]
+
+  @@unique([facilityId, drugId, batchNumber])
+  @@index([facilityId])
+  @@index([drugId, expiryDate])
+}
+
+/// Append-only stock ledger. quantity is positive for stock in, negative for stock out.
+model StockMovement {
+  id                 String            @id @default(cuid())
+  facilityId         String            @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  drugId             String
+  batchId            String?
+  type               StockMovementType
+  quantity           Int
+  reason             String?
+  dispensationItemId String?
+  actorId            String?
+  createdAt          DateTime          @default(now())
+
+  facility         Facility          @relation(fields: [facilityId], references: [id])
+  drug             Drug              @relation(fields: [drugId], references: [id])
+  batch            DrugBatch?        @relation(fields: [batchId], references: [id])
+  dispensationItem DispensationItem? @relation(fields: [dispensationItemId], references: [id])
+  actor            User?             @relation("StockMovedBy", fields: [actorId], references: [id])
+
+  @@index([facilityId])
+  @@index([drugId, createdAt])
+}
+
+model Dispensation {
+  id               String   @id @default(cuid())
+  facilityId       String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  dispensationCode String
+  prescriptionId   String
+  dispensedById    String?
+  invoiceId        String?  @unique
+  notes            String?
+  /// Set when the pharmacist dispensed despite a recorded allergy.
+  allergyOverride  String?
+  dispensedAt      DateTime @default(now())
+
+  facility     Facility           @relation(fields: [facilityId], references: [id])
+  prescription Prescription       @relation(fields: [prescriptionId], references: [id])
+  dispensedBy  User?              @relation("DispensedBy", fields: [dispensedById], references: [id])
+  invoice      Invoice?           @relation(fields: [invoiceId], references: [id])
+  items        DispensationItem[]
+
+  @@unique([facilityId, dispensationCode])
+  @@index([facilityId])
+  @@index([prescriptionId])
+}
+
+model DispensationItem {
+  id                 String  @id @default(cuid())
+  facilityId         String  @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  dispensationId     String
+  prescriptionItemId String
+  drugId             String
+  quantity           Int
+  unitPrice          Decimal @db.Decimal(10, 2)
+
+  facility         Facility         @relation(fields: [facilityId], references: [id])
+  dispensation     Dispensation     @relation(fields: [dispensationId], references: [id], onDelete: Cascade)
+  prescriptionItem PrescriptionItem @relation(fields: [prescriptionItemId], references: [id])
+  drug             Drug             @relation(fields: [drugId], references: [id])
+  movements        StockMovement[]
+
+  @@index([facilityId])
+  @@index([dispensationId])
+}
+
+/// Per-facility counters for human-readable codes (PAT-0001, ORD-2026-0001, ...).
+/// Incremented with a row lock (src/services/codeSequence.service.ts) so
+/// simultaneous requests never receive the same code.
+model FacilitySequence {
+  facilityId String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  /// The code prefix this counter serves, e.g. "PAT-" or "ORD-2026-".
+  name       String
+  value      Int
+  updatedAt  DateTime @updatedAt
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@id([facilityId, name])
 }

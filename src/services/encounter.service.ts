@@ -4,20 +4,37 @@ import {
   ClinicalNoteType,
   DiagnosisStatus,
   EncounterStatus,
+  EncounterType,
   InvoiceStatus,
   Prisma,
   type OrderUrgency,
-  type EncounterType,
   type TriageLevel,
   type AllergySeverity,
   type DiagnosisType
 } from '@prisma/client';
 import { PERMISSIONS } from '../config/permissions.js';
 import { prisma } from './prisma.service.js';
+import { nextCode as issueCode } from './codeSequence.service.js';
 import { isModuleEnabled, permissionsInclude } from './facilityAccess.service.js';
 import { createAuditLog, getRequestAuditContext } from './audit.service.js';
 import { createWalkIn } from './reception.service.js';
+import { allergyConflicts } from './allergyCheck.js';
 import { AppError } from '../utils/appError.js';
+import type { ModuleKey } from '../config/modules.js';
+
+// Each visit type belongs to a department module (inpatient arrives with the wards in Phase 4B).
+const MODULE_FOR_ENCOUNTER_TYPE: Record<EncounterType, ModuleKey> = {
+  [EncounterType.OPD]: 'opd',
+  [EncounterType.EMERGENCY]: 'emergency',
+  [EncounterType.INPATIENT]: 'opd'
+};
+
+async function assertEncounterTypeAvailable(type: EncounterType) {
+  const moduleKey = MODULE_FOR_ENCOUNTER_TYPE[type];
+  if (!(await isModuleEnabled(moduleKey))) {
+    throw new AppError(`${type === EncounterType.EMERGENCY ? 'Emergency' : 'Outpatient'} visits are not enabled for your facility.`, 403, 'MODULE_DISABLED', { module: moduleKey });
+  }
+}
 
 /*
   Clinical encounters (Phase 3). An encounter is one patient visit; triage,
@@ -69,13 +86,8 @@ const encounterDetailInclude = {
   invoices: { orderBy: { createdAt: 'asc' }, include: { items: true } }
 } satisfies Prisma.EncounterInclude;
 
-function year() {
-  return new Date().getUTCFullYear();
-}
-
-async function nextCode(tx: Prisma.TransactionClient, prefix: 'ENC' | 'RX') {
-  const count = prefix === 'ENC' ? await tx.encounter.count() : await tx.prescription.count();
-  return `${prefix}-${year()}-${String(count + 1).padStart(4, '0')}`;
+function nextCode(tx: Prisma.TransactionClient, prefix: 'ENC' | 'RX') {
+  return issueCode(tx, prefix);
 }
 
 async function audit(req: Request, action: string, encounterId: string, details?: unknown) {
@@ -136,6 +148,7 @@ export async function startEncounter(
   body: { patientId: string; type: EncounterType; chiefComplaint?: string; visitId?: string; feeItemId?: string },
   req: Request
 ) {
+  await assertEncounterTypeAvailable(body.type);
   const patient = await prisma.patient.findUnique({ where: { id: body.patientId }, select: { id: true, hospitalId: true } });
   if (!patient) throw new AppError('Patient not found', 404, 'PATIENT_NOT_FOUND');
 
@@ -163,7 +176,7 @@ export async function startEncounter(
       const price = feeItem.price;
       await tx.invoice.create({
         data: {
-          invoiceCode: `INV-${String((await tx.invoice.count()) + 1).padStart(4, '0')}`,
+          invoiceCode: await issueCode(tx, 'INV'),
           encounterId: created.id,
           patientId: patient.id,
           hospitalId: patient.hospitalId,
@@ -313,7 +326,9 @@ export async function prescribe(
   id: string,
   body: {
     notes?: string;
+    allergyOverrideReason?: string;
     items: Array<{
+      drugId?: string;
       drugName: string;
       strength?: string;
       dosageForm?: string;
@@ -328,6 +343,27 @@ export async function prescribe(
   req: Request
 ) {
   const encounter = await loadActiveEncounter(id);
+
+  // Lines picked from the drug list must be active drugs in this facility.
+  const drugIds = [...new Set(body.items.map((item) => item.drugId).filter((drugId): drugId is string => Boolean(drugId)))];
+  const drugs = drugIds.length ? await prisma.drug.findMany({ where: { id: { in: drugIds }, isActive: true } }) : [];
+  if (drugs.length !== drugIds.length) throw new AppError('A chosen drug is not in the active drug list', 400, 'DRUG_NOT_AVAILABLE');
+  const drugById = new Map(drugs.map((drug) => [drug.id, drug]));
+
+  // Allergy safety net: block unless the prescriber records why they are proceeding.
+  const allergies = await prisma.patientAllergy.findMany({ where: { patientId: encounter.patientId, active: true }, select: { substance: true } });
+  const conflicts = allergyConflicts(
+    allergies,
+    body.items.flatMap((item) => {
+      const drug = item.drugId ? drugById.get(item.drugId) : undefined;
+      return [item.drugName, drug?.genericName, drug?.brandName];
+    })
+  );
+  if (conflicts.length && !body.allergyOverrideReason) {
+    throw new AppError(`Recorded allergy: ${conflicts.join(', ')}. Choose another medicine, or give a reason to prescribe anyway.`, 409, 'ALLERGY_CONFLICT', { allergies: conflicts });
+  }
+
+  const { allergyOverrideReason, ...rest } = body;
   const prescription = await prisma.$transaction(async (tx) =>
     tx.prescription.create({
       data: {
@@ -335,13 +371,64 @@ export async function prescribe(
         encounterId: id,
         patientId: encounter.patientId,
         prescriberId: req.user?.id ?? null,
-        notes: body.notes ?? null,
-        items: { create: body.items }
+        notes: rest.notes ?? null,
+        allergyOverride: conflicts.length ? `${conflicts.join(', ')}: ${allergyOverrideReason}` : null,
+        items: { create: rest.items }
       }
     })
   );
-  await audit(req, 'ENCOUNTER_PRESCRIPTION_ISSUED', id, { prescriptionId: prescription.id, lines: body.items.length });
+  await audit(req, 'ENCOUNTER_PRESCRIPTION_ISSUED', id, {
+    prescriptionId: prescription.id,
+    lines: body.items.length,
+    allergyOverride: conflicts.length ? allergyOverrideReason : undefined
+  });
   return getEncounter(id);
+}
+
+/**
+ * Registers an emergency arrival who may not be able to give details, and opens
+ * their visit in one step. Unknown names are recorded as such, to be corrected
+ * on the patient record once the patient is identified.
+ */
+export async function registerEmergencyArrival(
+  body: {
+    firstName?: string;
+    lastName?: string;
+    gender: string;
+    estimatedAgeYears?: number;
+    phone?: string;
+    chiefComplaint: string;
+    triageLevel?: TriageLevel;
+    feeItemId?: string;
+  },
+  req: Request
+) {
+  await assertEncounterTypeAvailable(EncounterType.EMERGENCY);
+  const estimatedBirth =
+    body.estimatedAgeYears === undefined ? null : new Date(Date.UTC(new Date().getUTCFullYear() - body.estimatedAgeYears, 0, 1));
+  const patient = await prisma.$transaction(async (tx) =>
+    tx.patient.create({
+      data: {
+        patientCode: await issueCode(tx, 'PAT'),
+        firstName: body.firstName || 'Unknown',
+        lastName: body.lastName || (body.firstName ? '(surname unknown)' : 'Emergency patient'),
+        gender: body.gender,
+        dateOfBirth: estimatedBirth,
+        phone: body.phone ?? null,
+        allergiesAndConditions: body.firstName && body.lastName ? null : 'Registered in Emergency before identification; confirm identity.',
+        createdById: req.user?.id ?? null
+      }
+    })
+  );
+  const encounter = await startEncounter(
+    { patientId: patient.id, type: EncounterType.EMERGENCY, chiefComplaint: body.chiefComplaint, feeItemId: body.feeItemId },
+    req
+  );
+  if (body.triageLevel) {
+    await prisma.encounter.update({ where: { id: encounter.id }, data: { triageLevel: body.triageLevel } });
+  }
+  await audit(req, 'EMERGENCY_ARRIVAL_REGISTERED', encounter.id, { patientId: patient.id, identified: Boolean(body.firstName && body.lastName) });
+  return getEncounter(encounter.id);
 }
 
 export async function completeEncounter(id: string, body: { outcome: string; summary?: string }, req: Request) {

@@ -77,7 +77,8 @@ const DEMO_PASSWORDS: Record<string, string> = {
   lab: 'lab123',
   scan: 'scan123',
   billing: 'billing123',
-  nurse: 'nurse123'
+  nurse: 'nurse123',
+  pharmacist: 'pharmacist123'
 };
 
 function date(value: string) {
@@ -358,8 +359,14 @@ async function resetDemoData() {
     // and are deleted later, so unlink them first.
     prisma.order.updateMany({ where: { encounterId: { not: null } }, data: { encounterId: null } }),
     prisma.invoice.updateMany({ where: { encounterId: { not: null } }, data: { encounterId: null } }),
+    // Pharmacy (Phase 4A): the ledger and dispensing records go before the lines they point at.
+    prisma.stockMovement.deleteMany(),
+    prisma.dispensationItem.deleteMany(),
+    prisma.dispensation.deleteMany(),
     prisma.prescriptionItem.deleteMany(),
     prisma.prescription.deleteMany(),
+    prisma.drugBatch.deleteMany(),
+    prisma.drug.deleteMany(),
     prisma.diagnosis.deleteMany(),
     prisma.clinicalNote.deleteMany(),
     prisma.vitalSigns.deleteMany(),
@@ -431,7 +438,8 @@ export async function seedUsersAndDoctors() {
     { id: 'USR-003', username: 'lab', name: 'Kwame Adu', email: 'lab@sunkwa.local', role: UserRole.LAB_STAFF },
     { id: 'USR-004', username: 'scan', name: 'Ama Boateng', email: 'scan@sunkwa.local', role: UserRole.SCAN_STAFF },
     { id: 'USR-005', username: 'billing', name: 'Kofi Danquah', email: 'billing@sunkwa.local', role: UserRole.BILLING_STAFF },
-    { id: 'USR-008', username: 'nurse', name: 'Efua Asante', email: 'nurse@sunkwa.local', role: UserRole.NURSE }
+    { id: 'USR-008', username: 'nurse', name: 'Efua Asante', email: 'nurse@sunkwa.local', role: UserRole.NURSE },
+    { id: 'USR-009', username: 'pharmacist', name: 'Yaw Owusu', email: 'pharmacist@sunkwa.local', role: UserRole.PHARMACIST }
   ];
 
   for (const user of users) {
@@ -1116,6 +1124,42 @@ async function seedInventoryAndQualityControl() {
   });
 }
 
+/** A small drug list with stock, including a batch near expiry and one already expired. */
+async function seedPharmacy() {
+  const inDays = (days: number) => new Date(Date.now() + days * 86_400_000);
+  const drugs = [
+    { id: 'DRG-AMOX500', drugCode: 'AMOX500', genericName: 'Amoxicillin', strength: '500 mg', dosageForm: 'Capsule', unit: 'capsule', unitPrice: '1.20', reorderLevel: 100 },
+    { id: 'DRG-PCM500', drugCode: 'PCM500', genericName: 'Paracetamol', strength: '500 mg', dosageForm: 'Tablet', unit: 'tablet', unitPrice: '0.30', reorderLevel: 200 },
+    { id: 'DRG-AL2012', drugCode: 'AL20120', genericName: 'Artemether-lumefantrine', brandName: 'Coartem', strength: '20/120 mg', dosageForm: 'Tablet', unit: 'tablet', unitPrice: '1.50', reorderLevel: 120 },
+    { id: 'DRG-CTX480', drugCode: 'CTX480', genericName: 'Co-trimoxazole', brandName: 'Septrin', strength: '480 mg', dosageForm: 'Tablet', unit: 'tablet', unitPrice: '0.40', reorderLevel: 100 },
+    { id: 'DRG-IBU400', drugCode: 'IBU400', genericName: 'Ibuprofen', strength: '400 mg', dosageForm: 'Tablet', unit: 'tablet', unitPrice: '0.50', reorderLevel: 100 },
+    { id: 'DRG-ORS', drugCode: 'ORS', genericName: 'Oral rehydration salts', dosageForm: 'Sachet', unit: 'sachet', unitPrice: '2.00', reorderLevel: 50 },
+    { id: 'DRG-MET500', drugCode: 'MET500', genericName: 'Metformin', strength: '500 mg', dosageForm: 'Tablet', unit: 'tablet', unitPrice: '0.60', reorderLevel: 150 },
+    { id: 'DRG-AML5', drugCode: 'AML5', genericName: 'Amlodipine', strength: '5 mg', dosageForm: 'Tablet', unit: 'tablet', unitPrice: '0.80', reorderLevel: 100 }
+  ];
+  const batches: Array<{ id: string; drugId: string; batchNumber: string; expiryDate: Date; quantity: number; supplier: string }> = [
+    { id: 'BAT-AMOX-1', drugId: 'DRG-AMOX500', batchNumber: 'AMX2401', expiryDate: inDays(45), quantity: 60, supplier: 'Ernest Chemists' },
+    { id: 'BAT-AMOX-2', drugId: 'DRG-AMOX500', batchNumber: 'AMX2507', expiryDate: inDays(400), quantity: 500, supplier: 'Ernest Chemists' },
+    { id: 'BAT-PCM-1', drugId: 'DRG-PCM500', batchNumber: 'PCM2503', expiryDate: inDays(300), quantity: 1000, supplier: 'Tobinco' },
+    { id: 'BAT-AL-1', drugId: 'DRG-AL2012', batchNumber: 'COA2502', expiryDate: inDays(250), quantity: 480, supplier: 'Tobinco' },
+    { id: 'BAT-CTX-1', drugId: 'DRG-CTX480', batchNumber: 'SEP2410', expiryDate: inDays(-10), quantity: 40, supplier: 'Kinapharma' },
+    { id: 'BAT-CTX-2', drugId: 'DRG-CTX480', batchNumber: 'SEP2511', expiryDate: inDays(360), quantity: 300, supplier: 'Kinapharma' },
+    { id: 'BAT-IBU-1', drugId: 'DRG-IBU400', batchNumber: 'IBU2508', expiryDate: inDays(330), quantity: 80, supplier: 'Tobinco' },
+    { id: 'BAT-ORS-1', drugId: 'DRG-ORS', batchNumber: 'ORS2504', expiryDate: inDays(500), quantity: 200, supplier: 'Kinapharma' },
+    { id: 'BAT-MET-1', drugId: 'DRG-MET500', batchNumber: 'MET2509', expiryDate: inDays(420), quantity: 900, supplier: 'Ernest Chemists' },
+    { id: 'BAT-AML-1', drugId: 'DRG-AML5', batchNumber: 'AML2506', expiryDate: inDays(380), quantity: 600, supplier: 'Ernest Chemists' }
+  ];
+  await prisma.drug.createMany({ data: drugs });
+  for (const batch of batches) {
+    await prisma.drugBatch.create({
+      data: { id: batch.id, drugId: batch.drugId, batchNumber: batch.batchNumber, expiryDate: batch.expiryDate, quantityReceived: batch.quantity, quantityOnHand: batch.quantity, supplier: batch.supplier, receivedById: 'USR-009' }
+    });
+    await prisma.stockMovement.create({
+      data: { drugId: batch.drugId, batchId: batch.id, type: 'RECEIPT', quantity: batch.quantity, reason: `Received from ${batch.supplier}`, actorId: 'USR-009' }
+    });
+  }
+}
+
 async function seedAuditAndSystemEvents() {
   await prisma.auditLog.createMany({
     data: [
@@ -1155,6 +1199,7 @@ export async function seedFacility(facility: DemoFacility) {
       await seedDepartmentsAndEquipment();
       await seedPatients();
       await seedCatalogAndReferenceRanges();
+      await seedPharmacy();
       await seedOrders();
       await seedReceptionWorkflow();
       await seedLabAndScanWorkflow();
@@ -1189,7 +1234,7 @@ async function main() {
   await runAsSystem('seed.platform-admin', () => seedDemoPlatformAdmin());
 
   console.log(`Seeded demo facility ${DEMO_FACILITY.name} (facility code ${DEMO_FACILITY.code}).`);
-  console.log('Demo logins (facility code DEMO): admin/admin123, doctor/doctor123, nurse/nurse123, reception/reception123, lab/lab123, scan/scan123, billing/billing123');
+  console.log('Demo logins (facility code DEMO): admin/admin123, doctor/doctor123, nurse/nurse123, pharmacist/pharmacist123, reception/reception123, lab/lab123, scan/scan123, billing/billing123');
   console.log('Platform login (no facility code): platform/platform123');
 }
 

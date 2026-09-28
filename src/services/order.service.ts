@@ -11,6 +11,7 @@ import {
 } from '@prisma/client';
 import type { Request } from 'express';
 import { prisma } from './prisma.service.js';
+import { nextCode as issueCode } from './codeSequence.service.js';
 import { assertItemTypesAvailable, isModuleEnabled } from './facilityAccess.service.js';
 import { createAuditLog, getRequestAuditContext } from './audit.service.js';
 import { getPagination, paginationMeta, safeOrderBy } from './query.service.js';
@@ -121,14 +122,11 @@ function addHours(date: Date, hours: number) {
 }
 
 async function nextOrderCode(tx: Prisma.TransactionClient = prisma) {
-  const year = new Date().getFullYear();
-  const count = await tx.order.count({ where: { orderCode: { startsWith: `ORD-${year}-` } } });
-  return `ORD-${year}-${String(count + 1).padStart(4, '0')}`;
+  return issueCode(tx, 'ORD');
 }
 
 async function nextInvoiceCode(tx: Prisma.TransactionClient = prisma) {
-  const count = await tx.invoice.count();
-  return `INV-${String(count + 1).padStart(4, '0')}`;
+  return issueCode(tx, 'INV');
 }
 
 async function getDoctorProfileForActor(user?: AuthUser, explicitDoctorProfileId?: string | null) {
