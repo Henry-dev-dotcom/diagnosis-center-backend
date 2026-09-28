@@ -16,6 +16,7 @@ import {
 } from '@prisma/client';
 import type { Request } from 'express';
 import { prisma } from './prisma.service.js';
+import { assertItemTypesAvailable, isModuleEnabled } from './facilityAccess.service.js';
 import { createAuditLog, getRequestAuditContext } from './audit.service.js';
 import { getPagination, paginationMeta, safeOrderBy } from './query.service.js';
 import { AppError } from '../utils/appError.js';
@@ -205,6 +206,7 @@ async function loadCatalogItems(catalogItemIds: string[]) {
       missing: uniqueIds.filter((id) => !found.has(id))
     });
   }
+  await assertItemTypesAvailable(items.map((item) => item.type));
   return items;
 }
 
@@ -304,6 +306,8 @@ export async function createWalkIn(body: WalkInPayload, req: Request) {
   if (!body.patient && !body.patientId) throw new AppError('Provide an existing patient ID or new patient details', 400, 'PATIENT_REQUIRED');
   const catalogItems = await loadCatalogItems(body.requestedItems.map((item) => item.catalogItemId));
   const catalogById = new Map(catalogItems.map((item) => [item.id, item]));
+  // No invoice is raised for facilities that do not use the Billing module.
+  const raiseInvoice = body.invoiceNow !== false && (await isModuleEnabled('billing'));
 
   const created = await prisma.$transaction(async (tx) => {
     let patient = body.patientId ? await tx.patient.findUnique({ where: { id: body.patientId } }) : null;
@@ -350,7 +354,7 @@ export async function createWalkIn(body: WalkInPayload, req: Request) {
       include: { items: { include: { catalogItem: true } } }
     });
 
-    const invoice = body.invoiceNow === false ? null : await createInvoiceForOrder(tx, order, req.user?.id);
+    const invoice = raiseInvoice ? await createInvoiceForOrder(tx, order, req.user?.id) : null;
     const visit = body.checkInNow === false
       ? null
       : await tx.patientVisit.create({

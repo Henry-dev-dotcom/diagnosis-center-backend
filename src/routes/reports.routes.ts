@@ -13,6 +13,7 @@ import {
 } from '../controllers/reports.controller.js';
 import { PERMISSIONS } from '../config/permissions.js';
 import { requireAuth, requireAnyPermission, requireRole } from '../middleware/auth.js';
+import { requireModule } from '../middleware/requireModule.js';
 import { validateRequest } from '../middleware/validate.js';
 import { dateRangeQuerySchema } from '../validators/common.validators.js';
 import {
@@ -25,7 +26,7 @@ import {
 } from '../controllers/analytics.controller.js';
 
 export const reportsRoutes = Router();
-reportsRoutes.use('/reports', requireAuth, requireRole(UserRole.ADMIN, UserRole.BILLING_STAFF, UserRole.LAB_STAFF, UserRole.SCAN_STAFF));
+reportsRoutes.use('/reports', requireAuth, requireModule('reports'), requireRole(UserRole.ADMIN, UserRole.BILLING_STAFF, UserRole.LAB_STAFF, UserRole.SCAN_STAFF));
 reportsRoutes.get('/reports', requireAnyPermission(PERMISSIONS.REPORTS_READ, PERMISSIONS.REPORTS_FINANCE_READ), validateRequest({ query: dateRangeQuerySchema }), reportsOverviewController);
 
 reportsRoutes.get('/reports/dashboard', requireAnyPermission(PERMISSIONS.REPORTS_READ, PERMISSIONS.REPORTS_FINANCE_READ), validateRequest({ query: dateRangeQuerySchema }), executiveDashboardController);

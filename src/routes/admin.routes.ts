@@ -50,9 +50,22 @@ import {
   updateUserSchema
 } from '../validators/admin.validators.js';
 import { apiRequestLogQuerySchema, auditLogQuerySchema, systemEventQuerySchema } from '../validators/audit.validators.js';
+import { createFacilityRoleSchema, updateFacilityRoleSchema } from '../validators/roles.validators.js';
+import {
+  createRoleController,
+  deleteRoleController,
+  listPermissionsController,
+  listRolesController,
+  updateRoleController
+} from '../controllers/facilityRoles.controller.js';
 
 export const adminRoutes = Router();
 adminRoutes.use('/admin', requireAuth, requireRole(UserRole.ADMIN));
+adminRoutes.get('/admin/permissions', requirePermission(PERMISSIONS.ADMIN_ROLES_MANAGE), listPermissionsController);
+adminRoutes.get('/admin/roles', requirePermission(PERMISSIONS.ADMIN_ROLES_MANAGE), listRolesController);
+adminRoutes.post('/admin/roles', requirePermission(PERMISSIONS.ADMIN_ROLES_MANAGE), validateRequest({ body: createFacilityRoleSchema }), createRoleController);
+adminRoutes.patch('/admin/roles/:id', requirePermission(PERMISSIONS.ADMIN_ROLES_MANAGE), validateRequest({ params: idParamSchema, body: updateFacilityRoleSchema }), updateRoleController);
+adminRoutes.delete('/admin/roles/:id', requirePermission(PERMISSIONS.ADMIN_ROLES_MANAGE), validateRequest({ params: idParamSchema }), deleteRoleController);
 adminRoutes.get('/admin', requireAnyPermission(PERMISSIONS.ADMIN_AUDIT_READ, PERMISSIONS.ACCESS_MATRIX_READ), moduleLanding('admin'));
 adminRoutes.get('/admin/users', requirePermission(PERMISSIONS.ADMIN_USERS_MANAGE), validateRequest({ query: paginationQuerySchema }), listUsersController);
 adminRoutes.post('/admin/users', requirePermission(PERMISSIONS.ADMIN_USERS_MANAGE), validateRequest({ body: createUserSchema }), createUserController);

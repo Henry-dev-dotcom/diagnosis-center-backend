@@ -19,13 +19,14 @@ import {
 } from '../controllers/finance.controller.js';
 import { PERMISSIONS } from '../config/permissions.js';
 import { requireAuth, requireAnyPermission, requirePermission, requireRole } from '../middleware/auth.js';
+import { requireModule } from '../middleware/requireModule.js';
 import { requireFinanceRole } from '../middleware/resourceScope.js';
 import { validateRequest } from '../middleware/validate.js';
 import { idParamSchema } from '../validators/common.validators.js';
 import { closeShiftSchema, expensePaymentSchema, expenseQuerySchema, expenseSchema, expenseWriteOffSchema, financeAnalyticsQuerySchema, floatAdjustmentSchema, floatQuerySchema, ledgerQuerySchema, shiftQuerySchema, startShiftSchema, updateExpenseSchema } from '../validators/finance.validators.js';
 
 export const financeRoutes = Router();
-financeRoutes.use('/finance', requireAuth, requireRole(UserRole.ADMIN, UserRole.BILLING_STAFF), requireFinanceRole());
+financeRoutes.use('/finance', requireAuth, requireModule('finance'), requireRole(UserRole.ADMIN, UserRole.BILLING_STAFF), requireFinanceRole());
 financeRoutes.get('/finance', requireAnyPermission(PERMISSIONS.FINANCE_LEDGER_READ, PERMISSIONS.FINANCE_ANALYTICS_READ), moduleLanding('finance'));
 financeRoutes.post('/finance/shifts/start', requirePermission(PERMISSIONS.FINANCE_SHIFTS_MANAGE), validateRequest({ body: startShiftSchema }), startShiftController);
 financeRoutes.post('/finance/shifts', requirePermission(PERMISSIONS.FINANCE_SHIFTS_MANAGE), validateRequest({ body: startShiftSchema }), startShiftController);

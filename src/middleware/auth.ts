@@ -2,7 +2,8 @@ import type { NextFunction, Request, Response } from 'express';
 import { FacilityStatus, UserRole, UserStatus } from '@prisma/client';
 import { prisma } from '../services/prisma.service.js';
 import { runAsPlatform, runAsSystem, runWithFacility } from '../services/tenantContext.js';
-import { canViewPrices as canRoleViewPrices, getPermissionsForRole, hasAnyPermission, hasPermission } from '../services/permission.service.js';
+import { canViewPrices as canRoleViewPrices } from '../services/permission.service.js';
+import { effectivePermissions, modulesForFacility, permissionsInclude } from '../services/facilityAccess.service.js';
 import { auditAccessFailure } from './audit.js';
 import { createAuditLog } from '../services/audit.service.js';
 import { verifyAccessToken } from '../utils/token.js';
@@ -48,7 +49,7 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
     // unscoped; everything after it runs inside the user's facility context.
     const [user, session] = await runAsSystem('auth.session', () =>
       Promise.all([
-        prisma.user.findUnique({ where: { id: payload.sub }, include: { facility: true } }),
+        prisma.user.findUnique({ where: { id: payload.sub }, include: { facility: true, customRole: true } }),
         prisma.userSession.findUnique({ where: { id: payload.sessionId } })
       ])
     );
@@ -75,6 +76,7 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
       throw new AppError('This facility account is not active. Contact support.', 403, 'FACILITY_NOT_ACTIVE');
     }
 
+    const useCustomRole = user.customRole && user.customRole.baseRole === user.role;
     req.user = {
       id: user.id,
       facilityId: user.facilityId,
@@ -83,7 +85,9 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
       username: user.username,
       email: user.email,
       role: user.role,
-      permissions: getPermissionsForRole(user.role),
+      customRole: useCustomRole && user.customRole ? { id: user.customRole.id, name: user.customRole.name } : null,
+      permissions: effectivePermissions(user.role, user.customRole),
+      modules: await modulesForFacility(user.facilityId),
       sessionId: session.id
     };
 
@@ -123,7 +127,7 @@ export function requirePermission(permission: string) {
   return async (req: Request, _res: Response, next: NextFunction) => {
     try {
       if (!req.user) throw new AppError('Authentication is required', 401, 'AUTH_REQUIRED');
-      if (!hasPermission(req.user.role, permission)) {
+      if (!permissionsInclude(req.user.permissions, permission)) {
         auditAccessFailure(req, 403, 'FORBIDDEN_PERMISSION', 'Permission denied access to protected resource', { permission });
         await createAuditLog({
           actorId: req.user.id,
@@ -148,7 +152,7 @@ export function requireAnyPermission(...permissions: string[]) {
   return async (req: Request, _res: Response, next: NextFunction) => {
     try {
       if (!req.user) throw new AppError('Authentication is required', 401, 'AUTH_REQUIRED');
-      if (!hasAnyPermission(req.user.role, permissions)) {
+      if (!permissions.some((permission) => permissionsInclude(req.user!.permissions, permission))) {
         auditAccessFailure(req, 403, 'FORBIDDEN_PERMISSION', 'Permission denied access to protected resource', { permissions });
         await createAuditLog({
           actorId: req.user.id,

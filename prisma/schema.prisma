@@ -29,6 +29,8 @@ model Facility {
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
 
+  modules               FacilityModule[]
+  facilityRoles         FacilityRole[]
   users                 User[]
   hospitals             Hospital[]
   doctorProfiles        DoctorProfile[]
@@ -296,12 +298,17 @@ model User {
   username     String
   email        String?
   passwordHash String
+  /// Base workspace role: drives route gates and the landing page. When
+  /// customRoleId is set it always equals that custom role's baseRole.
   role         UserRole
+  /// Optional facility-defined role whose permission list replaces the base role's defaults.
+  customRoleId String?
   status       UserStatus @default(ACTIVE)
   lastLoginAt  DateTime?
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
+  customRole          FacilityRole?        @relation(fields: [customRoleId], references: [id])
   doctorProfile       DoctorProfile?
   sessions            UserSession[]
   passwordResetTokens PasswordResetToken[]
@@ -1651,4 +1658,39 @@ model ApiRequestLog {
   @@index([path])
   @@index([statusCode])
   @@index([createdAt])
+}
+
+/// A department module a facility has switched on (see src/config/modules.ts).
+/// A missing row means the module is off.
+model FacilityModule {
+  id         String   @id @default(cuid())
+  facilityId String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  moduleKey  String
+  enabled    Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@unique([facilityId, moduleKey])
+  @@index([facilityId])
+}
+
+/// A staff role a facility defines on top of a base workspace role.
+model FacilityRole {
+  id          String   @id @default(cuid())
+  facilityId  String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  name        String
+  description String?
+  /// Fixed at creation; users assigned this role take it as their User.role.
+  baseRole    UserRole
+  permissions String[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+  users    User[]
+
+  @@unique([facilityId, name])
+  @@index([facilityId])
 }

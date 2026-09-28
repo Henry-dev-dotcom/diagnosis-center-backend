@@ -8,18 +8,25 @@ export const facilityRoleSchema = z
   .nativeEnum(UserRole)
   .refine((role) => role !== UserRole.PLATFORM_ADMIN, { message: 'This role cannot be assigned to facility staff' });
 
+// A user gets a base role, a custom role (which implies its base role), or both if they agree.
 export const createUserSchema = z.object({
   name: z.string().trim().min(2, 'Name is required').max(120),
   username: z.string().trim().min(3, 'Username must be at least 3 characters').max(60).transform((value) => value.toLowerCase()),
   email: emailSchema,
-  role: facilityRoleSchema,
+  role: facilityRoleSchema.optional(),
+  customRoleId: z.string().min(1).optional(),
   password: z.string().min(8, 'Password must be at least 8 characters')
+}).refine((value) => Boolean(value.role || value.customRoleId), {
+  message: 'Choose a role for this user',
+  path: ['role']
 });
 
 export const updateUserSchema = z.object({
   name: z.string().trim().min(2).max(120).optional(),
   email: emailSchema,
   role: facilityRoleSchema.optional(),
+  // null removes the custom role and returns the user to the base role's defaults.
+  customRoleId: z.string().min(1).nullable().optional(),
   status: z.nativeEnum(UserStatus).optional(),
   password: z.string().min(8, 'Password must be at least 8 characters').optional()
 }).refine((value) => Object.keys(value).length > 0, {

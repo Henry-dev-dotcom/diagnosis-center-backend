@@ -1,0 +1,64 @@
+/*
+  Department modules a facility can switch on or off.
+
+  Core features (sign-in, users, admin, patients, orders, catalog, notifications,
+  files) are always available and are not listed here. Each module below gates
+  its routes with requireModule(); a facility's switched-on modules are the
+  FacilityModule rows with enabled = true. Phase 5 subscriptions will decide
+  which modules a facility has paid for; until then the platform operator sets them.
+
+  Keys are stored in the database: never rename one, only add.
+*/
+
+export const MODULE_KEYS = [
+  'reception',
+  'laboratory',
+  'imaging',
+  'billing',
+  'finance',
+  'clinician_portal',
+  'results_delivery',
+  'reports'
+] as const;
+
+export type ModuleKey = (typeof MODULE_KEYS)[number];
+
+export type ModuleDefinition = {
+  key: ModuleKey;
+  name: string;
+  category: 'clinical' | 'diagnostics' | 'front_office' | 'finance' | 'insights';
+  description: string;
+  /** Modules that must also be on for this one to work. */
+  dependsOn: ModuleKey[];
+};
+
+export const MODULES: readonly ModuleDefinition[] = [
+  { key: 'reception', name: 'Reception', category: 'front_office', dependsOn: [], description: 'Incoming orders, check-in, walk-ins, appointments and the daily visit log.' },
+  { key: 'laboratory', name: 'Laboratory', category: 'diagnostics', dependsOn: [], description: 'Sample acceptance, result entry, review and sign-off, QC and inventory.' },
+  { key: 'imaging', name: 'Imaging / Radiology', category: 'diagnostics', dependsOn: [], description: 'Scan queue, equipment booking, reporting and radiologist sign-off.' },
+  { key: 'billing', name: 'Billing', category: 'finance', dependsOn: [], description: 'Invoices, payments, receipts and refunds.' },
+  { key: 'finance', name: 'Finance', category: 'finance', dependsOn: ['billing'], description: 'Cashier shifts, float, expenses and the account ledger.' },
+  { key: 'clinician_portal', name: 'Clinician Portal', category: 'clinical', dependsOn: [], description: 'Clinicians place orders, track them and view released results.' },
+  { key: 'results_delivery', name: 'Results Delivery', category: 'clinical', dependsOn: [], description: 'Releasing results and delivering them by email, SMS, WhatsApp or PDF.' },
+  { key: 'reports', name: 'Reports & Analytics', category: 'insights', dependsOn: [], description: 'Operational, turnaround, revenue and audit reports.' }
+];
+
+export function isModuleKey(value: string): value is ModuleKey {
+  return (MODULE_KEYS as readonly string[]).includes(value);
+}
+
+/** Returns the dependency problems in a proposed set of enabled modules. */
+export function moduleDependencyErrors(enabled: readonly ModuleKey[]): string[] {
+  const on = new Set(enabled);
+  const errors: string[] = [];
+  for (const module of MODULES) {
+    if (!on.has(module.key)) continue;
+    for (const dependency of module.dependsOn) {
+      if (!on.has(dependency)) {
+        const dependencyName = MODULES.find((m) => m.key === dependency)?.name ?? dependency;
+        errors.push(`${module.name} requires ${dependencyName}.`);
+      }
+    }
+  }
+  return errors;
+}

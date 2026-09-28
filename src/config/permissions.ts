@@ -72,6 +72,7 @@ export const PERMISSIONS = {
   FINANCE_ANALYTICS_READ: 'finance:analytics:read',
 
   ADMIN_USERS_MANAGE: 'admin:users:manage',
+  ADMIN_ROLES_MANAGE: 'admin:roles:manage',
   ADMIN_HOSPITALS_MANAGE: 'admin:hospitals:manage',
   ADMIN_DOCTORS_MANAGE: 'admin:doctors:manage',
   ADMIN_CATALOG_MANAGE: 'admin:catalog:manage',

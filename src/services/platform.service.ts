@@ -1,5 +1,6 @@
 import type { Request } from 'express';
-import { UserRole, UserStatus } from '@prisma/client';
+import { Prisma, UserRole, UserStatus } from '@prisma/client';
+import { MODULES, MODULE_KEYS, isModuleKey, type ModuleKey } from '../config/modules.js';
 import { prisma } from './prisma.service.js';
 import { runWithFacility } from './tenantContext.js';
 import { createAuditLog, getRequestAuditContext } from './audit.service.js';
@@ -23,11 +24,33 @@ const facilitySelect = {
   currency: true,
   createdAt: true,
   updatedAt: true,
+  modules: { where: { enabled: true }, select: { moduleKey: true } },
   _count: { select: { users: true, patients: true } }
 } as const;
 
+type FacilityRow = Prisma.FacilityGetPayload<{ select: typeof facilitySelect }>;
+
+/** Facility as the platform console sees it, with modules as a list of keys. */
+function toFacilityView({ modules, ...facility }: FacilityRow) {
+  return { ...facility, modules: modules.map((m) => m.moduleKey).filter(isModuleKey).sort() };
+}
+
 function emptyToNull(value: string | undefined) {
   return value ? value : null;
+}
+
+/** Makes exactly `enabled` the facility's switched-on modules. Runs in that facility's context. */
+async function writeModules(tx: Prisma.TransactionClient, facilityId: string, enabled: readonly ModuleKey[]) {
+  await runWithFacility(facilityId, async () => {
+    for (const moduleKey of MODULE_KEYS) {
+      const on = enabled.includes(moduleKey);
+      await tx.facilityModule.upsert({
+        where: { facilityId_moduleKey: { facilityId, moduleKey } },
+        update: { enabled: on },
+        create: { moduleKey, enabled: on }
+      });
+    }
+  });
 }
 
 async function auditPlatform(req: Request, action: string, facilityId: string, details: unknown) {
@@ -42,14 +65,27 @@ async function auditPlatform(req: Request, action: string, facilityId: string, d
   });
 }
 
+export function listModules() {
+  return MODULES;
+}
+
 export async function listFacilities() {
-  return prisma.facility.findMany({ select: facilitySelect, orderBy: { createdAt: 'desc' } });
+  const rows = await prisma.facility.findMany({ select: facilitySelect, orderBy: { createdAt: 'desc' } });
+  return rows.map(toFacilityView);
 }
 
 export async function getFacility(id: string) {
   const facility = await prisma.facility.findUnique({ where: { id }, select: facilitySelect });
   if (!facility) throw new AppError('Facility not found', 404, 'FACILITY_NOT_FOUND');
-  return facility;
+  return toFacilityView(facility);
+}
+
+export async function setFacilityModules(id: string, modules: ModuleKey[], req: Request) {
+  const before = await getFacility(id);
+  await prisma.$transaction((tx) => writeModules(tx, id, modules));
+  const after = await getFacility(id);
+  await auditPlatform(req, 'FACILITY_MODULES_UPDATED', id, { before: before.modules, after: after.modules });
+  return after;
 }
 
 export async function createFacility(input: CreateFacilityInput, req: Request) {
@@ -80,13 +116,15 @@ export async function createFacility(input: CreateFacilityInput, req: Request) {
         select: { id: true, username: true, name: true }
       })
     );
+    await writeModules(tx, facility.id, input.modules ?? MODULE_KEYS);
     return { facility, admin };
   });
 
   await auditPlatform(req, 'FACILITY_CREATED', created.facility.id, {
     code: created.facility.code,
     name: created.facility.name,
-    adminUsername: created.admin.username
+    adminUsername: created.admin.username,
+    modules: input.modules ?? MODULE_KEYS
   });
   return { facility: await getFacility(created.facility.id), admin: created.admin };
 }

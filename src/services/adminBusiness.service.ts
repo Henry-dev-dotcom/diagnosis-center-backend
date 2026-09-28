@@ -10,6 +10,7 @@ import { createAuditLog, getRequestAuditContext } from './audit.service.js';
 import { getPagination, paginationMeta, safeOrderBy } from './query.service.js';
 import { hashPassword } from '../utils/password.js';
 import { AppError } from '../utils/appError.js';
+import { resolveUserRoleAssignment } from './facilityRoles.service.js';
 
 function clean(value: unknown) {
   if (typeof value !== 'string') return value ?? null;
@@ -40,6 +41,7 @@ const userSelect = {
   username: true,
   email: true,
   role: true,
+  customRole: { select: { id: true, name: true } },
   status: true,
   lastLoginAt: true,
   createdAt: true,
@@ -96,13 +98,16 @@ export async function listUsers(query: Request['query']) {
   return { items, meta: paginationMeta(total, page, limit) };
 }
 
-export async function createUser(body: { name: string; username: string; email?: string | null; role: UserRole; password: string }, req: Request) {
+export async function createUser(body: { name: string; username: string; email?: string | null; role?: UserRole; customRoleId?: string; password: string }, req: Request) {
+  const assignment = await resolveUserRoleAssignment(body);
+  if (!assignment.role) throw new AppError('Choose a role for this user', 400, 'ROLE_REQUIRED');
   const user = await prisma.user.create({
     data: {
       name: body.name.trim(),
       username: body.username.trim().toLowerCase(),
       email: clean(body.email) as string | null,
-      role: body.role,
+      role: assignment.role,
+      customRoleId: assignment.customRoleId ?? null,
       status: UserStatus.ACTIVE,
       passwordHash: await hashPassword(body.password)
     },
@@ -113,12 +118,14 @@ export async function createUser(body: { name: string; username: string; email?:
   return user;
 }
 
-export async function updateUser(userId: string, body: { name?: string; email?: string | null; role?: UserRole; status?: UserStatus; password?: string }, req: Request) {
+export async function updateUser(userId: string, body: { name?: string; email?: string | null; role?: UserRole; customRoleId?: string | null; status?: UserStatus; password?: string }, req: Request) {
   const before = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: userSelect });
-  const data: Prisma.UserUpdateInput = {};
+  const data: Prisma.UserUncheckedUpdateInput = {};
   if (body.name !== undefined) data.name = body.name.trim();
   if (body.email !== undefined) data.email = clean(body.email) as string | null;
-  if (body.role !== undefined) data.role = body.role;
+  const assignment = await resolveUserRoleAssignment(body);
+  if (assignment.role !== undefined) data.role = assignment.role;
+  if (assignment.customRoleId !== undefined) data.customRoleId = assignment.customRoleId;
   if (body.status !== undefined) data.status = body.status;
   if (body.password !== undefined) data.passwordHash = await hashPassword(body.password);
 

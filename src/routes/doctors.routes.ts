@@ -7,13 +7,14 @@ import { patientTrendsController } from '../controllers/patient.controller.js';
 import { listResultsController } from '../controllers/results.controller.js';
 import { PERMISSIONS } from '../config/permissions.js';
 import { requireAuth, requireAnyPermission, requirePermission, requireRole } from '../middleware/auth.js';
+import { requireModule } from '../middleware/requireModule.js';
 import { validateRequest } from '../middleware/validate.js';
 import { dateRangeQuerySchema, patientIdParamSchema } from '../validators/common.validators.js';
 import { createOrderSchema, orderListQuerySchema } from '../validators/order.validators.js';
 import { updateDoctorProfileSchema } from '../validators/admin.validators.js';
 
 export const doctorsRoutes = Router();
-doctorsRoutes.use('/doctor', requireAuth, requireRole(UserRole.ADMIN, UserRole.DOCTOR));
+doctorsRoutes.use('/doctor', requireAuth, requireModule('clinician_portal'), requireRole(UserRole.ADMIN, UserRole.DOCTOR));
 doctorsRoutes.get('/doctor', requireAnyPermission(PERMISSIONS.DOCTOR_PROFILE_READ, PERMISSIONS.ADMIN_DOCTORS_MANAGE), moduleLanding('doctors'));
 doctorsRoutes.get('/doctor/profile', requireAnyPermission(PERMISSIONS.DOCTOR_PROFILE_READ, PERMISSIONS.ADMIN_DOCTORS_MANAGE), getDoctorProfileController);
 doctorsRoutes.patch('/doctor/profile', requirePermission(PERMISSIONS.DOCTOR_PROFILE_UPDATE), validateRequest({ body: updateDoctorProfileSchema }), updateOwnDoctorProfileController);

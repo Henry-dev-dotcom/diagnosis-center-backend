@@ -1,6 +1,15 @@
 import { FacilityStatus } from '@prisma/client';
 import { z } from 'zod';
+import { MODULE_KEYS, moduleDependencyErrors, type ModuleKey } from '../config/modules.js';
 import { emailSchema, phoneSchema } from './common.validators.js';
+
+// A facility's switched-on modules; every dependency must be included.
+export const moduleSelectionSchema = z
+  .array(z.enum(MODULE_KEYS))
+  .transform((keys) => [...new Set(keys)] as ModuleKey[])
+  .superRefine((keys, ctx) => {
+    for (const message of moduleDependencyErrors(keys)) ctx.addIssue({ code: z.ZodIssueCode.custom, message });
+  });
 
 // Staff type this code on the sign-in screen, so keep it short and unambiguous.
 export const facilityCodeSchema = z
@@ -15,6 +24,8 @@ export const createFacilitySchema = z.object({
   phone: phoneSchema,
   email: emailSchema,
   address: z.string().trim().max(240).optional(),
+  // Omitted: every module is switched on.
+  modules: moduleSelectionSchema.optional(),
   // The facility's first administrator, who then creates the rest of the staff.
   admin: z.object({
     name: z.string().trim().min(2, 'Administrator name is required').max(120),
@@ -37,6 +48,8 @@ export const updateFacilitySchema = z
   });
 
 export const facilityIdParamSchema = z.object({ id: z.string().min(1, 'Facility id is required') });
+
+export const setFacilityModulesSchema = z.object({ modules: moduleSelectionSchema });
 
 export type CreateFacilityInput = z.infer<typeof createFacilitySchema>;
 export type UpdateFacilityInput = z.infer<typeof updateFacilitySchema>;

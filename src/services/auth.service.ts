@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import { FacilityStatus, UserRole, UserStatus } from '@prisma/client';
 import { prisma } from './prisma.service.js';
 import { runAsSystem, runWithFacility } from './tenantContext.js';
-import { getPermissionsForRole } from './permission.service.js';
+import { effectivePermissions, modulesForFacility, type CustomRoleLike } from './facilityAccess.service.js';
 import { createAuditLog } from './audit.service.js';
 import { verifyPassword, hashPassword } from '../utils/password.js';
 import {
@@ -25,7 +25,8 @@ function toFacilitySummary(facility: FacilitySummary | null | undefined): Facili
   return facility ? { id: facility.id, code: facility.code, name: facility.name } : null;
 }
 
-function sanitizeUser(user: {
+/** The signed-in user as the frontend sees it, including what they may use. */
+async function sanitizeUser(user: {
   id: string;
   name: string;
   username: string;
@@ -34,18 +35,23 @@ function sanitizeUser(user: {
   status: import('@prisma/client').UserStatus;
   lastLoginAt: Date | null;
   facility?: FacilitySummary | null;
+  customRole?: CustomRoleLike | null;
 }) {
+  const facility = toFacilitySummary(user.facility);
+  const customRole = user.customRole && user.customRole.baseRole === user.role ? user.customRole : null;
   return {
     id: user.id,
-    facilityId: user.facility?.id ?? null,
-    facility: toFacilitySummary(user.facility),
+    facilityId: facility?.id ?? null,
+    facility,
     name: user.name,
     username: user.username,
     email: user.email,
     role: user.role,
+    customRole: customRole ? { id: customRole.id, name: customRole.name } : null,
     status: user.status,
     lastLoginAt: user.lastLoginAt,
-    permissions: getPermissionsForRole(user.role)
+    permissions: effectivePermissions(user.role, customRole),
+    modules: await modulesForFacility(facility?.id ?? null)
   };
 }
 
@@ -95,7 +101,8 @@ async function authenticate(facility: FacilitySummary | null, normalizedUsername
   // Inside a facility context the tenant extension adds facilityId; for platform
   // sign-in only facility-less users may match.
   const user = await prisma.user.findFirst({
-    where: { username: normalizedUsername, ...(facility ? {} : { facilityId: null, role: UserRole.PLATFORM_ADMIN }) }
+    where: { username: normalizedUsername, ...(facility ? {} : { facilityId: null, role: UserRole.PLATFORM_ADMIN }) },
+    include: { customRole: true }
   });
 
   if (!user) {
@@ -183,7 +190,7 @@ async function authenticate(facility: FacilitySummary | null, normalizedUsername
   });
 
   return {
-    user: sanitizeUser({ ...user, facility, lastLoginAt: new Date() }),
+    user: await sanitizeUser({ ...user, facility, lastLoginAt: new Date() }),
     accessToken,
     refreshToken
   };
@@ -197,7 +204,7 @@ export async function refreshTokenPair(refreshToken: string, context: RequestCon
 
   const session = await prisma.userSession.findUnique({
     where: { id: payload.sessionId },
-    include: { user: { include: { facility: true } } }
+    include: { user: { include: { facility: true, customRole: true } } }
   });
 
   if (!session || session.revokedAt || session.expiresAt < new Date()) {
@@ -260,7 +267,7 @@ export async function refreshTokenPair(refreshToken: string, context: RequestCon
   });
 
   return {
-    user: sanitizeUser(session.user),
+    user: await sanitizeUser(session.user),
     accessToken: newAccessToken,
     refreshToken: newRefreshToken
   };
@@ -305,7 +312,7 @@ export async function logoutByRefreshToken(refreshToken: string, context: Reques
 // The signed-in user's own row, by the id from their verified session. Runs as
 // system so it also works for platform administrators, who have no facility.
 function findSelf(userId: string) {
-  return runAsSystem('auth.self', () => prisma.user.findUnique({ where: { id: userId }, include: { facility: true } }));
+  return runAsSystem('auth.self', () => prisma.user.findUnique({ where: { id: userId }, include: { facility: true, customRole: true } }));
 }
 
 export async function getCurrentUser(userId: string, sessionId: string) {
@@ -319,7 +326,7 @@ export async function getCurrentUser(userId: string, sessionId: string) {
     throw new AppError('Session is invalid or expired', 401, 'SESSION_INVALID');
   }
 
-  return sanitizeUser(user);
+  return await sanitizeUser(user);
 }
 
 export async function changePassword(userId: string, currentPassword: string, newPassword: string, context: RequestContext) {

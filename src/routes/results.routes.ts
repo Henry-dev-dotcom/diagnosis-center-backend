@@ -13,12 +13,13 @@ import {
 } from '../controllers/results.controller.js';
 import { PERMISSIONS } from '../config/permissions.js';
 import { requireAuth, requireAnyPermission, requirePermission, requireRole } from '../middleware/auth.js';
+import { requireModule } from '../middleware/requireModule.js';
 import { validateRequest } from '../middleware/validate.js';
 import { dateRangeQuerySchema, idParamSchema } from '../validators/common.validators.js';
 import { releaseResultSchema, resultDeliverySchema, retryDeliverySchema } from '../validators/result.validators.js';
 
 export const resultsRoutes = Router();
-resultsRoutes.use('/results', requireAuth, requireRole(UserRole.ADMIN, UserRole.DOCTOR, UserRole.RECEPTIONIST, UserRole.BILLING_STAFF));
+resultsRoutes.use('/results', requireAuth, requireModule('results_delivery'), requireRole(UserRole.ADMIN, UserRole.DOCTOR, UserRole.RECEPTIONIST, UserRole.BILLING_STAFF));
 resultsRoutes.get('/results', requireAnyPermission(PERMISSIONS.RESULTS_READ, PERMISSIONS.RESULTS_READ_OWN, PERMISSIONS.DOCTOR_RESULTS_READ_OWN, PERMISSIONS.RECEPTION_RESULTS_READ), validateRequest({ query: dateRangeQuerySchema }), listResultsController);
 resultsRoutes.get('/results/delivery-logs', requireAnyPermission(PERMISSIONS.RESULTS_DELIVERY_READ, PERMISSIONS.RESULTS_DELIVERY_MANAGE), validateRequest({ query: dateRangeQuerySchema }), listDeliveryLogsController);
 resultsRoutes.get('/results/:id', requireAnyPermission(PERMISSIONS.RESULTS_READ, PERMISSIONS.RESULTS_READ_OWN, PERMISSIONS.DOCTOR_RESULTS_READ_OWN, PERMISSIONS.RECEPTION_RESULTS_READ), validateRequest({ params: idParamSchema }), getResultDetailController);

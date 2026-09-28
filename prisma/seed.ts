@@ -30,6 +30,7 @@ import {
   VisitStatus
 } from '@prisma/client';
 import { currentFacilityId, runAsSystem, runWithFacility, tenantExtension } from '../src/services/tenantContext.js';
+import { MODULE_KEYS } from '../src/config/modules.js';
 
 /*
   The demo data below uses readable literal ids ('USR-006', 'ORD-2026-0001').
@@ -403,6 +404,8 @@ async function resetDemoData() {
     prisma.passwordResetToken.deleteMany({ where: { user: { facilityId: currentFacilityId() } } }),
     prisma.userSession.deleteMany({ where: { user: { facilityId: currentFacilityId() } } }),
     prisma.user.deleteMany(),
+    prisma.facilityRole.deleteMany(),
+    prisma.facilityModule.deleteMany(),
     prisma.hospital.deleteMany()
   ]);
 }
@@ -1128,6 +1131,8 @@ export async function seedFacility(facility: DemoFacility) {
   try {
     await runWithFacility(facility.id, async () => {
       await resetDemoData();
+      // The demo facility has every department switched on.
+      await prisma.facilityModule.createMany({ data: MODULE_KEYS.map((moduleKey) => ({ moduleKey, enabled: true })) });
       await seedUsersAndDoctors();
       await seedDepartmentsAndEquipment();
       await seedPatients();

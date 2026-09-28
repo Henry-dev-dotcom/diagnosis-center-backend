@@ -14,6 +14,7 @@ import {
 } from '../controllers/reception.controller.js';
 import { PERMISSIONS } from '../config/permissions.js';
 import { requireAuth, requirePermission, requireRole } from '../middleware/auth.js';
+import { requireModule } from '../middleware/requireModule.js';
 import { validateRequest } from '../middleware/validate.js';
 import { idParamSchema } from '../validators/common.validators.js';
 import {
@@ -30,7 +31,7 @@ import {
 import { orderListQuerySchema } from '../validators/order.validators.js';
 
 export const receptionRoutes = Router();
-receptionRoutes.use('/reception', requireAuth, requireRole(UserRole.ADMIN, UserRole.RECEPTIONIST));
+receptionRoutes.use('/reception', requireAuth, requireModule('reception'), requireRole(UserRole.ADMIN, UserRole.RECEPTIONIST));
 receptionRoutes.get('/reception', requirePermission(PERMISSIONS.RECEPTION_ORDERS_READ), moduleLanding('reception'));
 receptionRoutes.get('/reception/incoming-orders', requirePermission(PERMISSIONS.RECEPTION_ORDERS_READ), validateRequest({ query: orderListQuerySchema }), listReceptionIncomingOrdersController);
 receptionRoutes.post('/reception/orders/:id/confirm', requirePermission(PERMISSIONS.RECEPTION_ORDERS_CONFIRM), validateRequest({ params: idParamSchema, body: confirmOrderSchema }), confirmReceptionOrderController);

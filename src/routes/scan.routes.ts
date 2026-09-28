@@ -19,6 +19,7 @@ import {
 } from '../controllers/scan.controller.js';
 import { PERMISSIONS } from '../config/permissions.js';
 import { requireAuth, requirePermission, requireRole } from '../middleware/auth.js';
+import { requireModule } from '../middleware/requireModule.js';
 import { requireOrderItemTypeAccess } from '../middleware/resourceScope.js';
 import { validateRequest } from '../middleware/validate.js';
 import { idParamSchema, orderIdParamSchema, patientIdParamSchema } from '../validators/common.validators.js';
@@ -35,7 +36,7 @@ import {
 } from '../validators/scan.validators.js';
 
 export const scanRoutes = Router();
-scanRoutes.use('/scan', requireAuth, requireRole(UserRole.ADMIN, UserRole.SCAN_STAFF));
+scanRoutes.use('/scan', requireAuth, requireModule('imaging'), requireRole(UserRole.ADMIN, UserRole.SCAN_STAFF));
 scanRoutes.get('/scan', requirePermission(PERMISSIONS.SCAN_QUEUE_READ), moduleLanding('scan'));
 scanRoutes.get('/scan/queue', requirePermission(PERMISSIONS.SCAN_QUEUE_READ), requireOrderItemTypeAccess(CatalogItemType.SCAN), validateRequest({ query: scanWorkflowQuerySchema }), scanOrderQueueController);
 scanRoutes.post('/scan/accept', requirePermission(PERMISSIONS.SCAN_ACCEPT), requireOrderItemTypeAccess(CatalogItemType.SCAN), validateRequest({ body: acceptScanSchema }), acceptScansController);

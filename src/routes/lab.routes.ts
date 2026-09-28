@@ -23,6 +23,7 @@ import {
 } from '../controllers/lab.controller.js';
 import { PERMISSIONS } from '../config/permissions.js';
 import { requireAuth, requirePermission, requireRole } from '../middleware/auth.js';
+import { requireModule } from '../middleware/requireModule.js';
 import { requireOrderItemTypeAccess } from '../middleware/resourceScope.js';
 import { validateRequest } from '../middleware/validate.js';
 import { catalogItemIdParamSchema, dateRangeQuerySchema, idParamSchema, orderIdParamSchema, patientIdParamSchema } from '../validators/common.validators.js';
@@ -40,7 +41,7 @@ import {
 } from '../validators/lab.validators.js';
 
 export const labRoutes = Router();
-labRoutes.use('/lab', requireAuth, requireRole(UserRole.ADMIN, UserRole.LAB_STAFF));
+labRoutes.use('/lab', requireAuth, requireModule('laboratory'), requireRole(UserRole.ADMIN, UserRole.LAB_STAFF));
 labRoutes.get('/lab', requirePermission(PERMISSIONS.LAB_QUEUE_READ), moduleLanding('lab'));
 labRoutes.get('/lab/queue', requirePermission(PERMISSIONS.LAB_QUEUE_READ), requireOrderItemTypeAccess(CatalogItemType.LAB), validateRequest({ query: dateRangeQuerySchema }), labOrderQueueController);
 labRoutes.post('/lab/samples/accept', requirePermission(PERMISSIONS.LAB_SAMPLES_ACCEPT), requireOrderItemTypeAccess(CatalogItemType.LAB), validateRequest({ body: acceptSampleSchema }), acceptLabSamplesController);

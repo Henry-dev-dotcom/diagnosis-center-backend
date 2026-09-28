@@ -11,6 +11,7 @@ import {
 } from '@prisma/client';
 import type { Request } from 'express';
 import { prisma } from './prisma.service.js';
+import { assertItemTypesAvailable, isModuleEnabled } from './facilityAccess.service.js';
 import { createAuditLog, getRequestAuditContext } from './audit.service.js';
 import { getPagination, paginationMeta, safeOrderBy } from './query.service.js';
 import { AppError } from '../utils/appError.js';
@@ -215,6 +216,7 @@ async function loadCatalogItems(catalogItemIds: string[]) {
     const missing = uniqueIds.filter((id) => !found.has(id));
     throw new AppError('One or more catalog items were not found or are inactive', 404, 'CATALOG_ITEMS_NOT_FOUND', { missing });
   }
+  await assertItemTypesAvailable(items.map((item) => item.type));
   return items;
 }
 
@@ -511,7 +513,9 @@ export async function ensureOrderInvoice(orderId: string, req: Request) {
 
 export async function confirmReceptionOrder(orderId: string, body: { invoiceNow?: boolean; notes?: string | null }, req: Request) {
   const order = await updateOrderStatus(orderId, { nextStatus: OrderStatus.CONFIRMED, notes: body.notes }, req);
-  const invoice = body.invoiceNow === false ? order.invoice : await ensureOrderInvoice(orderId, req);
+  // No invoice is raised for facilities that do not use the Billing module.
+  const raiseInvoice = body.invoiceNow !== false && (await isModuleEnabled('billing'));
+  const invoice = raiseInvoice ? await ensureOrderInvoice(orderId, req) : order.invoice;
   return { order: await getOrder(orderId, req.user), invoice };
 }
 
