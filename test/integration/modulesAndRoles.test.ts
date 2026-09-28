@@ -89,7 +89,7 @@ describe('department modules', () => {
   });
 
   it('switched-off modules answer 403 MODULE_DISABLED; switched-on ones work', async () => {
-    for (const path of ['/billing/invoices', '/finance/shifts', '/scan/queue', '/results', '/reports/dashboard']) {
+    for (const path of ['/billing/invoices', '/finance/shifts', '/scan/queue', '/results', '/reports/dashboard', '/encounters']) {
       const res = await api(path, { token: adminToken });
       expect(res.status, `${path}: ${res.text.slice(0, 160)}`).toBe(403);
       expect(res.json.code).toBe('MODULE_DISABLED');

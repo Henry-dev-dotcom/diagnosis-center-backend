@@ -9,5 +9,6 @@ export const DEMO_USERS = {
   reception: 'reception123',
   lab: 'lab123',
   scan: 'scan123',
-  billing: 'billing123'
+  billing: 'billing123',
+  nurse: 'nurse123'
 } as const;

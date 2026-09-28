@@ -18,6 +18,7 @@ import { reportsRoutes } from './reports.routes.js';
 import { notificationsRoutes } from './notifications.routes.js';
 import { filesRoutes } from './files.routes.js';
 import { platformRoutes } from './platform.routes.js';
+import { encountersRoutes, patientClinicalRoutes } from './encounters.routes.js';
 
 export const apiRouter = Router();
 
@@ -40,3 +41,5 @@ apiRouter.use(reportsRoutes);
 apiRouter.use(notificationsRoutes);
 apiRouter.use(filesRoutes);
 apiRouter.use(platformRoutes);
+apiRouter.use(encountersRoutes);
+apiRouter.use(patientClinicalRoutes);

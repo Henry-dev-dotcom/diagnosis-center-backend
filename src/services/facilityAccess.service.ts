@@ -61,15 +61,23 @@ export async function modulesForFacility(facilityId: string | null): Promise<Mod
 
 const MODULE_FOR_ITEM_TYPE: Record<CatalogItemType, ModuleKey> = {
   [CatalogItemType.LAB]: 'laboratory',
-  [CatalogItemType.SCAN]: 'imaging'
+  [CatalogItemType.SCAN]: 'imaging',
+  [CatalogItemType.SERVICE]: 'opd'
 };
 
 export async function isModuleEnabled(key: ModuleKey) {
   return (await currentFacilityModules()).includes(key);
 }
 
-/** Refuses an order containing tests or scans for a department the facility has switched off. */
+/**
+ * Checks the item types in an order. Service items (consultation fees,
+ * procedures) are charged on an encounter, never routed as orders; tests and
+ * scans need their department switched on.
+ */
 export async function assertItemTypesAvailable(types: readonly CatalogItemType[]) {
+  if (types.includes(CatalogItemType.SERVICE)) {
+    throw new AppError('Service items are charged on a patient visit and cannot be ordered as tests or scans.', 400, 'SERVICE_NOT_ORDERABLE');
+  }
   const enabled = await currentFacilityModules();
   const missing = [...new Set(types.map((type) => MODULE_FOR_ITEM_TYPE[type]))].filter((key) => !enabled.includes(key));
   if (missing.length) {

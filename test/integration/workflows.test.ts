@@ -70,10 +70,18 @@ describe('reception walk-in', () => {
       expect(patient.orders[0].invoice?.facilityId).toBe(facilityId);
       expect(patient.visits[0]?.facilityId).toBe(facilityId);
     }
-    // Same demo data in both facilities, so their counters line up: the same
-    // human-readable codes exist in each without colliding.
-    expect(inA.patientCode).toBe(inB.patientCode);
-    expect(inA.orders[0].orderCode).toBe(inB.orders[0].orderCode);
+    // Each facility numbers its own records: the new code follows that
+    // facility's own count, and the same human-readable code can exist in both.
+    for (const [patient, facilityId] of [[inA, FACILITY_A.id], [inB, FACILITY_B.id]] as const) {
+      const count = await runWithFacility(facilityId, () => prisma.patient.count());
+      expect(patient.patientCode).toBe(`PAT-${String(count).padStart(4, '0')}`);
+    }
+    const shared = await Promise.all(
+      [FACILITY_A.id, FACILITY_B.id].map((facilityId) =>
+        runWithFacility(facilityId, () => prisma.patient.findFirst({ where: { patientCode: 'PAT-0001' } }))
+      )
+    );
+    expect(shared.map((p) => p?.facilityId)).toEqual([FACILITY_A.id, FACILITY_B.id]);
   });
 
   it('cannot order another facility\'s catalog item', async () => {

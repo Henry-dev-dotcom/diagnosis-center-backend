@@ -8,7 +8,8 @@ export const CUSTOM_ROLE_BASES = [
   UserRole.RECEPTIONIST,
   UserRole.LAB_STAFF,
   UserRole.SCAN_STAFF,
-  UserRole.BILLING_STAFF
+  UserRole.BILLING_STAFF,
+  UserRole.NURSE
 ] as const;
 
 const permissionListSchema = z.array(z.string().min(1)).max(300);

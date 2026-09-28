@@ -80,6 +80,13 @@ model Facility {
   auditLogs             AuditLog[]
   systemEvents          SystemEvent[]
   apiRequestLogs        ApiRequestLog[]
+  encounters            Encounter[]
+  vitalSigns            VitalSigns[]
+  clinicalNotes         ClinicalNote[]
+  diagnoses             Diagnosis[]
+  patientAllergies      PatientAllergy[]
+  prescriptions         Prescription[]
+  prescriptionItems     PrescriptionItem[]
 
   @@index([status])
 }
@@ -92,6 +99,7 @@ enum UserRole {
   LAB_STAFF
   SCAN_STAFF
   BILLING_STAFF
+  NURSE
 }
 
 enum UserStatus {
@@ -111,6 +119,8 @@ enum DepartmentType {
 enum CatalogItemType {
   LAB
   SCAN
+  /// Consultation fees and procedures billed through an encounter.
+  SERVICE
 }
 
 enum EquipmentStatus {
@@ -352,7 +362,14 @@ model User {
   systemEvents    SystemEvent[]   @relation("SystemEventActor")
   apiRequestLogs  ApiRequestLog[] @relation("ApiRequestUser")
 
-  facility Facility? @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+  facility            Facility?        @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+  createdEncounters   Encounter[]      @relation("EncounterCreatedBy")
+  attendedEncounters  Encounter[]      @relation("EncounterAttending")
+  recordedVitals      VitalSigns[]     @relation("VitalsRecordedBy")
+  authoredNotes       ClinicalNote[]   @relation("NoteAuthor")
+  recordedDiagnoses   Diagnosis[]      @relation("DiagnosisRecordedBy")
+  recordedAllergies   PatientAllergy[] @relation("AllergyRecordedBy")
+  prescriptionsIssued Prescription[]   @relation("Prescriber")
 
   @@unique([facilityId, username])
   @@unique([facilityId, email])
@@ -490,7 +507,13 @@ model Patient {
   visits                PatientVisit[]
   secureLinks           SecureResultLink[]
 
-  facility Facility @relation(fields: [facilityId], references: [id])
+  facility      Facility         @relation(fields: [facilityId], references: [id])
+  encounters    Encounter[]
+  vitalSigns    VitalSigns[]
+  clinicalNotes ClinicalNote[]
+  diagnoses     Diagnosis[]
+  allergies     PatientAllergy[]
+  prescriptions Prescription[]
 
   @@unique([facilityId, patientCode])
   @@index([facilityId])
@@ -717,7 +740,10 @@ model Order {
   reports       Report[]
   notifications Notification[]
 
-  facility Facility @relation(fields: [facilityId], references: [id])
+  facility    Facility   @relation(fields: [facilityId], references: [id])
+  /// Set when the order was placed during a clinical encounter.
+  encounterId String?
+  encounter   Encounter? @relation(fields: [encounterId], references: [id])
 
   @@unique([facilityId, orderCode])
   @@index([facilityId])
@@ -727,6 +753,7 @@ model Order {
   @@index([status])
   @@index([urgency])
   @@index([submittedAt])
+  @@index([encounterId])
 }
 
 model OrderItem {
@@ -850,7 +877,8 @@ model PatientVisit {
   order       Order?  @relation(fields: [orderId], references: [id])
   checkedInBy User?   @relation("VisitCheckedInBy", fields: [checkedInById], references: [id])
 
-  facility Facility @relation(fields: [facilityId], references: [id])
+  facility   Facility    @relation(fields: [facilityId], references: [id])
+  encounters Encounter[]
 
   @@unique([facilityId, visitCode])
   @@index([facilityId])
@@ -1261,7 +1289,10 @@ model Invoice {
   items     InvoiceItem[]
   payments  Payment[]
 
-  facility Facility @relation(fields: [facilityId], references: [id])
+  facility    Facility   @relation(fields: [facilityId], references: [id])
+  /// Set for encounter charges (e.g. consultation fee) that are not tied to an order.
+  encounterId String?
+  encounter   Encounter? @relation(fields: [encounterId], references: [id])
 
   @@unique([facilityId, invoiceCode])
   @@index([facilityId])
@@ -1269,6 +1300,7 @@ model Invoice {
   @@index([hospitalId])
   @@index([status])
   @@index([createdAt])
+  @@index([encounterId])
 }
 
 model InvoiceItem {
@@ -1693,4 +1725,251 @@ model FacilityRole {
 
   @@unique([facilityId, name])
   @@index([facilityId])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 3: clinical backbone. An Encounter is one visit; everything clinical
+// (vitals, notes, diagnoses, prescriptions, orders, charges) hangs off it.
+// ---------------------------------------------------------------------------
+
+enum EncounterType {
+  OPD
+  EMERGENCY
+  INPATIENT
+}
+
+enum EncounterStatus {
+  WAITING_TRIAGE
+  WAITING_DOCTOR
+  IN_CONSULTATION
+  COMPLETED
+  CANCELLED
+}
+
+/// South African Triage Scale colours, as used in Ghanaian emergency care.
+enum TriageLevel {
+  RED
+  ORANGE
+  YELLOW
+  GREEN
+}
+
+enum ClinicalNoteType {
+  TRIAGE
+  CONSULTATION
+  PROGRESS
+  DISCHARGE
+}
+
+enum DiagnosisType {
+  PRIMARY
+  SECONDARY
+  PROVISIONAL
+}
+
+enum DiagnosisStatus {
+  ACTIVE
+  RESOLVED
+}
+
+enum AllergySeverity {
+  MILD
+  MODERATE
+  SEVERE
+}
+
+enum PrescriptionStatus {
+  ACTIVE
+  DISPENSED
+  CANCELLED
+}
+
+model Encounter {
+  id                    String          @id @default(cuid())
+  facilityId            String          @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  encounterCode         String
+  patientId             String
+  visitId               String?
+  type                  EncounterType   @default(OPD)
+  status                EncounterStatus @default(WAITING_TRIAGE)
+  triageLevel           TriageLevel?
+  chiefComplaint        String?
+  attendingId           String?
+  createdById           String?
+  startedAt             DateTime        @default(now())
+  triagedAt             DateTime?
+  consultationStartedAt DateTime?
+  completedAt           DateTime?
+  /// DISCHARGED, REFERRED, ADMITTED, LEFT_WITHOUT_BEING_SEEN, ... (free text for now)
+  outcome               String?
+  cancelReason          String?
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+
+  facility      Facility       @relation(fields: [facilityId], references: [id])
+  patient       Patient        @relation(fields: [patientId], references: [id])
+  visit         PatientVisit?  @relation(fields: [visitId], references: [id])
+  attending     User?          @relation("EncounterAttending", fields: [attendingId], references: [id])
+  createdBy     User?          @relation("EncounterCreatedBy", fields: [createdById], references: [id])
+  vitalSigns    VitalSigns[]
+  notes         ClinicalNote[]
+  diagnoses     Diagnosis[]
+  prescriptions Prescription[]
+  orders        Order[]
+  invoices      Invoice[]
+
+  @@unique([facilityId, encounterCode])
+  @@index([facilityId])
+  @@index([patientId])
+  @@index([status])
+  @@index([startedAt])
+}
+
+model VitalSigns {
+  id              String   @id @default(cuid())
+  facilityId      String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  encounterId     String
+  patientId       String
+  recordedById    String?
+  temperatureC    Decimal? @db.Decimal(4, 1)
+  pulseBpm        Int?
+  respiratoryRate Int?
+  systolicBp      Int?
+  diastolicBp     Int?
+  spo2            Int?
+  weightKg        Decimal? @db.Decimal(5, 1)
+  heightCm        Decimal? @db.Decimal(5, 1)
+  painScore       Int?
+  /// mmol/L
+  bloodGlucose    Decimal? @db.Decimal(5, 1)
+  notes           String?
+  recordedAt      DateTime @default(now())
+
+  facility   Facility  @relation(fields: [facilityId], references: [id])
+  encounter  Encounter @relation(fields: [encounterId], references: [id])
+  patient    Patient   @relation(fields: [patientId], references: [id])
+  recordedBy User?     @relation("VitalsRecordedBy", fields: [recordedById], references: [id])
+
+  @@index([facilityId])
+  @@index([encounterId])
+  @@index([patientId, recordedAt])
+}
+
+/// Append-only: a correction is a new note that points at the one it amends.
+model ClinicalNote {
+  id          String           @id @default(cuid())
+  facilityId  String           @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  encounterId String
+  patientId   String
+  authorId    String?
+  type        ClinicalNoteType
+  subjective  String?
+  objective   String?
+  assessment  String?
+  plan        String?
+  amendsId    String?
+  createdAt   DateTime         @default(now())
+
+  facility  Facility       @relation(fields: [facilityId], references: [id])
+  encounter Encounter      @relation(fields: [encounterId], references: [id])
+  patient   Patient        @relation(fields: [patientId], references: [id])
+  author    User?          @relation("NoteAuthor", fields: [authorId], references: [id])
+  amends    ClinicalNote?  @relation("NoteAmendment", fields: [amendsId], references: [id])
+  amendedBy ClinicalNote[] @relation("NoteAmendment")
+
+  @@index([facilityId])
+  @@index([encounterId])
+}
+
+model Diagnosis {
+  id           String          @id @default(cuid())
+  facilityId   String          @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  encounterId  String
+  patientId    String
+  recordedById String?
+  /// ICD-10 code when known; description is always required.
+  code         String?
+  description  String
+  type         DiagnosisType   @default(PRIMARY)
+  status       DiagnosisStatus @default(ACTIVE)
+  /// Chronic, active diagnoses form the patient's problem list.
+  isChronic    Boolean         @default(false)
+  createdAt    DateTime        @default(now())
+  resolvedAt   DateTime?
+
+  facility   Facility  @relation(fields: [facilityId], references: [id])
+  encounter  Encounter @relation(fields: [encounterId], references: [id])
+  patient    Patient   @relation(fields: [patientId], references: [id])
+  recordedBy User?     @relation("DiagnosisRecordedBy", fields: [recordedById], references: [id])
+
+  @@index([facilityId])
+  @@index([encounterId])
+  @@index([patientId, status])
+}
+
+model PatientAllergy {
+  id           String          @id @default(cuid())
+  facilityId   String          @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  patientId    String
+  recordedById String?
+  substance    String
+  reaction     String?
+  severity     AllergySeverity @default(MODERATE)
+  active       Boolean         @default(true)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  facility   Facility @relation(fields: [facilityId], references: [id])
+  patient    Patient  @relation(fields: [patientId], references: [id])
+  recordedBy User?    @relation("AllergyRecordedBy", fields: [recordedById], references: [id])
+
+  @@index([facilityId])
+  @@index([patientId])
+}
+
+model Prescription {
+  id               String             @id @default(cuid())
+  facilityId       String             @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  prescriptionCode String
+  encounterId      String
+  patientId        String
+  prescriberId     String?
+  status           PrescriptionStatus @default(ACTIVE)
+  notes            String?
+  cancelReason     String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  facility   Facility           @relation(fields: [facilityId], references: [id])
+  encounter  Encounter          @relation(fields: [encounterId], references: [id])
+  patient    Patient            @relation(fields: [patientId], references: [id])
+  prescriber User?              @relation("Prescriber", fields: [prescriberId], references: [id])
+  items      PrescriptionItem[]
+
+  @@unique([facilityId, prescriptionCode])
+  @@index([facilityId])
+  @@index([encounterId])
+  @@index([patientId])
+}
+
+/// Free-text drug lines until the Phase 4 pharmacy adds a drug catalogue.
+model PrescriptionItem {
+  id             String  @id @default(cuid())
+  facilityId     String  @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  prescriptionId String
+  drugName       String
+  strength       String?
+  dosageForm     String?
+  dose           String
+  route          String
+  frequency      String
+  durationDays   Int?
+  quantity       Int?
+  instructions   String?
+
+  facility     Facility     @relation(fields: [facilityId], references: [id])
+  prescription Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+
+  @@index([facilityId])
+  @@index([prescriptionId])
 }

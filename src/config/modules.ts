@@ -11,6 +11,7 @@
 */
 
 export const MODULE_KEYS = [
+  'opd',
   'reception',
   'laboratory',
   'imaging',
@@ -33,6 +34,7 @@ export type ModuleDefinition = {
 };
 
 export const MODULES: readonly ModuleDefinition[] = [
+  { key: 'opd', name: 'Outpatient (OPD)', category: 'clinical', dependsOn: [], description: 'Patient visits, triage and vitals, consultation notes, diagnoses and prescriptions.' },
   { key: 'reception', name: 'Reception', category: 'front_office', dependsOn: [], description: 'Incoming orders, check-in, walk-ins, appointments and the daily visit log.' },
   { key: 'laboratory', name: 'Laboratory', category: 'diagnostics', dependsOn: [], description: 'Sample acceptance, result entry, review and sign-off, QC and inventory.' },
   { key: 'imaging', name: 'Imaging / Radiology', category: 'diagnostics', dependsOn: [], description: 'Scan queue, equipment booking, reporting and radiologist sign-off.' },

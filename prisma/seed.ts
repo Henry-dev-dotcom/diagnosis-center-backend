@@ -76,7 +76,8 @@ const DEMO_PASSWORDS: Record<string, string> = {
   reception: 'reception123',
   lab: 'lab123',
   scan: 'scan123',
-  billing: 'billing123'
+  billing: 'billing123',
+  nurse: 'nurse123'
 };
 
 function date(value: string) {
@@ -353,6 +354,17 @@ const notifications = [
 
 async function resetDemoData() {
   await prisma.$transaction([
+    // Clinical encounter data (Phase 3). Orders and invoices point at encounters
+    // and are deleted later, so unlink them first.
+    prisma.order.updateMany({ where: { encounterId: { not: null } }, data: { encounterId: null } }),
+    prisma.invoice.updateMany({ where: { encounterId: { not: null } }, data: { encounterId: null } }),
+    prisma.prescriptionItem.deleteMany(),
+    prisma.prescription.deleteMany(),
+    prisma.diagnosis.deleteMany(),
+    prisma.clinicalNote.deleteMany(),
+    prisma.vitalSigns.deleteMany(),
+    prisma.patientAllergy.deleteMany(),
+    prisma.encounter.deleteMany(),
     prisma.apiRequestLog.deleteMany(),
     prisma.systemEvent.deleteMany(),
     prisma.auditLog.deleteMany(),
@@ -418,7 +430,8 @@ export async function seedUsersAndDoctors() {
     { id: 'USR-002', username: 'reception', name: 'Grace Osei', email: 'reception@sunkwa.local', role: UserRole.RECEPTIONIST },
     { id: 'USR-003', username: 'lab', name: 'Kwame Adu', email: 'lab@sunkwa.local', role: UserRole.LAB_STAFF },
     { id: 'USR-004', username: 'scan', name: 'Ama Boateng', email: 'scan@sunkwa.local', role: UserRole.SCAN_STAFF },
-    { id: 'USR-005', username: 'billing', name: 'Kofi Danquah', email: 'billing@sunkwa.local', role: UserRole.BILLING_STAFF }
+    { id: 'USR-005', username: 'billing', name: 'Kofi Danquah', email: 'billing@sunkwa.local', role: UserRole.BILLING_STAFF },
+    { id: 'USR-008', username: 'nurse', name: 'Efua Asante', email: 'nurse@sunkwa.local', role: UserRole.NURSE }
   ];
 
   for (const user of users) {
@@ -514,6 +527,11 @@ async function seedPatients() {
 }
 
 export async function seedCatalogAndReferenceRanges() {
+  // OPD consultation fee: a service item charged when a visit starts.
+  await prisma.catalogItem.create({
+    data: { id: 'SVC-CONSULT', catalogCode: 'CONSULT-OPD', name: 'OPD consultation', type: CatalogItemType.SERVICE, price: '50' }
+  });
+
   for (const item of catalog) {
     await prisma.catalogItem.create({
       data: {
@@ -1171,7 +1189,7 @@ async function main() {
   await runAsSystem('seed.platform-admin', () => seedDemoPlatformAdmin());
 
   console.log(`Seeded demo facility ${DEMO_FACILITY.name} (facility code ${DEMO_FACILITY.code}).`);
-  console.log('Demo logins (facility code DEMO): admin/admin123, doctor/doctor123, reception/reception123, lab/lab123, scan/scan123, billing/billing123');
+  console.log('Demo logins (facility code DEMO): admin/admin123, doctor/doctor123, nurse/nurse123, reception/reception123, lab/lab123, scan/scan123, billing/billing123');
   console.log('Platform login (no facility code): platform/platform123');
 }
 

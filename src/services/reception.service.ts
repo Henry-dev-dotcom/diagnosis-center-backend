@@ -101,6 +101,9 @@ type WalkInPayload = {
   hospitalId?: string | null;
   invoiceNow?: boolean;
   checkInNow?: boolean;
+  /** Set when a clinician orders tests or scans during an encounter. */
+  encounterId?: string | null;
+  urgency?: OrderUrgency;
 };
 
 type AppointmentPayload = {
@@ -325,9 +328,10 @@ export async function createWalkIn(body: WalkInPayload, req: Request) {
         orderCode,
         patientId: patient.id,
         hospitalId,
+        encounterId: body.encounterId ?? null,
         status: OrderStatus.CONFIRMED,
-        urgency: OrderUrgency.ROUTINE,
-        clinicalNotes: (clean(body.notes) as string | null) ?? 'Walk-in order created at reception',
+        urgency: body.urgency ?? OrderUrgency.ROUTINE,
+        clinicalNotes: (clean(body.notes) as string | null) ?? (body.encounterId ? 'Ordered during a clinical encounter' : 'Walk-in order created at reception'),
         submittedAt: new Date(),
         confirmedAt: new Date(),
         createdById: req.user?.id ?? null,
