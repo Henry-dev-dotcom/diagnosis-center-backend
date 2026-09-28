@@ -359,6 +359,12 @@ async function resetDemoData() {
     // and are deleted later, so unlink them first.
     prisma.order.updateMany({ where: { encounterId: { not: null } }, data: { encounterId: null } }),
     prisma.invoice.updateMany({ where: { encounterId: { not: null } }, data: { encounterId: null } }),
+    // Inpatient care (Phase 4B) points at prescriptions and encounters, so it goes first.
+    prisma.medicationAdministration.deleteMany(),
+    prisma.bedAssignment.deleteMany(),
+    prisma.admission.deleteMany(),
+    prisma.bed.deleteMany(),
+    prisma.ward.deleteMany(),
     // Pharmacy (Phase 4A): the ledger and dispensing records go before the lines they point at.
     prisma.stockMovement.deleteMany(),
     prisma.dispensationItem.deleteMany(),
@@ -1160,6 +1166,28 @@ async function seedPharmacy() {
   }
 }
 
+/** Three wards with beds, so admissions can be tried straight away. */
+async function seedWards() {
+  const wards = [
+    { id: 'WRD-MMW', code: 'MMW', name: 'Male Medical Ward', type: 'MEDICAL', gender: 'MALE', dailyRate: '60', beds: ['M1', 'M2', 'M3', 'M4', 'M5', 'M6'] },
+    { id: 'WRD-FMW', code: 'FMW', name: 'Female Medical Ward', type: 'MEDICAL', gender: 'FEMALE', dailyRate: '60', beds: ['F1', 'F2', 'F3', 'F4', 'F5', 'F6'] },
+    { id: 'WRD-CHW', code: 'CHW', name: "Children's Ward", type: 'PAEDIATRIC', gender: 'MIXED', dailyRate: '45', beds: ['C1', 'C2', 'C3', 'C4'] }
+  ] as const;
+  for (const ward of wards) {
+    await prisma.ward.create({
+      data: {
+        id: ward.id,
+        code: ward.code,
+        name: ward.name,
+        type: ward.type,
+        gender: ward.gender,
+        dailyRate: ward.dailyRate,
+        beds: { create: ward.beds.map((label) => ({ id: `BED-${ward.code}-${label}`, label })) }
+      }
+    });
+  }
+}
+
 async function seedAuditAndSystemEvents() {
   await prisma.auditLog.createMany({
     data: [
@@ -1200,6 +1228,7 @@ export async function seedFacility(facility: DemoFacility) {
       await seedPatients();
       await seedCatalogAndReferenceRanges();
       await seedPharmacy();
+      await seedWards();
       await seedOrders();
       await seedReceptionWorkflow();
       await seedLabAndScanWorkflow();

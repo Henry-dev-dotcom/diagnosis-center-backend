@@ -22,11 +22,11 @@ import { allergyConflicts } from './allergyCheck.js';
 import { AppError } from '../utils/appError.js';
 import type { ModuleKey } from '../config/modules.js';
 
-// Each visit type belongs to a department module (inpatient arrives with the wards in Phase 4B).
+// Each visit type belongs to a department module.
 const MODULE_FOR_ENCOUNTER_TYPE: Record<EncounterType, ModuleKey> = {
   [EncounterType.OPD]: 'opd',
   [EncounterType.EMERGENCY]: 'emergency',
-  [EncounterType.INPATIENT]: 'opd'
+  [EncounterType.INPATIENT]: 'inpatient'
 };
 
 async function assertEncounterTypeAvailable(type: EncounterType) {
@@ -148,6 +148,9 @@ export async function startEncounter(
   body: { patientId: string; type: EncounterType; chiefComplaint?: string; visitId?: string; feeItemId?: string },
   req: Request
 ) {
+  if (body.type === EncounterType.INPATIENT) {
+    throw new AppError('Inpatient stays start by admitting the patient to a bed', 400, 'USE_ADMISSION');
+  }
   await assertEncounterTypeAvailable(body.type);
   const patient = await prisma.patient.findUnique({ where: { id: body.patientId }, select: { id: true, hospitalId: true } });
   if (!patient) throw new AppError('Patient not found', 404, 'PATIENT_NOT_FOUND');
@@ -261,7 +264,10 @@ export async function addNote(
     if (!original || original.encounterId !== id) throw new AppError('The note being corrected is not on this visit', 400, 'NOTE_NOT_ON_ENCOUNTER');
   }
   // Clinicians write consultation notes; triage staff write triage notes.
-  const type = permissionsInclude(req.user?.permissions ?? [], PERMISSIONS.ENCOUNTERS_CONSULT) ? ClinicalNoteType.CONSULTATION : ClinicalNoteType.TRIAGE;
+  const clinician = permissionsInclude(req.user?.permissions ?? [], PERMISSIONS.ENCOUNTERS_CONSULT);
+  const type = clinician
+    ? encounter.type === EncounterType.INPATIENT ? ClinicalNoteType.PROGRESS : ClinicalNoteType.CONSULTATION
+    : encounter.type === EncounterType.INPATIENT ? ClinicalNoteType.NURSING : ClinicalNoteType.TRIAGE;
   const note = await prisma.clinicalNote.create({
     data: { ...body, type, encounterId: id, patientId: encounter.patientId, authorId: req.user?.id ?? null }
   });
@@ -433,6 +439,7 @@ export async function registerEmergencyArrival(
 
 export async function completeEncounter(id: string, body: { outcome: string; summary?: string }, req: Request) {
   const encounter = await loadActiveEncounter(id);
+  if (encounter.type === EncounterType.INPATIENT) throw new AppError('Discharge the patient to end an inpatient stay', 409, 'USE_DISCHARGE');
   if (encounter.status !== EncounterStatus.IN_CONSULTATION) {
     throw new AppError('Start the consultation before completing the visit', 409, 'ENCOUNTER_NOT_IN_CONSULTATION');
   }
@@ -451,6 +458,7 @@ export async function completeEncounter(id: string, body: { outcome: string; sum
 
 export async function cancelEncounter(id: string, body: { reason: string }, req: Request) {
   const encounter = await loadActiveEncounter(id);
+  if (encounter.type === EncounterType.INPATIENT) throw new AppError('Discharge the patient to end an inpatient stay', 409, 'USE_DISCHARGE');
   if (encounter.status === EncounterStatus.IN_CONSULTATION) {
     throw new AppError('A visit in consultation cannot be cancelled; complete it with the appropriate outcome instead', 409, 'ENCOUNTER_IN_CONSULTATION');
   }

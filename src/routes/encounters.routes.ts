@@ -52,7 +52,7 @@ export const encountersRoutes = Router();
 encountersRoutes.use(
   '/encounters',
   requireAuth,
-  requireAnyModule('opd', 'emergency'),
+  requireAnyModule('opd', 'emergency', 'inpatient'),
   requireRole(UserRole.ADMIN, UserRole.DOCTOR, UserRole.NURSE, UserRole.RECEPTIONIST)
 );
 encountersRoutes.get('/encounters', requirePermission(P.ENCOUNTERS_READ), validateRequest({ query: encounterQuerySchema }), listEncountersController);

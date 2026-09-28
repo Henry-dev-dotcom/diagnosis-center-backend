@@ -38,7 +38,8 @@ export const CODE_SERIES = {
   'SCN-RES': { table: 'ScanResult', column: 'resultCode' },
   ENC: { table: 'Encounter', column: 'encounterCode', yearly: true },
   RX: { table: 'Prescription', column: 'prescriptionCode', yearly: true },
-  DSP: { table: 'Dispensation', column: 'dispensationCode', yearly: true }
+  DSP: { table: 'Dispensation', column: 'dispensationCode', yearly: true },
+  ADM: { table: 'Admission', column: 'admissionCode', yearly: true }
 } satisfies Record<string, SeriesConfig>;
 
 export type CodeSeries = keyof typeof CODE_SERIES;

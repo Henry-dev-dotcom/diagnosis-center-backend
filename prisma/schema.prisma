@@ -29,70 +29,75 @@ model Facility {
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
 
-  modules               FacilityModule[]
-  sequences             FacilitySequence[]
-  facilityRoles         FacilityRole[]
-  users                 User[]
-  hospitals             Hospital[]
-  doctorProfiles        DoctorProfile[]
-  patients              Patient[]
-  patientContacts       PatientContact[]
-  patientInsurances     PatientInsurance[]
-  patientDuplicateFlags PatientDuplicateFlag[]
-  departments           Department[]
-  equipments            Equipment[]
-  catalogItems          CatalogItem[]
-  referenceParameters   ReferenceParameter[]
-  referenceRanges       ReferenceRange[]
-  orders                Order[]
-  orderItems            OrderItem[]
-  orderStatusHistorys   OrderStatusHistory[]
-  orderCancellations    OrderCancellation[]
-  appointments          Appointment[]
-  patientVisits         PatientVisit[]
-  labSamples            LabSample[]
-  labResults            LabResult[]
-  labResultParameters   LabResultParameter[]
-  labResultReviews      LabResultReview[]
-  labResultAmendments   LabResultAmendment[]
-  sampleRejections      SampleRejection[]
-  qualityControlRuns    QualityControlRun[]
-  inventoryItems        InventoryItem[]
-  inventoryTransactions InventoryTransaction[]
-  scanAcceptances       ScanAcceptance[]
-  scanBookings          ScanBooking[]
-  scanResults           ScanResult[]
-  scanResultFiles       ScanResultFile[]
-  scanReviews           ScanReview[]
-  scanRetakes           ScanRetake[]
-  invoices              Invoice[]
-  invoiceItems          InvoiceItem[]
-  payments              Payment[]
-  cashierShifts         CashierShift[]
-  floatTransactions     FloatTransaction[]
-  expenses              Expense[]
-  expensePayments       ExpensePayment[]
-  ledgerEntrys          LedgerEntry[]
-  receipts              Receipt[]
-  reports               Report[]
-  notifications         Notification[]
-  deliveryLogs          DeliveryLog[]
-  secureResultLinks     SecureResultLink[]
-  auditLogs             AuditLog[]
-  systemEvents          SystemEvent[]
-  apiRequestLogs        ApiRequestLog[]
-  encounters            Encounter[]
-  vitalSigns            VitalSigns[]
-  clinicalNotes         ClinicalNote[]
-  diagnoses             Diagnosis[]
-  patientAllergies      PatientAllergy[]
-  prescriptions         Prescription[]
-  prescriptionItems     PrescriptionItem[]
-  drugs                 Drug[]
-  drugBatches           DrugBatch[]
-  stockMovements        StockMovement[]
-  dispensations         Dispensation[]
-  dispensationItems     DispensationItem[]
+  modules                   FacilityModule[]
+  sequences                 FacilitySequence[]
+  facilityRoles             FacilityRole[]
+  users                     User[]
+  hospitals                 Hospital[]
+  doctorProfiles            DoctorProfile[]
+  patients                  Patient[]
+  patientContacts           PatientContact[]
+  patientInsurances         PatientInsurance[]
+  patientDuplicateFlags     PatientDuplicateFlag[]
+  departments               Department[]
+  equipments                Equipment[]
+  catalogItems              CatalogItem[]
+  referenceParameters       ReferenceParameter[]
+  referenceRanges           ReferenceRange[]
+  orders                    Order[]
+  orderItems                OrderItem[]
+  orderStatusHistorys       OrderStatusHistory[]
+  orderCancellations        OrderCancellation[]
+  appointments              Appointment[]
+  patientVisits             PatientVisit[]
+  labSamples                LabSample[]
+  labResults                LabResult[]
+  labResultParameters       LabResultParameter[]
+  labResultReviews          LabResultReview[]
+  labResultAmendments       LabResultAmendment[]
+  sampleRejections          SampleRejection[]
+  qualityControlRuns        QualityControlRun[]
+  inventoryItems            InventoryItem[]
+  inventoryTransactions     InventoryTransaction[]
+  scanAcceptances           ScanAcceptance[]
+  scanBookings              ScanBooking[]
+  scanResults               ScanResult[]
+  scanResultFiles           ScanResultFile[]
+  scanReviews               ScanReview[]
+  scanRetakes               ScanRetake[]
+  invoices                  Invoice[]
+  invoiceItems              InvoiceItem[]
+  payments                  Payment[]
+  cashierShifts             CashierShift[]
+  floatTransactions         FloatTransaction[]
+  expenses                  Expense[]
+  expensePayments           ExpensePayment[]
+  ledgerEntrys              LedgerEntry[]
+  receipts                  Receipt[]
+  reports                   Report[]
+  notifications             Notification[]
+  deliveryLogs              DeliveryLog[]
+  secureResultLinks         SecureResultLink[]
+  auditLogs                 AuditLog[]
+  systemEvents              SystemEvent[]
+  apiRequestLogs            ApiRequestLog[]
+  encounters                Encounter[]
+  vitalSigns                VitalSigns[]
+  clinicalNotes             ClinicalNote[]
+  diagnoses                 Diagnosis[]
+  patientAllergies          PatientAllergy[]
+  prescriptions             Prescription[]
+  prescriptionItems         PrescriptionItem[]
+  drugs                     Drug[]
+  drugBatches               DrugBatch[]
+  stockMovements            StockMovement[]
+  dispensations             Dispensation[]
+  dispensationItems         DispensationItem[]
+  wards                     Ward[]
+  beds                      Bed[]
+  admissions                Admission[]
+  bedAssignments            BedAssignment[]
+  medicationAdministrations MedicationAdministration[]
 
   @@index([status])
 }
@@ -369,17 +374,22 @@ model User {
   systemEvents    SystemEvent[]   @relation("SystemEventActor")
   apiRequestLogs  ApiRequestLog[] @relation("ApiRequestUser")
 
-  facility            Facility?        @relation(fields: [facilityId], references: [id], onDelete: Restrict)
-  createdEncounters   Encounter[]      @relation("EncounterCreatedBy")
-  attendedEncounters  Encounter[]      @relation("EncounterAttending")
-  recordedVitals      VitalSigns[]     @relation("VitalsRecordedBy")
-  authoredNotes       ClinicalNote[]   @relation("NoteAuthor")
-  recordedDiagnoses   Diagnosis[]      @relation("DiagnosisRecordedBy")
-  recordedAllergies   PatientAllergy[] @relation("AllergyRecordedBy")
-  prescriptionsIssued Prescription[]   @relation("Prescriber")
-  receivedBatches     DrugBatch[]      @relation("BatchReceivedBy")
-  stockMovements      StockMovement[]  @relation("StockMovedBy")
-  dispensations       Dispensation[]   @relation("DispensedBy")
+  facility            Facility?                  @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+  createdEncounters   Encounter[]                @relation("EncounterCreatedBy")
+  attendedEncounters  Encounter[]                @relation("EncounterAttending")
+  recordedVitals      VitalSigns[]               @relation("VitalsRecordedBy")
+  authoredNotes       ClinicalNote[]             @relation("NoteAuthor")
+  recordedDiagnoses   Diagnosis[]                @relation("DiagnosisRecordedBy")
+  recordedAllergies   PatientAllergy[]           @relation("AllergyRecordedBy")
+  prescriptionsIssued Prescription[]             @relation("Prescriber")
+  receivedBatches     DrugBatch[]                @relation("BatchReceivedBy")
+  stockMovements      StockMovement[]            @relation("StockMovedBy")
+  dispensations       Dispensation[]             @relation("DispensedBy")
+  admissionsMade      Admission[]                @relation("AdmittedBy")
+  admissionsAttended  Admission[]                @relation("AdmissionAttending")
+  dischargesDone      Admission[]                @relation("DischargedBy")
+  bedMovesMade        BedAssignment[]            @relation("BedAssignedBy")
+  medicationsGiven    MedicationAdministration[] @relation("AdministeredBy")
 
   @@unique([facilityId, username])
   @@unique([facilityId, email])
@@ -524,6 +534,7 @@ model Patient {
   diagnoses     Diagnosis[]
   allergies     PatientAllergy[]
   prescriptions Prescription[]
+  admissions    Admission[]
 
   @@unique([facilityId, patientCode])
   @@index([facilityId])
@@ -1770,6 +1781,7 @@ enum ClinicalNoteType {
   CONSULTATION
   PROGRESS
   DISCHARGE
+  NURSING
 }
 
 enum DiagnosisType {
@@ -1818,17 +1830,21 @@ model Encounter {
   createdAt             DateTime        @default(now())
   updatedAt             DateTime        @updatedAt
 
-  facility      Facility       @relation(fields: [facilityId], references: [id])
-  patient       Patient        @relation(fields: [patientId], references: [id])
-  visit         PatientVisit?  @relation(fields: [visitId], references: [id])
-  attending     User?          @relation("EncounterAttending", fields: [attendingId], references: [id])
-  createdBy     User?          @relation("EncounterCreatedBy", fields: [createdById], references: [id])
-  vitalSigns    VitalSigns[]
-  notes         ClinicalNote[]
-  diagnoses     Diagnosis[]
-  prescriptions Prescription[]
-  orders        Order[]
-  invoices      Invoice[]
+  facility          Facility       @relation(fields: [facilityId], references: [id])
+  patient           Patient        @relation(fields: [patientId], references: [id])
+  visit             PatientVisit?  @relation(fields: [visitId], references: [id])
+  attending         User?          @relation("EncounterAttending", fields: [attendingId], references: [id])
+  createdBy         User?          @relation("EncounterCreatedBy", fields: [createdById], references: [id])
+  vitalSigns        VitalSigns[]
+  notes             ClinicalNote[]
+  diagnoses         Diagnosis[]
+  prescriptions     Prescription[]
+  orders            Order[]
+  invoices          Invoice[]
+  /// The admission this inpatient encounter belongs to.
+  admission         Admission?     @relation("AdmissionEncounter")
+  /// Admissions that started from this (OPD/emergency) visit.
+  admissionsStarted Admission[]    @relation("AdmissionSource")
 
   @@unique([facilityId, encounterCode])
   @@index([facilityId])
@@ -1982,13 +1998,14 @@ model PrescriptionItem {
   quantity       Int?
   instructions   String?
 
-  facility          Facility           @relation(fields: [facilityId], references: [id])
-  prescription      Prescription       @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  facility          Facility                   @relation(fields: [facilityId], references: [id])
+  prescription      Prescription               @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
   /// The formulary drug, when the prescriber picked one; free-text lines are matched at dispensing.
   drugId            String?
-  quantityDispensed Int                @default(0)
-  drug              Drug?              @relation(fields: [drugId], references: [id])
+  quantityDispensed Int                        @default(0)
+  drug              Drug?                      @relation(fields: [drugId], references: [id])
   dispensedLines    DispensationItem[]
+  administrations   MedicationAdministration[]
 
   @@index([facilityId])
   @@index([prescriptionId])
@@ -2134,4 +2151,173 @@ model FacilitySequence {
   facility Facility @relation(fields: [facilityId], references: [id])
 
   @@id([facilityId, name])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4B: inpatient care. An Admission owns an INPATIENT encounter, so the
+// usual notes, vitals, diagnoses, orders and prescriptions apply to it.
+// ---------------------------------------------------------------------------
+
+enum WardType {
+  GENERAL
+  MEDICAL
+  SURGICAL
+  MATERNITY
+  PAEDIATRIC
+  ICU
+  PRIVATE
+}
+
+enum WardGender {
+  MALE
+  FEMALE
+  MIXED
+}
+
+enum BedStatus {
+  AVAILABLE
+  OCCUPIED
+  CLEANING
+  OUT_OF_SERVICE
+}
+
+enum AdmissionStatus {
+  ADMITTED
+  DISCHARGED
+  CANCELLED
+}
+
+enum AdministrationStatus {
+  GIVEN
+  HELD
+  REFUSED
+  MISSED
+}
+
+model Ward {
+  id         String     @id @default(cuid())
+  facilityId String     @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  code       String
+  name       String
+  type       WardType   @default(GENERAL)
+  gender     WardGender @default(MIXED)
+  /// Charged per night at discharge when Billing is on.
+  dailyRate  Decimal    @default(0) @db.Decimal(10, 2)
+  isActive   Boolean    @default(true)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  facility       Facility        @relation(fields: [facilityId], references: [id])
+  beds           Bed[]
+  admissions     Admission[]
+  bedAssignments BedAssignment[]
+
+  @@unique([facilityId, code])
+  @@index([facilityId])
+}
+
+model Bed {
+  id         String    @id @default(cuid())
+  facilityId String    @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  wardId     String
+  label      String
+  status     BedStatus @default(AVAILABLE)
+  isActive   Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  facility       Facility        @relation(fields: [facilityId], references: [id])
+  ward           Ward            @relation(fields: [wardId], references: [id])
+  admissions     Admission[]
+  bedAssignments BedAssignment[]
+
+  @@unique([facilityId, wardId, label])
+  @@index([facilityId])
+  @@index([wardId])
+}
+
+model Admission {
+  id                  String          @id @default(cuid())
+  facilityId          String          @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  admissionCode       String
+  patientId           String
+  /// The inpatient encounter holding this stay's clinical record.
+  encounterId         String          @unique
+  /// The OPD or emergency visit the patient was admitted from, if any.
+  sourceEncounterId   String?
+  wardId              String
+  bedId               String
+  status              AdmissionStatus @default(ADMITTED)
+  reason              String
+  admittedById        String?
+  attendingId         String?
+  admittedAt          DateTime        @default(now())
+  expectedDischargeAt DateTime?
+  dischargedAt        DateTime?
+  dischargedById      String?
+  dischargeOutcome    String?
+  dischargeSummary    String?
+  cancelReason        String?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  facility        Facility                   @relation(fields: [facilityId], references: [id])
+  patient         Patient                    @relation(fields: [patientId], references: [id])
+  encounter       Encounter                  @relation("AdmissionEncounter", fields: [encounterId], references: [id])
+  sourceEncounter Encounter?                 @relation("AdmissionSource", fields: [sourceEncounterId], references: [id])
+  ward            Ward                       @relation(fields: [wardId], references: [id])
+  bed             Bed                        @relation(fields: [bedId], references: [id])
+  admittedBy      User?                      @relation("AdmittedBy", fields: [admittedById], references: [id])
+  attending       User?                      @relation("AdmissionAttending", fields: [attendingId], references: [id])
+  dischargedBy    User?                      @relation("DischargedBy", fields: [dischargedById], references: [id])
+  bedAssignments  BedAssignment[]
+  administrations MedicationAdministration[]
+
+  @@unique([facilityId, admissionCode])
+  @@index([facilityId])
+  @@index([status])
+  @@index([wardId, status])
+}
+
+/// Where the patient was, and when: one row per bed occupied during the stay.
+model BedAssignment {
+  id           String    @id @default(cuid())
+  facilityId   String    @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  admissionId  String
+  wardId       String
+  bedId        String
+  assignedById String?
+  startedAt    DateTime  @default(now())
+  endedAt      DateTime?
+  reason       String?
+
+  facility   Facility  @relation(fields: [facilityId], references: [id])
+  admission  Admission @relation(fields: [admissionId], references: [id])
+  ward       Ward      @relation(fields: [wardId], references: [id])
+  bed        Bed       @relation(fields: [bedId], references: [id])
+  assignedBy User?     @relation("BedAssignedBy", fields: [assignedById], references: [id])
+
+  @@index([facilityId])
+  @@index([admissionId])
+}
+
+/// The medication administration record (MAR): each dose given, held, refused or missed.
+model MedicationAdministration {
+  id                 String               @id @default(cuid())
+  facilityId         String               @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  admissionId        String
+  prescriptionItemId String
+  status             AdministrationStatus
+  doseGiven          String?
+  notes              String?
+  administeredById   String?
+  administeredAt     DateTime             @default(now())
+
+  facility         Facility         @relation(fields: [facilityId], references: [id])
+  admission        Admission        @relation(fields: [admissionId], references: [id])
+  prescriptionItem PrescriptionItem @relation(fields: [prescriptionItemId], references: [id])
+  administeredBy   User?            @relation("AdministeredBy", fields: [administeredById], references: [id])
+
+  @@index([facilityId])
+  @@index([admissionId, administeredAt])
 }

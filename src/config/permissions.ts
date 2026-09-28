@@ -117,7 +117,16 @@ export const PERMISSIONS = {
   PHARMACY_FORMULARY_READ: 'pharmacy:formulary:read',
   PHARMACY_DRUGS_MANAGE: 'pharmacy:drugs:manage',
   PHARMACY_STOCK_MANAGE: 'pharmacy:stock:manage',
-  PHARMACY_DISPENSE: 'pharmacy:dispense'
+  PHARMACY_DISPENSE: 'pharmacy:dispense',
+
+  // Wards & admissions, Phase 4B.
+  INPATIENT_READ: 'inpatient:read',
+  INPATIENT_ADMIT: 'inpatient:admit',
+  INPATIENT_TRANSFER: 'inpatient:transfer',
+  INPATIENT_DISCHARGE: 'inpatient:discharge',
+  INPATIENT_ADMINISTER: 'inpatient:administer',
+  INPATIENT_BED_STATUS: 'inpatient:beds:status',
+  INPATIENT_WARDS_MANAGE: 'inpatient:wards:manage'
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -145,7 +154,12 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly
     PERMISSIONS.ENCOUNTERS_COMPLETE,
     PERMISSIONS.PATIENT_ALLERGIES_MANAGE,
     // Prescribe from the pharmacy's drug list (Pharmacy module).
-    PERMISSIONS.PHARMACY_FORMULARY_READ
+    PERMISSIONS.PHARMACY_FORMULARY_READ,
+    // Admit, move and discharge inpatients (Wards & Admissions module).
+    PERMISSIONS.INPATIENT_READ,
+    PERMISSIONS.INPATIENT_ADMIT,
+    PERMISSIONS.INPATIENT_TRANSFER,
+    PERMISSIONS.INPATIENT_DISCHARGE
   ],
   [UserRole.NURSE]: [
     PERMISSIONS.SYSTEM_READ,
@@ -155,7 +169,12 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly
     PERMISSIONS.ENCOUNTERS_CREATE,
     PERMISSIONS.ENCOUNTERS_TRIAGE,
     PERMISSIONS.PATIENT_ALLERGIES_MANAGE,
-    PERMISSIONS.NOTIFICATIONS_READ
+    PERMISSIONS.NOTIFICATIONS_READ,
+    // Ward nursing: medication rounds, bed moves and bed readiness.
+    PERMISSIONS.INPATIENT_READ,
+    PERMISSIONS.INPATIENT_TRANSFER,
+    PERMISSIONS.INPATIENT_ADMINISTER,
+    PERMISSIONS.INPATIENT_BED_STATUS
   ],
   [UserRole.PHARMACIST]: [
     PERMISSIONS.SYSTEM_READ,
