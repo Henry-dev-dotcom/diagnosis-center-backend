@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
-import { UserStatus } from '@prisma/client';
+import { FacilityStatus, UserRole, UserStatus } from '@prisma/client';
 import { prisma } from './prisma.service.js';
+import { runAsSystem, runWithFacility } from './tenantContext.js';
 import { getPermissionsForRole } from './permission.service.js';
 import { createAuditLog } from './audit.service.js';
 import { verifyPassword, hashPassword } from '../utils/password.js';
@@ -18,6 +19,12 @@ export type RequestContext = {
   userAgent?: string | null;
 };
 
+type FacilitySummary = { id: string; code: string; name: string };
+
+function toFacilitySummary(facility: FacilitySummary | null | undefined): FacilitySummary | null {
+  return facility ? { id: facility.id, code: facility.code, name: facility.name } : null;
+}
+
 function sanitizeUser(user: {
   id: string;
   name: string;
@@ -26,9 +33,12 @@ function sanitizeUser(user: {
   role: import('@prisma/client').UserRole;
   status: import('@prisma/client').UserStatus;
   lastLoginAt: Date | null;
+  facility?: FacilitySummary | null;
 }) {
   return {
     id: user.id,
+    facilityId: user.facility?.id ?? null,
+    facility: toFacilitySummary(user.facility),
     name: user.name,
     username: user.username,
     email: user.email,
@@ -39,9 +49,54 @@ function sanitizeUser(user: {
   };
 }
 
-export async function loginWithPassword(username: string, password: string, context: RequestContext) {
+/**
+ * Staff sign in to one facility (by its code); platform administrators sign in
+ * without a code. An unknown facility code fails exactly like a wrong password so
+ * the login form does not reveal which facilities exist.
+ */
+export async function loginWithPassword(
+  facilityCode: string | undefined,
+  username: string,
+  password: string,
+  context: RequestContext
+) {
   const normalizedUsername = username.trim().toLowerCase();
-  const user = await prisma.user.findUnique({ where: { username: normalizedUsername } });
+  if (!facilityCode) {
+    return runAsSystem('auth.platform-login', () => authenticate(null, normalizedUsername, password, context));
+  }
+
+  const facility = await prisma.facility.findUnique({ where: { code: facilityCode } });
+  if (!facility) {
+    await createAuditLog({
+      action: 'AUTH_LOGIN_FAILED',
+      module: 'Authentication',
+      details: { username: normalizedUsername, facilityCode, reason: 'FACILITY_NOT_FOUND' },
+      ipAddress: context.ipAddress,
+      userAgent: context.userAgent
+    });
+    throw new AppError('Invalid username or password', 401, 'INVALID_CREDENTIALS');
+  }
+  if (facility.status !== FacilityStatus.ACTIVE) {
+    await createAuditLog({
+      facilityId: facility.id,
+      action: 'AUTH_LOGIN_BLOCKED',
+      module: 'Authentication',
+      details: { username: normalizedUsername, facilityCode, reason: `FACILITY_${facility.status}` },
+      ipAddress: context.ipAddress,
+      userAgent: context.userAgent
+    });
+    throw new AppError('This facility account is not active. Contact support.', 403, 'FACILITY_NOT_ACTIVE');
+  }
+
+  return runWithFacility(facility.id, () => authenticate(facility, normalizedUsername, password, context));
+}
+
+async function authenticate(facility: FacilitySummary | null, normalizedUsername: string, password: string, context: RequestContext) {
+  // Inside a facility context the tenant extension adds facilityId; for platform
+  // sign-in only facility-less users may match.
+  const user = await prisma.user.findFirst({
+    where: { username: normalizedUsername, ...(facility ? {} : { facilityId: null, role: UserRole.PLATFORM_ADMIN }) }
+  });
 
   if (!user) {
     await createAuditLog({
@@ -128,7 +183,7 @@ export async function loginWithPassword(username: string, password: string, cont
   });
 
   return {
-    user: sanitizeUser({ ...user, lastLoginAt: new Date() }),
+    user: sanitizeUser({ ...user, facility, lastLoginAt: new Date() }),
     accessToken,
     refreshToken
   };
@@ -142,7 +197,7 @@ export async function refreshTokenPair(refreshToken: string, context: RequestCon
 
   const session = await prisma.userSession.findUnique({
     where: { id: payload.sessionId },
-    include: { user: true }
+    include: { user: { include: { facility: true } } }
   });
 
   if (!session || session.revokedAt || session.expiresAt < new Date()) {
@@ -162,6 +217,10 @@ export async function refreshTokenPair(refreshToken: string, context: RequestCon
       userAgent: context.userAgent
     });
     throw new AppError('Refresh token reuse detected', 401, 'REFRESH_REUSE_DETECTED');
+  }
+
+  if (session.user.facility && session.user.facility.status !== FacilityStatus.ACTIVE) {
+    throw new AppError('This facility account is not active. Contact support.', 403, 'FACILITY_NOT_ACTIVE');
   }
 
   if (session.user.status !== UserStatus.ACTIVE) {
@@ -212,7 +271,7 @@ export async function logoutSession(sessionId: string, userId: string, context: 
   if (!session) return;
 
   await prisma.userSession.update({ where: { id: sessionId }, data: { revokedAt: new Date() } });
-  const user = await prisma.user.findUnique({ where: { id: userId } });
+  const user = await findSelf(userId);
   await createAuditLog({
     actorId: userId,
     actorRole: user?.role ?? null,
@@ -243,8 +302,14 @@ export async function logoutByRefreshToken(refreshToken: string, context: Reques
   });
 }
 
+// The signed-in user's own row, by the id from their verified session. Runs as
+// system so it also works for platform administrators, who have no facility.
+function findSelf(userId: string) {
+  return runAsSystem('auth.self', () => prisma.user.findUnique({ where: { id: userId }, include: { facility: true } }));
+}
+
 export async function getCurrentUser(userId: string, sessionId: string) {
-  const user = await prisma.user.findUnique({ where: { id: userId } });
+  const user = await findSelf(userId);
   if (!user || user.status !== UserStatus.ACTIVE) {
     throw new AppError('Current user is unavailable', 401, 'USER_UNAVAILABLE');
   }
@@ -258,17 +323,19 @@ export async function getCurrentUser(userId: string, sessionId: string) {
 }
 
 export async function changePassword(userId: string, currentPassword: string, newPassword: string, context: RequestContext) {
-  const user = await prisma.user.findUnique({ where: { id: userId } });
+  const user = await findSelf(userId);
   if (!user) throw new AppError('User not found', 404, 'USER_NOT_FOUND');
 
   const matches = await verifyPassword(currentPassword, user.passwordHash);
   if (!matches) throw new AppError('Current password is incorrect', 400, 'INVALID_CURRENT_PASSWORD');
 
   const passwordHash = await hashPassword(newPassword);
-  await prisma.$transaction([
-    prisma.user.update({ where: { id: userId }, data: { passwordHash } }),
-    prisma.userSession.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: new Date() } })
-  ]);
+  await runAsSystem('auth.self', () =>
+    prisma.$transaction([
+      prisma.user.update({ where: { id: userId }, data: { passwordHash } }),
+      prisma.userSession.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: new Date() } })
+    ])
+  );
 
   await createAuditLog({
     actorId: user.id,

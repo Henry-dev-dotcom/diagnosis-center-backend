@@ -1,8 +1,12 @@
 import type { Request, Response } from 'express';
 import type { Prisma, UserRole } from '@prisma/client';
 import { prisma } from './prisma.service.js';
+import { currentFacilityId } from './tenantContext.js';
 
+// Log rows carry facilityId when known. Callers outside a tenant context (for
+// example 'finish' handlers) pass it explicitly; otherwise the current context is used.
 export type AuditInput = {
+  facilityId?: string | null;
   actorId?: string | null;
   actorRole?: UserRole | null;
   action: string;
@@ -17,6 +21,7 @@ export type AuditInput = {
 };
 
 export type SystemEventInput = {
+  facilityId?: string | null;
   actorId?: string | null;
   level?: 'debug' | 'info' | 'warn' | 'error' | string;
   source: string;
@@ -25,6 +30,7 @@ export type SystemEventInput = {
 };
 
 export type ApiRequestLogInput = {
+  facilityId?: string | null;
   userId?: string | null;
   requestId?: string | null;
   method: string;
@@ -42,6 +48,7 @@ function toJsonValue(value: unknown): Prisma.InputJsonValue | undefined {
 
 export function getRequestAuditContext(req: Request) {
   return {
+    facilityId: req.user?.facilityId ?? null,
     actorId: req.user?.id ?? null,
     actorRole: req.user?.role ?? null,
     ipAddress: req.ip,
@@ -53,6 +60,7 @@ export async function createAuditLog(input: AuditInput) {
   try {
     await prisma.auditLog.create({
       data: {
+        facilityId: input.facilityId ?? currentFacilityId(),
         actorId: input.actorId ?? null,
         actorRole: input.actorRole ?? null,
         action: input.action,
@@ -76,6 +84,7 @@ export async function createSystemEvent(input: SystemEventInput) {
   try {
     await prisma.systemEvent.create({
       data: {
+        facilityId: input.facilityId ?? currentFacilityId(),
         actorId: input.actorId ?? null,
         level: input.level ?? 'info',
         source: input.source,
@@ -92,6 +101,7 @@ export async function createApiRequestLog(input: ApiRequestLogInput) {
   try {
     await prisma.apiRequestLog.create({
       data: {
+        facilityId: input.facilityId ?? currentFacilityId(),
         userId: input.userId ?? null,
         requestId: input.requestId ?? null,
         method: input.method,

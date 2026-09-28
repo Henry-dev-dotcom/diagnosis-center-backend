@@ -2,18 +2,24 @@ import { CatalogItemType, DepartmentType, EquipmentStatus, GenderRule, UserRole,
 import { z } from 'zod';
 import { booleanQuerySchema, emailSchema, moneySchema, paginationQuerySchema, phoneSchema } from './common.validators.js';
 
+// Facility administrators manage staff roles only; PLATFORM_ADMIN is created by
+// the platform operator and never belongs to a facility.
+export const facilityRoleSchema = z
+  .nativeEnum(UserRole)
+  .refine((role) => role !== UserRole.PLATFORM_ADMIN, { message: 'This role cannot be assigned to facility staff' });
+
 export const createUserSchema = z.object({
   name: z.string().trim().min(2, 'Name is required').max(120),
   username: z.string().trim().min(3, 'Username must be at least 3 characters').max(60).transform((value) => value.toLowerCase()),
   email: emailSchema,
-  role: z.nativeEnum(UserRole),
+  role: facilityRoleSchema,
   password: z.string().min(8, 'Password must be at least 8 characters')
 });
 
 export const updateUserSchema = z.object({
   name: z.string().trim().min(2).max(120).optional(),
   email: emailSchema,
-  role: z.nativeEnum(UserRole).optional(),
+  role: facilityRoleSchema.optional(),
   status: z.nativeEnum(UserStatus).optional(),
   password: z.string().min(8, 'Password must be at least 8 characters').optional()
 }).refine((value) => Object.keys(value).length > 0, {

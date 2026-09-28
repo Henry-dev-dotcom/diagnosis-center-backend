@@ -4,6 +4,11 @@ export const PERMISSIONS = {
   SYSTEM_READ: 'system:read',
   ACCESS_MATRIX_READ: 'access:matrix:read',
 
+  // Platform (SaaS operator) scope. Platform routes also require the
+  // PLATFORM_ADMIN role, so a facility ADMIN's '*' never reaches them.
+  PLATFORM_FACILITIES_READ: 'platform:facilities:read',
+  PLATFORM_FACILITIES_MANAGE: 'platform:facilities:manage',
+
   USERS_READ: 'users:read',
   USERS_MANAGE: 'users:manage',
 
@@ -100,6 +105,7 @@ export const PERMISSIONS = {
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
 
 export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly ['*']> = {
+  [UserRole.PLATFORM_ADMIN]: [PERMISSIONS.SYSTEM_READ, PERMISSIONS.PLATFORM_FACILITIES_READ, PERMISSIONS.PLATFORM_FACILITIES_MANAGE],
   [UserRole.ADMIN]: ['*'],
   [UserRole.DOCTOR]: [
     PERMISSIONS.SYSTEM_READ,

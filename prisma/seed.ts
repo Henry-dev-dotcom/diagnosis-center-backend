@@ -20,6 +20,7 @@ import {
   OrderUrgency,
   PaymentMethod,
   PaymentStatus,
+  Prisma,
   PrismaClient,
   ReportStatus,
   ResultFlag,
@@ -28,8 +29,44 @@ import {
   UserRole,
   VisitStatus
 } from '@prisma/client';
+import { currentFacilityId, runAsSystem, runWithFacility, tenantExtension } from '../src/services/tenantContext.js';
 
-export const prisma = new PrismaClient();
+/*
+  The demo data below uses readable literal ids ('USR-006', 'ORD-2026-0001').
+  Ids are primary keys and so are global across facilities; to seed the same
+  demo data into several facilities, every literal id written through this
+  client gets the current facility's prefix ('' for the main demo facility).
+  Generated cuids are lowercase and never prefixed. A missed id collides on
+  its primary key and fails loudly instead of mixing facilities.
+*/
+let idPrefix = '';
+const ID_KEY = /^(id|.*Id)$/;
+// 'USR-006'-style ids, plus the catalog's short 't1'..'t22' ids.
+const LITERAL_ID = /^([A-Z][A-Z0-9]*-|t\d+$)/;
+
+function prefixIds(value: unknown, underIdKey = false): unknown {
+  if (typeof value === 'string') {
+    return underIdKey && idPrefix && LITERAL_ID.test(value) && !value.startsWith(idPrefix) ? idPrefix + value : value;
+  }
+  if (Array.isArray(value)) return value.map((item) => prefixIds(item, underIdKey));
+  if (value && typeof value === 'object' && !(value instanceof Date) && !Prisma.Decimal.isDecimal(value)) {
+    return Object.fromEntries(Object.entries(value).map(([key, inner]) => [key, prefixIds(inner, underIdKey || ID_KEY.test(key))]));
+  }
+  return value;
+}
+
+const seedIdPrefixExtension = Prisma.defineExtension({
+  name: 'seed-id-prefix',
+  query: {
+    $allModels: {
+      async $allOperations({ args, query }) {
+        return query(prefixIds(args) as typeof args);
+      }
+    }
+  }
+});
+
+export const prisma = new PrismaClient().$extends(tenantExtension).$extends(seedIdPrefixExtension) as unknown as PrismaClient;
 
 const DEMO_PASSWORDS: Record<string, string> = {
   admin: 'admin123',
@@ -362,8 +399,9 @@ async function resetDemoData() {
     prisma.patientContact.deleteMany(),
     prisma.patient.deleteMany(),
     prisma.doctorProfile.deleteMany(),
-    prisma.passwordResetToken.deleteMany(),
-    prisma.userSession.deleteMany(),
+    // Sessions and reset tokens are not tenant-scoped, so limit them to this facility's users.
+    prisma.passwordResetToken.deleteMany({ where: { user: { facilityId: currentFacilityId() } } }),
+    prisma.userSession.deleteMany({ where: { user: { facilityId: currentFacilityId() } } }),
     prisma.user.deleteMany(),
     prisma.hospital.deleteMany()
   ]);
@@ -978,7 +1016,8 @@ async function seedReportsAndNotifications() {
         labResultId: report.labResultId,
         status: ReportStatus.GENERATED,
         generatedById: 'USR-003',
-        secureToken: report.secureToken,
+        // Tokens are globally unique (they back public links), so they carry the prefix too.
+        secureToken: `${idPrefix}${report.secureToken}`,
         generatedAt: date(report.generatedAt)
       }
     });
@@ -989,7 +1028,7 @@ async function seedReportsAndNotifications() {
         reportId: report.id,
         patientId: 'PAT-0001',
         createdById: 'USR-003',
-        tokenHash: `${report.secureToken}-hash`,
+        tokenHash: `${idPrefix}${report.secureToken}-hash`,
         expiresAt: addHours(report.generatedAt, 24 * 30),
         createdAt: date(report.generatedAt)
       }
@@ -1073,22 +1112,62 @@ async function seedAuditAndSystemEvents() {
   });
 }
 
-async function main() {
-  await resetDemoData();
-  await seedUsersAndDoctors();
-  await seedDepartmentsAndEquipment();
-  await seedPatients();
-  await seedCatalogAndReferenceRanges();
-  await seedOrders();
-  await seedReceptionWorkflow();
-  await seedLabAndScanWorkflow();
-  await seedBillingAndFinance();
-  await seedReportsAndNotifications();
-  await seedInventoryAndQualityControl();
-  await seedAuditAndSystemEvents();
+export type DemoFacility = { id: string; code: string; name: string; idPrefix: string };
 
-  console.log('Seeded Backend Phase 9 frontend-compatible demo database.');
-  console.log('Demo logins: admin/admin123, doctor/doctor123, reception/reception123, lab/lab123, scan/scan123, billing/billing123');
+export const DEMO_FACILITY: DemoFacility = { id: 'fac_default', code: 'DEMO', name: 'LHIMS Demo Hospital', idPrefix: '' };
+
+/** Replaces one facility's demo data. Other facilities are untouched. */
+export async function seedFacility(facility: DemoFacility) {
+  await prisma.facility.upsert({
+    where: { id: facility.id },
+    update: { code: facility.code, name: facility.name },
+    create: { id: facility.id, code: facility.code, name: facility.name }
+  });
+
+  idPrefix = facility.idPrefix;
+  try {
+    await runWithFacility(facility.id, async () => {
+      await resetDemoData();
+      await seedUsersAndDoctors();
+      await seedDepartmentsAndEquipment();
+      await seedPatients();
+      await seedCatalogAndReferenceRanges();
+      await seedOrders();
+      await seedReceptionWorkflow();
+      await seedLabAndScanWorkflow();
+      await seedBillingAndFinance();
+      await seedReportsAndNotifications();
+      await seedInventoryAndQualityControl();
+      await seedAuditAndSystemEvents();
+    });
+  } finally {
+    idPrefix = '';
+  }
+}
+
+/** A local platform operator account for trying the platform console. */
+export async function seedDemoPlatformAdmin() {
+  const existing = await prisma.user.findFirst({ where: { username: 'platform', facilityId: null } });
+  if (existing) return;
+  await prisma.user.create({
+    data: {
+      username: 'platform',
+      name: 'Platform Operator',
+      email: 'platform@lhims.local',
+      role: UserRole.PLATFORM_ADMIN,
+      passwordHash: await hashPassword('platform123')
+    }
+  });
+}
+
+async function main() {
+  await seedFacility(DEMO_FACILITY);
+  // User is tenant-scoped; the facility-less platform account needs the system bypass.
+  await runAsSystem('seed.platform-admin', () => seedDemoPlatformAdmin());
+
+  console.log(`Seeded demo facility ${DEMO_FACILITY.name} (facility code ${DEMO_FACILITY.code}).`);
+  console.log('Demo logins (facility code DEMO): admin/admin123, doctor/doctor123, reception/reception123, lab/lab123, scan/scan123, billing/billing123');
+  console.log('Platform login (no facility code): platform/platform123');
 }
 
 // Only auto-run the full demo seed when this file is the entry point; the

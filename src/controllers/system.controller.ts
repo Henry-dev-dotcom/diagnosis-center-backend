@@ -1,7 +1,6 @@
 import type { Request, Response } from 'express';
 import { allowedFrontendOrigins, env } from '../config/env.js';
 import { checkDatabaseConnection } from '../services/prisma.service.js';
-import { getDatabaseSummary } from '../services/database.service.js';
 import { sendSuccess } from '../utils/apiResponse.js';
 
 export async function getHealth(_req: Request, res: Response) {
@@ -40,14 +39,11 @@ export async function getReadiness(_req: Request, res: Response) {
   );
 }
 
+// Public and unauthenticated: connection health only. Row counts would disclose
+// every facility's volumes; operators get them from `npm run db:status`.
 export async function getDatabaseStatus(_req: Request, res: Response) {
   const connection = await checkDatabaseConnection();
-  const summary = connection.ok ? await getDatabaseSummary() : null;
-
-  return sendSuccess(res, 'Database status', {
-    connection,
-    summary
-  });
+  return sendSuccess(res, 'Database status', { connection });
 }
 
 export function getVersion(_req: Request, res: Response) {

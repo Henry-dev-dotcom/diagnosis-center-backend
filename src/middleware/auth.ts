@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from 'express';
-import { UserRole, UserStatus } from '@prisma/client';
+import { FacilityStatus, UserRole, UserStatus } from '@prisma/client';
 import { prisma } from '../services/prisma.service.js';
+import { runAsPlatform, runAsSystem, runWithFacility } from '../services/tenantContext.js';
 import { canViewPrices as canRoleViewPrices, getPermissionsForRole, hasAnyPermission, hasPermission } from '../services/permission.service.js';
 import { auditAccessFailure } from './audit.js';
 import { createAuditLog } from '../services/audit.service.js';
@@ -43,23 +44,41 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
       throw new AppError('Invalid access token', 401, 'INVALID_ACCESS_TOKEN');
     }
 
-    const [user, session] = await Promise.all([
-      prisma.user.findUnique({ where: { id: payload.sub } }),
-      prisma.userSession.findUnique({ where: { id: payload.sessionId } })
-    ]);
+    // The facility is not known until the user is loaded, so this one lookup runs
+    // unscoped; everything after it runs inside the user's facility context.
+    const [user, session] = await runAsSystem('auth.session', () =>
+      Promise.all([
+        prisma.user.findUnique({ where: { id: payload.sub }, include: { facility: true } }),
+        prisma.userSession.findUnique({ where: { id: payload.sessionId } })
+      ])
+    );
 
     if (!user || user.status !== UserStatus.ACTIVE) {
       auditAccessFailure(req, 401, 'USER_UNAVAILABLE', 'User is not active or does not exist', { userId: payload.sub });
       throw new AppError('User is not active or does not exist', 401, 'USER_UNAVAILABLE');
     }
 
-    if (!session || session.revokedAt || session.expiresAt < new Date()) {
+    if (!session || session.revokedAt || session.expiresAt < new Date() || session.userId !== user.id) {
       auditAccessFailure(req, 401, 'SESSION_INVALID', 'Session is invalid or expired', { sessionId: payload.sessionId });
       throw new AppError('Session is invalid or expired', 401, 'SESSION_INVALID');
     }
 
+    // Invariant: exactly the PLATFORM_ADMIN role has no facility.
+    const isPlatformUser = user.role === UserRole.PLATFORM_ADMIN;
+    if (isPlatformUser !== (user.facilityId === null)) {
+      auditAccessFailure(req, 403, 'FACILITY_ASSIGNMENT_INVALID', 'User facility assignment is invalid', { userId: user.id });
+      throw new AppError('Your account is not assigned to a facility', 403, 'FACILITY_ASSIGNMENT_INVALID');
+    }
+
+    if (user.facility && user.facility.status !== FacilityStatus.ACTIVE) {
+      auditAccessFailure(req, 403, 'FACILITY_NOT_ACTIVE', 'Facility is not active', { facilityId: user.facility.id });
+      throw new AppError('This facility account is not active. Contact support.', 403, 'FACILITY_NOT_ACTIVE');
+    }
+
     req.user = {
       id: user.id,
+      facilityId: user.facilityId,
+      facility: user.facility ? { id: user.facility.id, code: user.facility.code, name: user.facility.name } : null,
       name: user.name,
       username: user.username,
       email: user.email,
@@ -68,7 +87,9 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
       sessionId: session.id
     };
 
-    next();
+    // Everything downstream (handlers, services, Prisma) runs in this context.
+    if (user.facilityId) runWithFacility(user.facilityId, () => next());
+    else runAsPlatform(() => next());
   } catch (error) {
     next(error);
   }

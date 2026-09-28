@@ -6,6 +6,8 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./test/setup.ts'],
     include: ['test/**/*.test.ts'],
+    // Database-backed suites run separately: npm run test:integration.
+    exclude: ['test/integration/**', 'node_modules/**'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],

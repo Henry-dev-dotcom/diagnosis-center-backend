@@ -5,7 +5,9 @@ export function apiRequestLogger(req: Request, res: Response, next: NextFunction
   const startedAt = Date.now();
 
   res.on('finish', () => {
+    // 'finish' can fire outside the request's tenant context, so pass it explicitly.
     void createApiRequestLog({
+      facilityId: req.user?.facilityId ?? null,
       userId: req.user?.id ?? null,
       requestId: req.requestId ?? null,
       method: req.method,
@@ -53,6 +55,7 @@ export function auditAccessFailure(req: Request, statusCode: number, code: strin
   });
 
   void createSystemEvent({
+    facilityId: req.user?.facilityId ?? null,
     actorId: req.user?.id ?? null,
     level: statusCode === 401 ? 'warn' : 'info',
     source: 'access-control',

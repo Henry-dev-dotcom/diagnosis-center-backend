@@ -1,6 +1,11 @@
 import { z } from 'zod';
 
 export const loginSchema = z.object({
+  // Staff sign in to a facility by its code; platform administrators leave it blank.
+  facilityCode: z
+    .string()
+    .optional()
+    .transform((value) => value?.trim().toUpperCase() || undefined),
   username: z.string().min(1, 'Username is required').transform((value) => value.trim().toLowerCase()),
   password: z.string().min(1, 'Password is required')
 });

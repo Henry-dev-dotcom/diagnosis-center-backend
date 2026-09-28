@@ -12,7 +12,7 @@
     "lint": "eslint . --ext .ts",
     "format": "prettier --write .",
     "health:local": "node scripts/check-health.mjs",
-    "qa": "prisma validate && npm run typecheck && npm run lint && npm test && npm run build && node scripts/check-production-readiness.mjs",
+    "qa": "prisma validate && npm run typecheck && npm run lint && npm test && npm run test:integration && npm run build && node scripts/check-production-readiness.mjs",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
@@ -45,7 +45,8 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "qa:legacy-docs": "node scripts/check-phase10.mjs && node scripts/check-business-stage1.mjs && node scripts/check-business-stage2.mjs && node scripts/check-business-stage3.mjs && node scripts/check-business-stage4.mjs && node scripts/check-business-stage5.mjs && node scripts/check-business-stage6.mjs && node scripts/check-business-stage7.mjs && node scripts/check-business-stage8.mjs && node scripts/check-business-stage9.mjs && node scripts/check-business-stage10.mjs && node scripts/check-production-readiness.mjs",
-    "db:drift": "prisma migrate diff --from-schema-datasource prisma/schema.prisma --to-schema-datamodel prisma/schema.prisma --exit-code"
+    "db:drift": "prisma migrate diff --from-schema-datasource prisma/schema.prisma --to-schema-datamodel prisma/schema.prisma --exit-code",
+    "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

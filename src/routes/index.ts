@@ -17,6 +17,7 @@ import { resultsRoutes } from './results.routes.js';
 import { reportsRoutes } from './reports.routes.js';
 import { notificationsRoutes } from './notifications.routes.js';
 import { filesRoutes } from './files.routes.js';
+import { platformRoutes } from './platform.routes.js';
 
 export const apiRouter = Router();
 
@@ -38,3 +39,4 @@ apiRouter.use(resultsRoutes);
 apiRouter.use(reportsRoutes);
 apiRouter.use(notificationsRoutes);
 apiRouter.use(filesRoutes);
+apiRouter.use(platformRoutes);

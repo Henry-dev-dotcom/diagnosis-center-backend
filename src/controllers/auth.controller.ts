@@ -23,7 +23,7 @@ function requestContext(req: Request) {
 
 export const login = asyncHandler(async (req: Request, res: Response) => {
   const body = req.body as z.infer<typeof loginSchema>;
-  const result = await loginWithPassword(body.username, body.password, requestContext(req));
+  const result = await loginWithPassword(body.facilityCode, body.username, body.password, requestContext(req));
   setAuthCookies(res, result);
   return sendSuccess(res, 'Login successful', result);
 });

@@ -7,7 +7,83 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum FacilityStatus {
+  ACTIVE
+  SUSPENDED
+  DISABLED
+}
+
+/// A tenant: one hospital, clinic or diagnostic centre that subscribes to LHIMS.
+/// Every tenant-owned row carries facilityId; see src/services/tenantContext.ts.
+/// Not to be confused with Hospital, which models referring hospitals.
+model Facility {
+  id        String         @id @default(cuid())
+  code      String         @unique
+  name      String
+  status    FacilityStatus @default(ACTIVE)
+  phone     String?
+  email     String?
+  address   String?
+  timezone  String         @default("Africa/Accra")
+  currency  String         @default("GHS")
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  users                 User[]
+  hospitals             Hospital[]
+  doctorProfiles        DoctorProfile[]
+  patients              Patient[]
+  patientContacts       PatientContact[]
+  patientInsurances     PatientInsurance[]
+  patientDuplicateFlags PatientDuplicateFlag[]
+  departments           Department[]
+  equipments            Equipment[]
+  catalogItems          CatalogItem[]
+  referenceParameters   ReferenceParameter[]
+  referenceRanges       ReferenceRange[]
+  orders                Order[]
+  orderItems            OrderItem[]
+  orderStatusHistorys   OrderStatusHistory[]
+  orderCancellations    OrderCancellation[]
+  appointments          Appointment[]
+  patientVisits         PatientVisit[]
+  labSamples            LabSample[]
+  labResults            LabResult[]
+  labResultParameters   LabResultParameter[]
+  labResultReviews      LabResultReview[]
+  labResultAmendments   LabResultAmendment[]
+  sampleRejections      SampleRejection[]
+  qualityControlRuns    QualityControlRun[]
+  inventoryItems        InventoryItem[]
+  inventoryTransactions InventoryTransaction[]
+  scanAcceptances       ScanAcceptance[]
+  scanBookings          ScanBooking[]
+  scanResults           ScanResult[]
+  scanResultFiles       ScanResultFile[]
+  scanReviews           ScanReview[]
+  scanRetakes           ScanRetake[]
+  invoices              Invoice[]
+  invoiceItems          InvoiceItem[]
+  payments              Payment[]
+  cashierShifts         CashierShift[]
+  floatTransactions     FloatTransaction[]
+  expenses              Expense[]
+  expensePayments       ExpensePayment[]
+  ledgerEntrys          LedgerEntry[]
+  receipts              Receipt[]
+  reports               Report[]
+  notifications         Notification[]
+  deliveryLogs          DeliveryLog[]
+  secureResultLinks     SecureResultLink[]
+  auditLogs             AuditLog[]
+  systemEvents          SystemEvent[]
+  apiRequestLogs        ApiRequestLog[]
+
+  @@index([status])
+}
+
 enum UserRole {
+  PLATFORM_ADMIN
   ADMIN
   DOCTOR
   RECEPTIONIST
@@ -215,9 +291,10 @@ enum VisitStatus {
 
 model User {
   id           String     @id @default(cuid())
+  facilityId   String?
   name         String
-  username     String     @unique
-  email        String?    @unique
+  username     String
+  email        String?
   passwordHash String
   role         UserRole
   status       UserStatus @default(ACTIVE)
@@ -225,62 +302,67 @@ model User {
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
-  doctorProfile DoctorProfile?
-  sessions      UserSession[]
+  doctorProfile       DoctorProfile?
+  sessions            UserSession[]
   passwordResetTokens PasswordResetToken[]
 
-  createdPatients Patient[] @relation("PatientCreatedBy")
-  updatedPatients Patient[] @relation("PatientUpdatedBy")
-  createdOrders   Order[]   @relation("OrderCreatedBy")
-  confirmedOrders Order[]   @relation("OrderConfirmedBy")
+  createdPatients    Patient[]            @relation("PatientCreatedBy")
+  updatedPatients    Patient[]            @relation("PatientUpdatedBy")
+  createdOrders      Order[]              @relation("OrderCreatedBy")
+  confirmedOrders    Order[]              @relation("OrderConfirmedBy")
   orderStatusHistory OrderStatusHistory[] @relation("OrderStatusActor")
-  cancelledOrders OrderCancellation[] @relation("OrderCancellationBy")
+  cancelledOrders    OrderCancellation[]  @relation("OrderCancellationBy")
 
-  acceptedLabSamples LabSample[] @relation("LabSampleAcceptedBy")
-  enteredLabResults  LabResult[] @relation("LabResultEnteredBy")
-  labReviews         LabResultReview[] @relation("LabResultReviewedBy")
-  labAmendments      LabResultAmendment[] @relation("LabAmendmentBy")
-  sampleRejections   SampleRejection[] @relation("SampleRejectedBy")
-  qcRuns             QualityControlRun[] @relation("QCPerformedBy")
+  acceptedLabSamples    LabSample[]            @relation("LabSampleAcceptedBy")
+  enteredLabResults     LabResult[]            @relation("LabResultEnteredBy")
+  labReviews            LabResultReview[]      @relation("LabResultReviewedBy")
+  labAmendments         LabResultAmendment[]   @relation("LabAmendmentBy")
+  sampleRejections      SampleRejection[]      @relation("SampleRejectedBy")
+  qcRuns                QualityControlRun[]    @relation("QCPerformedBy")
   inventoryTransactions InventoryTransaction[] @relation("InventoryPerformedBy")
 
   scanAcceptances ScanAcceptance[] @relation("ScanAcceptedBy")
-  scanBookings    ScanBooking[] @relation("ScanBookingCreatedBy")
-  scanResults     ScanResult[] @relation("ScanResultReportedBy")
-  scanReviews     ScanReview[] @relation("ScanReviewedBy")
-  scanRetakes     ScanRetake[] @relation("ScanRetakeRequestedBy")
+  scanBookings    ScanBooking[]    @relation("ScanBookingCreatedBy")
+  scanResults     ScanResult[]     @relation("ScanResultReportedBy")
+  scanReviews     ScanReview[]     @relation("ScanReviewedBy")
+  scanRetakes     ScanRetake[]     @relation("ScanRetakeRequestedBy")
 
-  createdInvoices Invoice[] @relation("InvoiceCreatedBy")
-  receivedPayments Payment[] @relation("PaymentReceivedBy")
-  cashierShifts CashierShift[] @relation("CashierShiftUser")
+  createdInvoices   Invoice[]          @relation("InvoiceCreatedBy")
+  receivedPayments  Payment[]          @relation("PaymentReceivedBy")
+  cashierShifts     CashierShift[]     @relation("CashierShiftUser")
   floatTransactions FloatTransaction[] @relation("FloatTransactionUser")
-  createdExpenses Expense[] @relation("ExpenseCreatedBy")
-  expensePayments ExpensePayment[] @relation("ExpensePaymentBy")
-  ledgerEntries LedgerEntry[] @relation("LedgerEntryUser")
+  createdExpenses   Expense[]          @relation("ExpenseCreatedBy")
+  expensePayments   ExpensePayment[]   @relation("ExpensePaymentBy")
+  ledgerEntries     LedgerEntry[]      @relation("LedgerEntryUser")
 
-  generatedReports Report[] @relation("ReportGeneratedBy")
-  createdNotifications Notification[] @relation("NotificationCreatedBy")
-  deliveryLogs DeliveryLog[] @relation("DeliveryPerformedBy")
-  secureResultLinks SecureResultLink[] @relation("SecureLinkCreatedBy")
+  generatedReports     Report[]           @relation("ReportGeneratedBy")
+  createdNotifications Notification[]     @relation("NotificationCreatedBy")
+  deliveryLogs         DeliveryLog[]      @relation("DeliveryPerformedBy")
+  secureResultLinks    SecureResultLink[] @relation("SecureLinkCreatedBy")
 
-  checkedInVisits PatientVisit[] @relation("VisitCheckedInBy")
-  auditLogs AuditLog[] @relation("AuditActor")
-  systemEvents SystemEvent[] @relation("SystemEventActor")
-  apiRequestLogs ApiRequestLog[] @relation("ApiRequestUser")
+  checkedInVisits PatientVisit[]  @relation("VisitCheckedInBy")
+  auditLogs       AuditLog[]      @relation("AuditActor")
+  systemEvents    SystemEvent[]   @relation("SystemEventActor")
+  apiRequestLogs  ApiRequestLog[] @relation("ApiRequestUser")
 
+  facility Facility? @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+
+  @@unique([facilityId, username])
+  @@unique([facilityId, email])
+  @@index([facilityId])
   @@index([role])
   @@index([status])
 }
 
 model UserSession {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   userId       String
-  refreshToken String   @unique
+  refreshToken String    @unique
   userAgent    String?
   ipAddress    String?
   expiresAt    DateTime
   revokedAt    DateTime?
-  createdAt    DateTime @default(now())
+  createdAt    DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -289,12 +371,12 @@ model UserSession {
 }
 
 model PasswordResetToken {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String
-  tokenHash String   @unique
+  tokenHash String    @unique
   expiresAt DateTime
   usedAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -304,8 +386,9 @@ model PasswordResetToken {
 
 model Hospital {
   id             String   @id @default(cuid())
+  facilityId     String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
   name           String
-  code           String   @unique
+  code           String
   phone          String?
   email          String?
   address        String?
@@ -314,82 +397,96 @@ model Hospital {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  doctors  DoctorProfile[]
-  patients Patient[]
-  orders   Order[]
-  invoices Invoice[]
+  doctors      DoctorProfile[]
+  patients     Patient[]
+  orders       Order[]
+  invoices     Invoice[]
   appointments Appointment[]
 
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@unique([facilityId, code])
+  @@index([facilityId])
   @@index([name])
   @@index([accountStatus])
 }
 
 model DoctorProfile {
-  id             String   @id @default(cuid())
-  userId         String   @unique
-  hospitalId     String?
-  title          String   @default("Dr.")
-  specialty      String
-  licenseNumber  String   @unique
-  council        String?  @default("Medical and Dental Council")
-  phone          String?
-  email          String?
-  status         String   @default("Active")
-  notificationEmail Boolean @default(true)
-  notificationSms   Boolean @default(false)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                String   @id @default(cuid())
+  facilityId        String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  userId            String   @unique
+  hospitalId        String?
+  title             String   @default("Dr.")
+  specialty         String
+  licenseNumber     String
+  council           String?  @default("Medical and Dental Council")
+  phone             String?
+  email             String?
+  status            String   @default("Active")
+  notificationEmail Boolean  @default(true)
+  notificationSms   Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
-  user     User      @relation(fields: [userId], references: [id])
-  hospital Hospital? @relation(fields: [hospitalId], references: [id])
-  orders   Order[]
+  user             User          @relation(fields: [userId], references: [id])
+  hospital         Hospital?     @relation(fields: [hospitalId], references: [id])
+  orders           Order[]
   referredPatients Patient[]
-  appointments Appointment[]
+  appointments     Appointment[]
 
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@unique([facilityId, licenseNumber])
+  @@index([facilityId])
   @@index([hospitalId])
   @@index([specialty])
 }
 
 model Patient {
-  id          String   @id @default(cuid())
-  patientCode String   @unique
-  firstName   String
-  lastName    String
-  dateOfBirth DateTime?
-  gender      String?
-  phone       String?
-  email       String?
-  address     String?
-  nationalId  String?
-  insuranceProvider String?
-  policyNumber String?
-  emergencyContact String?
+  id                     String    @id @default(cuid())
+  facilityId             String    @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  patientCode            String
+  firstName              String
+  lastName               String
+  dateOfBirth            DateTime?
+  gender                 String?
+  phone                  String?
+  email                  String?
+  address                String?
+  nationalId             String?
+  insuranceProvider      String?
+  policyNumber           String?
+  emergencyContact       String?
   allergiesAndConditions String?
-  hospitalId  String?
-  referringDoctorId String?
-  createdById String?
-  updatedById String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  hospitalId             String?
+  referringDoctorId      String?
+  createdById            String?
+  updatedById            String?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
 
-  hospital  Hospital? @relation(fields: [hospitalId], references: [id])
+  hospital        Hospital?      @relation(fields: [hospitalId], references: [id])
   referringDoctor DoctorProfile? @relation(fields: [referringDoctorId], references: [id])
-  createdBy User?     @relation("PatientCreatedBy", fields: [createdById], references: [id])
-  updatedBy User?     @relation("PatientUpdatedBy", fields: [updatedById], references: [id])
+  createdBy       User?          @relation("PatientCreatedBy", fields: [createdById], references: [id])
+  updatedBy       User?          @relation("PatientUpdatedBy", fields: [updatedById], references: [id])
 
-  contacts PatientContact[]
-  insuranceRecords PatientInsurance[]
+  contacts              PatientContact[]
+  insuranceRecords      PatientInsurance[]
   primaryDuplicateFlags PatientDuplicateFlag[] @relation("DuplicatePrimaryPatient")
-  duplicateFlags PatientDuplicateFlag[] @relation("DuplicateDuplicatePatient")
-  orders Order[]
-  labSamples LabSample[]
-  labResults LabResult[]
-  scanBookings ScanBooking[]
-  invoices Invoice[]
-  appointments Appointment[]
-  visits PatientVisit[]
-  secureLinks SecureResultLink[]
+  duplicateFlags        PatientDuplicateFlag[] @relation("DuplicateDuplicatePatient")
+  orders                Order[]
+  labSamples            LabSample[]
+  labResults            LabResult[]
+  scanBookings          ScanBooking[]
+  invoices              Invoice[]
+  appointments          Appointment[]
+  visits                PatientVisit[]
+  secureLinks           SecureResultLink[]
 
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@unique([facilityId, patientCode])
+  @@index([facilityId])
   @@index([firstName, lastName])
   @@index([phone])
   @@index([nationalId])
@@ -398,109 +495,136 @@ model Patient {
 }
 
 model PatientContact {
-  id        String   @id @default(cuid())
-  patientId String
-  type      String
-  value     String
-  isPrimary Boolean  @default(false)
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  facilityId String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  patientId  String
+  type       String
+  value      String
+  isPrimary  Boolean  @default(false)
+  createdAt  DateTime @default(now())
 
   patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
 
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
   @@index([patientId])
   @@index([type])
 }
 
 model PatientInsurance {
-  id        String   @id @default(cuid())
-  patientId String
-  provider  String
+  id           String   @id @default(cuid())
+  facilityId   String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  patientId    String
+  provider     String
   policyNumber String
-  status    String   @default("Active")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  status       String   @default("Active")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
 
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
   @@index([patientId])
   @@index([provider])
   @@index([policyNumber])
 }
 
 model PatientDuplicateFlag {
-  id                 String   @id @default(cuid())
+  id                 String    @id @default(cuid())
+  facilityId         String    @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
   primaryPatientId   String
   duplicatePatientId String
   reason             String
-  status             String   @default("Open")
-  createdAt          DateTime @default(now())
+  status             String    @default("Open")
+  createdAt          DateTime  @default(now())
   resolvedAt         DateTime?
 
   primaryPatient   Patient @relation("DuplicatePrimaryPatient", fields: [primaryPatientId], references: [id])
   duplicatePatient Patient @relation("DuplicateDuplicatePatient", fields: [duplicatePatientId], references: [id])
 
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
   @@index([primaryPatientId])
   @@index([duplicatePatientId])
   @@index([status])
 }
 
 model Department {
-  id        String         @id @default(cuid())
-  name      String
-  code      String         @unique
-  type      DepartmentType
-  leadName  String?
-  isActive  Boolean        @default(true)
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
+  id         String         @id @default(cuid())
+  facilityId String         @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  name       String
+  code       String
+  type       DepartmentType
+  leadName   String?
+  isActive   Boolean        @default(true)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
 
   equipment    Equipment[]
   catalogItems CatalogItem[]
 
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@unique([facilityId, code])
+  @@index([facilityId])
   @@index([type])
 }
 
 model Equipment {
   id             String          @id @default(cuid())
+  facilityId     String          @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
   departmentId   String
   name           String
   room           String?
   modality       String?
-  serialNumber   String?         @unique
+  serialNumber   String?
   status         EquipmentStatus @default(AVAILABLE)
   serviceDueDate DateTime?
   notes          String?
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 
-  department Department @relation(fields: [departmentId], references: [id])
+  department   Department    @relation(fields: [departmentId], references: [id])
   scanBookings ScanBooking[]
 
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@unique([facilityId, serialNumber])
+  @@index([facilityId])
   @@index([departmentId])
   @@index([status])
   @@index([modality])
 }
 
 model CatalogItem {
-  id                     String          @id @default(cuid())
-  catalogCode            String          @unique
-  name                   String
-  type                   CatalogItemType
-  departmentId           String?
-  price                  Decimal         @db.Decimal(10, 2)
+  id                      String          @id @default(cuid())
+  facilityId              String          @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  catalogCode             String
+  name                    String
+  type                    CatalogItemType
+  departmentId            String?
+  price                   Decimal         @db.Decimal(10, 2)
   expectedCompletionHours Int             @default(24)
-  sampleType             String?
-  modality               String?
-  aliases                String[]        @default([])
-  isActive               Boolean         @default(true)
-  createdAt              DateTime        @default(now())
-  updatedAt              DateTime        @updatedAt
+  sampleType              String?
+  modality                String?
+  aliases                 String[]        @default([])
+  isActive                Boolean         @default(true)
+  createdAt               DateTime        @default(now())
+  updatedAt               DateTime        @updatedAt
 
-  department Department? @relation(fields: [departmentId], references: [id])
-  parameters ReferenceParameter[]
-  orderItems OrderItem[]
+  department   Department?          @relation(fields: [departmentId], references: [id])
+  parameters   ReferenceParameter[]
+  orderItems   OrderItem[]
   invoiceItems InvoiceItem[]
 
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@unique([facilityId, catalogCode])
+  @@index([facilityId])
   @@index([type])
   @@index([name])
   @@index([isActive])
@@ -508,6 +632,7 @@ model CatalogItem {
 
 model ReferenceParameter {
   id            String   @id @default(cuid())
+  facilityId    String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
   catalogItemId String
   name          String
   unit          String?
@@ -516,67 +641,79 @@ model ReferenceParameter {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  catalogItem CatalogItem @relation(fields: [catalogItemId], references: [id])
-  ranges      ReferenceRange[]
+  catalogItem      CatalogItem          @relation(fields: [catalogItemId], references: [id])
+  ranges           ReferenceRange[]
   resultParameters LabResultParameter[]
 
-  @@index([catalogItemId])
+  facility Facility @relation(fields: [facilityId], references: [id])
+
   @@unique([catalogItemId, name])
+  @@index([facilityId])
+  @@index([catalogItemId])
 }
 
 model ReferenceRange {
-  id              String     @id @default(cuid())
-  parameterId     String
-  gender          GenderRule @default(ALL)
-  ageMin          Int        @default(0)
-  ageMax          Int        @default(200)
-  low             Decimal?   @db.Decimal(12, 4)
-  high            Decimal?   @db.Decimal(12, 4)
-  criticalLow     Decimal?   @db.Decimal(12, 4)
-  criticalHigh    Decimal?   @db.Decimal(12, 4)
-  displayRange    String?
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
+  id           String     @id @default(cuid())
+  facilityId   String     @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  parameterId  String
+  gender       GenderRule @default(ALL)
+  ageMin       Int        @default(0)
+  ageMax       Int        @default(200)
+  low          Decimal?   @db.Decimal(12, 4)
+  high         Decimal?   @db.Decimal(12, 4)
+  criticalLow  Decimal?   @db.Decimal(12, 4)
+  criticalHigh Decimal?   @db.Decimal(12, 4)
+  displayRange String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
 
   parameter ReferenceParameter @relation(fields: [parameterId], references: [id])
 
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
   @@index([parameterId])
   @@index([gender])
 }
 
 model Order {
-  id          String      @id @default(cuid())
-  orderCode   String      @unique
-  patientId   String
-  doctorId    String?
-  hospitalId  String?
-  status      OrderStatus @default(SUBMITTED)
-  urgency     OrderUrgency @default(ROUTINE)
-  clinicalNotes String?
+  id                   String       @id @default(cuid())
+  facilityId           String       @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  orderCode            String
+  patientId            String
+  doctorId             String?
+  hospitalId           String?
+  status               OrderStatus  @default(SUBMITTED)
+  urgency              OrderUrgency @default(ROUTINE)
+  clinicalNotes        String?
   expectedCompletionAt DateTime?
-  submittedAt DateTime @default(now())
-  confirmedAt DateTime?
-  releasedAt  DateTime?
-  createdById String?
-  confirmedById String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  submittedAt          DateTime     @default(now())
+  confirmedAt          DateTime?
+  releasedAt           DateTime?
+  createdById          String?
+  confirmedById        String?
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
 
-  patient Patient @relation(fields: [patientId], references: [id])
-  doctor DoctorProfile? @relation(fields: [doctorId], references: [id])
-  hospital Hospital? @relation(fields: [hospitalId], references: [id])
-  createdBy User? @relation("OrderCreatedBy", fields: [createdById], references: [id])
-  confirmedBy User? @relation("OrderConfirmedBy", fields: [confirmedById], references: [id])
+  patient     Patient        @relation(fields: [patientId], references: [id])
+  doctor      DoctorProfile? @relation(fields: [doctorId], references: [id])
+  hospital    Hospital?      @relation(fields: [hospitalId], references: [id])
+  createdBy   User?          @relation("OrderCreatedBy", fields: [createdById], references: [id])
+  confirmedBy User?          @relation("OrderConfirmedBy", fields: [confirmedById], references: [id])
 
-  items OrderItem[]
+  items         OrderItem[]
   statusHistory OrderStatusHistory[]
   cancellations OrderCancellation[]
-  invoice Invoice?
-  appointments Appointment[]
-  visits PatientVisit[]
-  reports Report[]
+  invoice       Invoice?
+  appointments  Appointment[]
+  visits        PatientVisit[]
+  reports       Report[]
   notifications Notification[]
 
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@unique([facilityId, orderCode])
+  @@index([facilityId])
   @@index([patientId])
   @@index([doctorId])
   @@index([hospitalId])
@@ -586,85 +723,102 @@ model Order {
 }
 
 model OrderItem {
-  id            String          @id @default(cuid())
-  orderId       String
-  catalogItemId String
-  type          CatalogItemType
-  status        OrderItemStatus @default(REQUESTED)
-  notes         String?
+  id                   String          @id @default(cuid())
+  facilityId           String          @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  orderId              String
+  catalogItemId        String
+  type                 CatalogItemType
+  status               OrderItemStatus @default(REQUESTED)
+  notes                String?
   expectedCompletionAt DateTime?
-  acceptedAt    DateTime?
-  completedAt   DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  acceptedAt           DateTime?
+  completedAt          DateTime?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
 
-  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  catalogItem CatalogItem @relation(fields: [catalogItemId], references: [id])
-  labSample LabSample?
-  labResults LabResult[]
+  order          Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  catalogItem    CatalogItem     @relation(fields: [catalogItemId], references: [id])
+  labSample      LabSample?
+  labResults     LabResult[]
   scanAcceptance ScanAcceptance?
-  scanBookings ScanBooking[]
-  scanResults ScanResult[]
-  invoiceItems InvoiceItem[]
+  scanBookings   ScanBooking[]
+  scanResults    ScanResult[]
+  invoiceItems   InvoiceItem[]
 
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@unique([orderId, catalogItemId])
+  @@index([facilityId])
   @@index([orderId])
   @@index([catalogItemId])
   @@index([type])
   @@index([status])
-  @@unique([orderId, catalogItemId])
 }
 
 model OrderStatusHistory {
-  id          String      @id @default(cuid())
-  orderId     String
-  fromStatus  OrderStatus?
-  toStatus    OrderStatus
-  actorId     String?
-  note        String?
-  createdAt   DateTime    @default(now())
+  id         String       @id @default(cuid())
+  facilityId String       @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  orderId    String
+  fromStatus OrderStatus?
+  toStatus   OrderStatus
+  actorId    String?
+  note       String?
+  createdAt  DateTime     @default(now())
 
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
   actor User? @relation("OrderStatusActor", fields: [actorId], references: [id])
 
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
   @@index([orderId])
   @@index([toStatus])
   @@index([createdAt])
 }
 
 model OrderCancellation {
-  id          String   @id @default(cuid())
-  orderId     String
+  id            String   @id @default(cuid())
+  facilityId    String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  orderId       String
   cancelledById String?
-  reason      String
-  createdAt   DateTime @default(now())
+  reason        String
+  createdAt     DateTime @default(now())
 
-  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order       Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
   cancelledBy User? @relation("OrderCancellationBy", fields: [cancelledById], references: [id])
 
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
   @@index([orderId])
   @@index([createdAt])
 }
 
 model Appointment {
-  id         String @id @default(cuid())
-  appointmentCode String @unique
-  patientId  String
-  orderId    String?
-  doctorId   String?
-  hospitalId String?
-  scheduledDate DateTime
-  type       String @default("Scheduled")
-  roomOrArea String?
-  status     AppointmentStatus @default(SCHEDULED)
-  notes      String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id              String            @id @default(cuid())
+  facilityId      String            @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  appointmentCode String
+  patientId       String
+  orderId         String?
+  doctorId        String?
+  hospitalId      String?
+  scheduledDate   DateTime
+  type            String            @default("Scheduled")
+  roomOrArea      String?
+  status          AppointmentStatus @default(SCHEDULED)
+  notes           String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
 
-  patient Patient @relation(fields: [patientId], references: [id])
-  order Order? @relation(fields: [orderId], references: [id])
-  doctor DoctorProfile? @relation(fields: [doctorId], references: [id])
-  hospital Hospital? @relation(fields: [hospitalId], references: [id])
+  patient  Patient        @relation(fields: [patientId], references: [id])
+  order    Order?         @relation(fields: [orderId], references: [id])
+  doctor   DoctorProfile? @relation(fields: [doctorId], references: [id])
+  hospital Hospital?      @relation(fields: [hospitalId], references: [id])
 
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@unique([facilityId, appointmentCode])
+  @@index([facilityId])
   @@index([patientId])
   @@index([orderId])
   @@index([scheduledDate])
@@ -672,22 +826,27 @@ model Appointment {
 }
 
 model PatientVisit {
-  id         String @id @default(cuid())
-  visitCode  String @unique
-  patientId  String
-  orderId    String?
-  checkedInById String?
-  status     VisitStatus @default(CHECKED_IN)
-  visitType  String @default("Walk-in")
-  identityVerified Boolean @default(false)
-  checkedInAt DateTime @default(now())
-  completedAt DateTime?
-  notes      String?
+  id               String      @id @default(cuid())
+  facilityId       String      @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  visitCode        String
+  patientId        String
+  orderId          String?
+  checkedInById    String?
+  status           VisitStatus @default(CHECKED_IN)
+  visitType        String      @default("Walk-in")
+  identityVerified Boolean     @default(false)
+  checkedInAt      DateTime    @default(now())
+  completedAt      DateTime?
+  notes            String?
 
-  patient Patient @relation(fields: [patientId], references: [id])
-  order Order? @relation(fields: [orderId], references: [id])
-  checkedInBy User? @relation("VisitCheckedInBy", fields: [checkedInById], references: [id])
+  patient     Patient @relation(fields: [patientId], references: [id])
+  order       Order?  @relation(fields: [orderId], references: [id])
+  checkedInBy User?   @relation("VisitCheckedInBy", fields: [checkedInById], references: [id])
 
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@unique([facilityId, visitCode])
+  @@index([facilityId])
   @@index([patientId])
   @@index([orderId])
   @@index([status])
@@ -695,57 +854,67 @@ model PatientVisit {
 }
 
 model LabSample {
-  id          String @id @default(cuid())
-  sampleCode  String @unique
-  orderItemId String @unique
-  patientId   String
-  status      LabSampleStatus @default(NOT_ACCEPTED)
-  sampleType  String?
-  collectedAt DateTime?
-  acceptedAt  DateTime?
+  id           String          @id @default(cuid())
+  facilityId   String          @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  sampleCode   String
+  orderItemId  String          @unique
+  patientId    String
+  status       LabSampleStatus @default(NOT_ACCEPTED)
+  sampleType   String?
+  collectedAt  DateTime?
+  acceptedAt   DateTime?
   acceptedById String?
   barcodeValue String?
-  notes       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  notes        String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
 
-  orderItem OrderItem @relation(fields: [orderItemId], references: [id])
-  patient Patient @relation(fields: [patientId], references: [id])
-  acceptedBy User? @relation("LabSampleAcceptedBy", fields: [acceptedById], references: [id])
-  results LabResult[]
+  orderItem  OrderItem         @relation(fields: [orderItemId], references: [id])
+  patient    Patient           @relation(fields: [patientId], references: [id])
+  acceptedBy User?             @relation("LabSampleAcceptedBy", fields: [acceptedById], references: [id])
+  results    LabResult[]
   rejections SampleRejection[]
 
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@unique([facilityId, sampleCode])
+  @@index([facilityId])
   @@index([patientId])
   @@index([status])
   @@index([acceptedAt])
 }
 
 model LabResult {
-  id          String @id @default(cuid())
-  resultCode  String @unique
-  orderItemId String
-  sampleId    String
-  patientId   String
-  status      LabResultStatus @default(DRAFT)
-  interpretation String?
+  id              String          @id @default(cuid())
+  facilityId      String          @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  resultCode      String
+  orderItemId     String
+  sampleId        String
+  patientId       String
+  status          LabResultStatus @default(DRAFT)
+  interpretation  String?
   technicianNotes String?
-  analyzerUsed String?
-  enteredById String?
-  submittedAt DateTime?
-  signedOffAt DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  analyzerUsed    String?
+  enteredById     String?
+  submittedAt     DateTime?
+  signedOffAt     DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
 
   orderItem OrderItem @relation(fields: [orderItemId], references: [id])
-  sample LabSample @relation(fields: [sampleId], references: [id])
-  patient Patient @relation(fields: [patientId], references: [id])
-  enteredBy User? @relation("LabResultEnteredBy", fields: [enteredById], references: [id])
+  sample    LabSample @relation(fields: [sampleId], references: [id])
+  patient   Patient   @relation(fields: [patientId], references: [id])
+  enteredBy User?     @relation("LabResultEnteredBy", fields: [enteredById], references: [id])
 
   parameters LabResultParameter[]
-  reviews LabResultReview[]
+  reviews    LabResultReview[]
   amendments LabResultAmendment[]
-  reports Report[]
+  reports    Report[]
 
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@unique([facilityId, resultCode])
+  @@index([facilityId])
   @@index([orderItemId])
   @@index([sampleId])
   @@index([patientId])
@@ -753,32 +922,37 @@ model LabResult {
 }
 
 model LabResultParameter {
-  id          String @id @default(cuid())
-  labResultId String
+  id                   String     @id @default(cuid())
+  facilityId           String     @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  labResultId          String
   referenceParameterId String?
-  name        String
-  value       String?
-  numericValue Decimal? @db.Decimal(12, 4)
-  unit        String?
-  referenceRange String?
-  low         Decimal? @db.Decimal(12, 4)
-  high        Decimal? @db.Decimal(12, 4)
-  criticalLow Decimal? @db.Decimal(12, 4)
-  criticalHigh Decimal? @db.Decimal(12, 4)
-  flag        ResultFlag @default(PENDING)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  name                 String
+  value                String?
+  numericValue         Decimal?   @db.Decimal(12, 4)
+  unit                 String?
+  referenceRange       String?
+  low                  Decimal?   @db.Decimal(12, 4)
+  high                 Decimal?   @db.Decimal(12, 4)
+  criticalLow          Decimal?   @db.Decimal(12, 4)
+  criticalHigh         Decimal?   @db.Decimal(12, 4)
+  flag                 ResultFlag @default(PENDING)
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
 
-  labResult LabResult @relation(fields: [labResultId], references: [id], onDelete: Cascade)
+  labResult          LabResult           @relation(fields: [labResultId], references: [id], onDelete: Cascade)
   referenceParameter ReferenceParameter? @relation(fields: [referenceParameterId], references: [id])
 
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
   @@index([labResultId])
   @@index([referenceParameterId])
   @@index([flag])
 }
 
 model LabResultReview {
-  id          String @id @default(cuid())
+  id          String   @id @default(cuid())
+  facilityId  String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
   labResultId String
   reviewerId  String?
   decision    String
@@ -786,14 +960,18 @@ model LabResultReview {
   createdAt   DateTime @default(now())
 
   labResult LabResult @relation(fields: [labResultId], references: [id], onDelete: Cascade)
-  reviewer User? @relation("LabResultReviewedBy", fields: [reviewerId], references: [id])
+  reviewer  User?     @relation("LabResultReviewedBy", fields: [reviewerId], references: [id])
 
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
   @@index([labResultId])
   @@index([createdAt])
 }
 
 model LabResultAmendment {
-  id          String @id @default(cuid())
+  id          String   @id @default(cuid())
+  facilityId  String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
   labResultId String
   amendedById String?
   reason      String
@@ -802,121 +980,150 @@ model LabResultAmendment {
   createdAt   DateTime @default(now())
 
   labResult LabResult @relation(fields: [labResultId], references: [id], onDelete: Cascade)
-  amendedBy User? @relation("LabAmendmentBy", fields: [amendedById], references: [id])
+  amendedBy User?     @relation("LabAmendmentBy", fields: [amendedById], references: [id])
 
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
   @@index([labResultId])
   @@index([createdAt])
 }
 
 model SampleRejection {
-  id          String @id @default(cuid())
-  sampleId    String
+  id           String   @id @default(cuid())
+  facilityId   String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  sampleId     String
   rejectedById String?
-  reason      String
-  action      String @default("RECOLLECTION_REQUESTED")
-  createdAt   DateTime @default(now())
+  reason       String
+  action       String   @default("RECOLLECTION_REQUESTED")
+  createdAt    DateTime @default(now())
 
-  sample LabSample @relation(fields: [sampleId], references: [id], onDelete: Cascade)
-  rejectedBy User? @relation("SampleRejectedBy", fields: [rejectedById], references: [id])
+  sample     LabSample @relation(fields: [sampleId], references: [id], onDelete: Cascade)
+  rejectedBy User?     @relation("SampleRejectedBy", fields: [rejectedById], references: [id])
 
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
   @@index([sampleId])
   @@index([createdAt])
 }
 
 model QualityControlRun {
-  id          String @id @default(cuid())
-  catalogItemId String?
-  parameterName String
-  controlLevel String?
-  value       Decimal? @db.Decimal(12, 4)
-  expectedMean Decimal? @db.Decimal(12, 4)
+  id                String   @id @default(cuid())
+  facilityId        String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  catalogItemId     String?
+  parameterName     String
+  controlLevel      String?
+  value             Decimal? @db.Decimal(12, 4)
+  expectedMean      Decimal? @db.Decimal(12, 4)
   standardDeviation Decimal? @db.Decimal(12, 4)
-  result      String
-  notes       String?
-  performedById String?
-  createdAt   DateTime @default(now())
+  result            String
+  notes             String?
+  performedById     String?
+  createdAt         DateTime @default(now())
 
   performedBy User? @relation("QCPerformedBy", fields: [performedById], references: [id])
 
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
   @@index([catalogItemId])
   @@index([createdAt])
 }
 
 model InventoryItem {
-  id        String @id @default(cuid())
-  itemCode  String @unique
-  name      String
-  category  String
-  currentStock Decimal @default(0) @db.Decimal(12, 2)
-  minLevel  Decimal @default(0) @db.Decimal(12, 2)
-  maxLevel  Decimal? @db.Decimal(12, 2)
-  unit      String?
-  expiryDate DateTime?
-  supplier  String?
-  isActive  Boolean @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String    @id @default(cuid())
+  facilityId   String    @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  itemCode     String
+  name         String
+  category     String
+  currentStock Decimal   @default(0) @db.Decimal(12, 2)
+  minLevel     Decimal   @default(0) @db.Decimal(12, 2)
+  maxLevel     Decimal?  @db.Decimal(12, 2)
+  unit         String?
+  expiryDate   DateTime?
+  supplier     String?
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   transactions InventoryTransaction[]
 
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@unique([facilityId, itemCode])
+  @@index([facilityId])
   @@index([category])
   @@index([isActive])
 }
 
 model InventoryTransaction {
-  id        String @id @default(cuid())
+  id              String   @id @default(cuid())
+  facilityId      String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
   inventoryItemId String
-  type      String
-  quantity  Decimal @db.Decimal(12, 2)
-  reason    String?
-  performedById String?
-  createdAt DateTime @default(now())
+  type            String
+  quantity        Decimal  @db.Decimal(12, 2)
+  reason          String?
+  performedById   String?
+  createdAt       DateTime @default(now())
 
   inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id])
-  performedBy User? @relation("InventoryPerformedBy", fields: [performedById], references: [id])
+  performedBy   User?         @relation("InventoryPerformedBy", fields: [performedById], references: [id])
 
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
   @@index([inventoryItemId])
   @@index([createdAt])
 }
 
 model ScanAcceptance {
-  id          String @id @default(cuid())
-  orderItemId String @unique
-  status      ScanStatus @default(NOT_ACCEPTED)
+  id           String     @id @default(cuid())
+  facilityId   String     @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  orderItemId  String     @unique
+  status       ScanStatus @default(NOT_ACCEPTED)
   acceptedById String?
-  acceptedAt  DateTime?
-  notes       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  acceptedAt   DateTime?
+  notes        String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
 
-  orderItem OrderItem @relation(fields: [orderItemId], references: [id])
-  acceptedBy User? @relation("ScanAcceptedBy", fields: [acceptedById], references: [id])
+  orderItem   OrderItem    @relation(fields: [orderItemId], references: [id])
+  acceptedBy  User?        @relation("ScanAcceptedBy", fields: [acceptedById], references: [id])
   scanResults ScanResult[]
-  retakes ScanRetake[]
+  retakes     ScanRetake[]
 
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
   @@index([status])
   @@index([acceptedAt])
 }
 
 model ScanBooking {
-  id          String @id @default(cuid())
-  bookingCode String @unique
+  id          String    @id @default(cuid())
+  facilityId  String    @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  bookingCode String
   patientId   String
   orderItemId String?
   equipmentId String?
   startAt     DateTime
   endAt       DateTime?
-  status      String @default("Booked")
+  status      String    @default("Booked")
   notes       String?
   createdById String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  patient Patient @relation(fields: [patientId], references: [id])
+  patient   Patient    @relation(fields: [patientId], references: [id])
   orderItem OrderItem? @relation(fields: [orderItemId], references: [id])
   equipment Equipment? @relation(fields: [equipmentId], references: [id])
-  createdBy User? @relation("ScanBookingCreatedBy", fields: [createdById], references: [id])
+  createdBy User?      @relation("ScanBookingCreatedBy", fields: [createdById], references: [id])
 
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@unique([facilityId, bookingCode])
+  @@index([facilityId])
   @@index([patientId])
   @@index([orderItemId])
   @@index([equipmentId])
@@ -924,111 +1131,133 @@ model ScanBooking {
 }
 
 model ScanResult {
-  id          String @id @default(cuid())
-  resultCode  String @unique
-  orderItemId String
-  acceptanceId String?
-  status      ScanStatus @default(DRAFT)
-  findings    String?
-  impression  String?
-  comparison  String?
+  id              String     @id @default(cuid())
+  facilityId      String     @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  resultCode      String
+  orderItemId     String
+  acceptanceId    String?
+  status          ScanStatus @default(DRAFT)
+  findings        String?
+  impression      String?
+  comparison      String?
   recommendations String?
   technicianNotes String?
-  reportedById String?
-  submittedAt DateTime?
-  signedOffAt DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  reportedById    String?
+  submittedAt     DateTime?
+  signedOffAt     DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
 
-  orderItem OrderItem @relation(fields: [orderItemId], references: [id])
-  acceptance ScanAcceptance? @relation(fields: [acceptanceId], references: [id])
-  reportedBy User? @relation("ScanResultReportedBy", fields: [reportedById], references: [id])
-  files ScanResultFile[]
-  reviews ScanReview[]
-  reports Report[]
+  orderItem  OrderItem        @relation(fields: [orderItemId], references: [id])
+  acceptance ScanAcceptance?  @relation(fields: [acceptanceId], references: [id])
+  reportedBy User?            @relation("ScanResultReportedBy", fields: [reportedById], references: [id])
+  files      ScanResultFile[]
+  reviews    ScanReview[]
+  reports    Report[]
 
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@unique([facilityId, resultCode])
+  @@index([facilityId])
   @@index([orderItemId])
   @@index([acceptanceId])
   @@index([status])
 }
 
 model ScanResultFile {
-  id          String @id @default(cuid())
+  id           String   @id @default(cuid())
+  facilityId   String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
   scanResultId String
-  fileName    String
-  fileType    String?
-  fileSize    Int?
-  storageKey  String
-  isDicom     Boolean @default(false)
-  studyUid    String?
-  seriesUid   String?
-  instanceUid String?
-  modality    String?
-  uploadedAt  DateTime @default(now())
+  fileName     String
+  fileType     String?
+  fileSize     Int?
+  storageKey   String
+  isDicom      Boolean  @default(false)
+  studyUid     String?
+  seriesUid    String?
+  instanceUid  String?
+  modality     String?
+  uploadedAt   DateTime @default(now())
 
   scanResult ScanResult @relation(fields: [scanResultId], references: [id], onDelete: Cascade)
 
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
   @@index([scanResultId])
   @@index([isDicom])
   @@index([studyUid])
 }
 
 model ScanReview {
-  id          String @id @default(cuid())
+  id           String   @id @default(cuid())
+  facilityId   String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
   scanResultId String
-  reviewerId  String?
-  decision    String
-  note        String?
-  createdAt   DateTime @default(now())
+  reviewerId   String?
+  decision     String
+  note         String?
+  createdAt    DateTime @default(now())
 
   scanResult ScanResult @relation(fields: [scanResultId], references: [id], onDelete: Cascade)
-  reviewer User? @relation("ScanReviewedBy", fields: [reviewerId], references: [id])
+  reviewer   User?      @relation("ScanReviewedBy", fields: [reviewerId], references: [id])
 
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
   @@index([scanResultId])
   @@index([createdAt])
 }
 
 model ScanRetake {
-  id          String @id @default(cuid())
-  acceptanceId String?
+  id            String    @id @default(cuid())
+  facilityId    String    @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  acceptanceId  String?
   requestedById String?
-  reason      String
-  status      String @default("Open")
-  createdAt   DateTime @default(now())
-  resolvedAt  DateTime?
+  reason        String
+  status        String    @default("Open")
+  createdAt     DateTime  @default(now())
+  resolvedAt    DateTime?
 
-  acceptance ScanAcceptance? @relation(fields: [acceptanceId], references: [id])
-  requestedBy User? @relation("ScanRetakeRequestedBy", fields: [requestedById], references: [id])
+  acceptance  ScanAcceptance? @relation(fields: [acceptanceId], references: [id])
+  requestedBy User?           @relation("ScanRetakeRequestedBy", fields: [requestedById], references: [id])
 
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
   @@index([acceptanceId])
   @@index([status])
 }
 
 model Invoice {
-  id          String @id @default(cuid())
-  invoiceCode String @unique
-  orderId     String? @unique
-  patientId   String
-  hospitalId  String?
-  status      InvoiceStatus @default(UNPAID)
-  subtotal    Decimal @default(0) @db.Decimal(12, 2)
-  discount    Decimal @default(0) @db.Decimal(12, 2)
-  tax         Decimal @default(0) @db.Decimal(12, 2)
-  total       Decimal @default(0) @db.Decimal(12, 2)
-  amountPaid  Decimal @default(0) @db.Decimal(12, 2)
-  balance     Decimal @default(0) @db.Decimal(12, 2)
+  id                String        @id @default(cuid())
+  facilityId        String        @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  invoiceCode       String
+  orderId           String?       @unique
+  patientId         String
+  hospitalId        String?
+  status            InvoiceStatus @default(UNPAID)
+  subtotal          Decimal       @default(0) @db.Decimal(12, 2)
+  discount          Decimal       @default(0) @db.Decimal(12, 2)
+  tax               Decimal       @default(0) @db.Decimal(12, 2)
+  total             Decimal       @default(0) @db.Decimal(12, 2)
+  amountPaid        Decimal       @default(0) @db.Decimal(12, 2)
+  balance           Decimal       @default(0) @db.Decimal(12, 2)
   insuranceClaimRef String?
-  createdById String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdById       String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
 
-  order Order? @relation(fields: [orderId], references: [id])
-  patient Patient @relation(fields: [patientId], references: [id])
-  hospital Hospital? @relation(fields: [hospitalId], references: [id])
-  createdBy User? @relation("InvoiceCreatedBy", fields: [createdById], references: [id])
-  items InvoiceItem[]
-  payments Payment[]
+  order     Order?        @relation(fields: [orderId], references: [id])
+  patient   Patient       @relation(fields: [patientId], references: [id])
+  hospital  Hospital?     @relation(fields: [hospitalId], references: [id])
+  createdBy User?         @relation("InvoiceCreatedBy", fields: [createdById], references: [id])
+  items     InvoiceItem[]
+  payments  Payment[]
 
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@unique([facilityId, invoiceCode])
+  @@index([facilityId])
   @@index([patientId])
   @@index([hospitalId])
   @@index([status])
@@ -1036,44 +1265,53 @@ model Invoice {
 }
 
 model InvoiceItem {
-  id          String @id @default(cuid())
-  invoiceId   String
+  id            String  @id @default(cuid())
+  facilityId    String  @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  invoiceId     String
   catalogItemId String?
-  orderItemId String?
-  description String
-  quantity    Int @default(1)
-  unitPrice   Decimal @db.Decimal(12, 2)
-  total       Decimal @db.Decimal(12, 2)
+  orderItemId   String?
+  description   String
+  quantity      Int     @default(1)
+  unitPrice     Decimal @db.Decimal(12, 2)
+  total         Decimal @db.Decimal(12, 2)
 
-  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  invoice     Invoice      @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   catalogItem CatalogItem? @relation(fields: [catalogItemId], references: [id])
-  orderItem OrderItem? @relation(fields: [orderItemId], references: [id])
+  orderItem   OrderItem?   @relation(fields: [orderItemId], references: [id])
 
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
   @@index([invoiceId])
   @@index([catalogItemId])
   @@index([orderItemId])
 }
 
 model Payment {
-  id          String @id @default(cuid())
-  paymentCode String @unique
-  invoiceId   String
-  shiftId     String?
+  id           String        @id @default(cuid())
+  facilityId   String        @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  paymentCode  String
+  invoiceId    String
+  shiftId      String?
   receivedById String?
-  method      PaymentMethod
-  status      PaymentStatus @default(COMPLETED)
-  amount      Decimal @db.Decimal(12, 2)
-  reference   String?
-  note        String?
-  createdAt   DateTime @default(now())
+  method       PaymentMethod
+  status       PaymentStatus @default(COMPLETED)
+  amount       Decimal       @db.Decimal(12, 2)
+  reference    String?
+  note         String?
+  createdAt    DateTime      @default(now())
 
-  invoice Invoice @relation(fields: [invoiceId], references: [id])
-  shift CashierShift? @relation(fields: [shiftId], references: [id])
-  receivedBy User? @relation("PaymentReceivedBy", fields: [receivedById], references: [id])
+  invoice           Invoice            @relation(fields: [invoiceId], references: [id])
+  shift             CashierShift?      @relation(fields: [shiftId], references: [id])
+  receivedBy        User?              @relation("PaymentReceivedBy", fields: [receivedById], references: [id])
   floatTransactions FloatTransaction[]
-  ledgerEntries LedgerEntry[]
-  receipt Receipt?
+  ledgerEntries     LedgerEntry[]
+  receipt           Receipt?
 
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@unique([facilityId, paymentCode])
+  @@index([facilityId])
   @@index([invoiceId])
   @@index([shiftId])
   @@index([method])
@@ -1081,46 +1319,55 @@ model Payment {
 }
 
 model CashierShift {
-  id          String @id @default(cuid())
-  shiftCode   String @unique
-  userId      String
-  type        String
-  status      ShiftStatus @default(OPEN)
-  openingFloat Decimal @default(0) @db.Decimal(12, 2)
-  expectedCash Decimal @default(0) @db.Decimal(12, 2)
-  countedCash  Decimal? @db.Decimal(12, 2)
-  variance     Decimal? @db.Decimal(12, 2)
+  id           String      @id @default(cuid())
+  facilityId   String      @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  shiftCode    String
+  userId       String
+  type         String
+  status       ShiftStatus @default(OPEN)
+  openingFloat Decimal     @default(0) @db.Decimal(12, 2)
+  expectedCash Decimal     @default(0) @db.Decimal(12, 2)
+  countedCash  Decimal?    @db.Decimal(12, 2)
+  variance     Decimal?    @db.Decimal(12, 2)
   startNotes   String?
   closeNotes   String?
-  startedAt    DateTime @default(now())
+  startedAt    DateTime    @default(now())
   closedAt     DateTime?
 
-  user User @relation("CashierShiftUser", fields: [userId], references: [id])
-  payments Payment[]
+  user              User               @relation("CashierShiftUser", fields: [userId], references: [id])
+  payments          Payment[]
   floatTransactions FloatTransaction[]
 
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@unique([facilityId, shiftCode])
+  @@index([facilityId])
   @@index([userId])
   @@index([status])
   @@index([startedAt])
 }
 
 model FloatTransaction {
-  id          String @id @default(cuid())
+  id          String               @id @default(cuid())
+  facilityId  String               @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
   shiftId     String?
   userId      String?
   paymentId   String?
   type        FloatTransactionType
   method      PaymentMethod
-  amount      Decimal @db.Decimal(12, 2)
+  amount      Decimal              @db.Decimal(12, 2)
   description String?
   reference   String?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime             @default(now())
 
-  shift CashierShift? @relation(fields: [shiftId], references: [id])
-  user User? @relation("FloatTransactionUser", fields: [userId], references: [id])
-  payment Payment? @relation(fields: [paymentId], references: [id])
+  shift         CashierShift? @relation(fields: [shiftId], references: [id])
+  user          User?         @relation("FloatTransactionUser", fields: [userId], references: [id])
+  payment       Payment?      @relation(fields: [paymentId], references: [id])
   ledgerEntries LedgerEntry[]
 
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
   @@index([shiftId])
   @@index([userId])
   @@index([paymentId])
@@ -1129,67 +1376,81 @@ model FloatTransaction {
 }
 
 model Expense {
-  id          String @id @default(cuid())
-  expenseCode String @unique
-  description String
-  category    String
-  vendor      String?
-  status      ExpenseStatus @default(UNPAID)
-  totalAmount Decimal @db.Decimal(12, 2)
-  amountPaid  Decimal @default(0) @db.Decimal(12, 2)
-  balance     Decimal @default(0) @db.Decimal(12, 2)
-  writtenOffReason String?
+  id                     String        @id @default(cuid())
+  facilityId             String        @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  expenseCode            String
+  description            String
+  category               String
+  vendor                 String?
+  status                 ExpenseStatus @default(UNPAID)
+  totalAmount            Decimal       @db.Decimal(12, 2)
+  amountPaid             Decimal       @default(0) @db.Decimal(12, 2)
+  balance                Decimal       @default(0) @db.Decimal(12, 2)
+  writtenOffReason       String?
   supervisorApprovalNote String?
-  createdById String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdById            String?
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
 
-  createdBy User? @relation("ExpenseCreatedBy", fields: [createdById], references: [id])
-  payments ExpensePayment[]
+  createdBy     User?            @relation("ExpenseCreatedBy", fields: [createdById], references: [id])
+  payments      ExpensePayment[]
   ledgerEntries LedgerEntry[]
 
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@unique([facilityId, expenseCode])
+  @@index([facilityId])
   @@index([status])
   @@index([category])
   @@index([createdAt])
 }
 
 model ExpensePayment {
-  id          String @id @default(cuid())
-  expenseId   String
-  paidById    String?
-  method      PaymentMethod
-  amount      Decimal @db.Decimal(12, 2)
-  reference   String?
-  createdAt   DateTime @default(now())
+  id         String        @id @default(cuid())
+  facilityId String        @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  expenseId  String
+  paidById   String?
+  method     PaymentMethod
+  amount     Decimal       @db.Decimal(12, 2)
+  reference  String?
+  createdAt  DateTime      @default(now())
 
-  expense Expense @relation(fields: [expenseId], references: [id])
-  paidBy User? @relation("ExpensePaymentBy", fields: [paidById], references: [id])
+  expense       Expense       @relation(fields: [expenseId], references: [id])
+  paidBy        User?         @relation("ExpensePaymentBy", fields: [paidById], references: [id])
   ledgerEntries LedgerEntry[]
 
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
   @@index([expenseId])
   @@index([createdAt])
 }
 
 model LedgerEntry {
-  id          String @id @default(cuid())
-  entryCode   String @unique
-  type        LedgerEntryType
-  description String
-  amount      Decimal @db.Decimal(12, 2)
-  runningBalance Decimal? @db.Decimal(12, 2)
-  paymentId   String?
-  expenseId   String?
-  expensePaymentId String?
+  id                 String          @id @default(cuid())
+  facilityId         String          @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  entryCode          String
+  type               LedgerEntryType
+  description        String
+  amount             Decimal         @db.Decimal(12, 2)
+  runningBalance     Decimal?        @db.Decimal(12, 2)
+  paymentId          String?
+  expenseId          String?
+  expensePaymentId   String?
   floatTransactionId String?
-  userId      String?
-  createdAt   DateTime @default(now())
+  userId             String?
+  createdAt          DateTime        @default(now())
 
-  payment Payment? @relation(fields: [paymentId], references: [id])
-  expense Expense? @relation(fields: [expenseId], references: [id])
-  expensePayment ExpensePayment? @relation(fields: [expensePaymentId], references: [id])
+  payment          Payment?          @relation(fields: [paymentId], references: [id])
+  expense          Expense?          @relation(fields: [expenseId], references: [id])
+  expensePayment   ExpensePayment?   @relation(fields: [expensePaymentId], references: [id])
   floatTransaction FloatTransaction? @relation(fields: [floatTransactionId], references: [id])
-  user User? @relation("LedgerEntryUser", fields: [userId], references: [id])
+  user             User?             @relation("LedgerEntryUser", fields: [userId], references: [id])
 
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@unique([facilityId, entryCode])
+  @@index([facilityId])
   @@index([type])
   @@index([paymentId])
   @@index([expenseId])
@@ -1197,34 +1458,44 @@ model LedgerEntry {
 }
 
 model Receipt {
-  id          String @id @default(cuid())
-  receiptCode String @unique
-  paymentId   String @unique
+  id          String   @id @default(cuid())
+  facilityId  String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  receiptCode String
+  paymentId   String   @unique
   issuedAt    DateTime @default(now())
-  printCount  Int @default(0)
+  printCount  Int      @default(0)
 
-  payment Payment @relation(fields: [paymentId], references: [id])
+  payment  Payment  @relation(fields: [paymentId], references: [id])
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@unique([facilityId, receiptCode])
+  @@index([facilityId])
 }
 
 model Report {
-  id          String @id @default(cuid())
-  reportCode  String @unique
-  orderId     String
-  labResultId String?
-  scanResultId String?
-  status      ReportStatus @default(GENERATED)
+  id            String       @id @default(cuid())
+  facilityId    String       @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  reportCode    String
+  orderId       String
+  labResultId   String?
+  scanResultId  String?
+  status        ReportStatus @default(GENERATED)
   generatedById String?
-  secureToken String? @unique
-  generatedAt DateTime @default(now())
-  downloadedAt DateTime?
+  secureToken   String?      @unique
+  generatedAt   DateTime     @default(now())
+  downloadedAt  DateTime?
 
-  order Order @relation(fields: [orderId], references: [id])
-  labResult LabResult? @relation(fields: [labResultId], references: [id])
-  scanResult ScanResult? @relation(fields: [scanResultId], references: [id])
-  generatedBy User? @relation("ReportGeneratedBy", fields: [generatedById], references: [id])
+  order        Order              @relation(fields: [orderId], references: [id])
+  labResult    LabResult?         @relation(fields: [labResultId], references: [id])
+  scanResult   ScanResult?        @relation(fields: [scanResultId], references: [id])
+  generatedBy  User?              @relation("ReportGeneratedBy", fields: [generatedById], references: [id])
   deliveryLogs DeliveryLog[]
-  secureLinks SecureResultLink[]
+  secureLinks  SecureResultLink[]
 
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@unique([facilityId, reportCode])
+  @@index([facilityId])
   @@index([orderId])
   @@index([labResultId])
   @@index([scanResultId])
@@ -1232,23 +1503,27 @@ model Report {
 }
 
 model Notification {
-  id          String @id @default(cuid())
-  orderId     String?
-  createdById String?
+  id              String           @id @default(cuid())
+  facilityId      String           @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  orderId         String?
+  createdById     String?
   recipientUserId String?
-  recipientEmail String?
-  recipientPhone String?
-  type        NotificationType
-  title       String
-  body        String
-  isRead      Boolean @default(false)
-  createdAt   DateTime @default(now())
-  readAt      DateTime?
+  recipientEmail  String?
+  recipientPhone  String?
+  type            NotificationType
+  title           String
+  body            String
+  isRead          Boolean          @default(false)
+  createdAt       DateTime         @default(now())
+  readAt          DateTime?
 
-  order Order? @relation(fields: [orderId], references: [id])
-  createdBy User? @relation("NotificationCreatedBy", fields: [createdById], references: [id])
+  order        Order?        @relation(fields: [orderId], references: [id])
+  createdBy    User?         @relation("NotificationCreatedBy", fields: [createdById], references: [id])
   deliveryLogs DeliveryLog[]
 
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
   @@index([orderId])
   @@index([type])
   @@index([isRead])
@@ -1256,23 +1531,27 @@ model Notification {
 }
 
 model DeliveryLog {
-  id          String @id @default(cuid())
-  reportId    String?
+  id             String          @id @default(cuid())
+  facilityId     String          @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  reportId       String?
   notificationId String?
-  performedById String?
-  channel     DeliveryChannel
-  status      DeliveryStatus @default(QUEUED)
-  target      String?
-  safeMessage Boolean @default(true)
-  error       String?
-  retryCount  Int @default(0)
-  createdAt   DateTime @default(now())
-  deliveredAt DateTime?
+  performedById  String?
+  channel        DeliveryChannel
+  status         DeliveryStatus  @default(QUEUED)
+  target         String?
+  safeMessage    Boolean         @default(true)
+  error          String?
+  retryCount     Int             @default(0)
+  createdAt      DateTime        @default(now())
+  deliveredAt    DateTime?
 
-  report Report? @relation(fields: [reportId], references: [id])
+  report       Report?       @relation(fields: [reportId], references: [id])
   notification Notification? @relation(fields: [notificationId], references: [id])
-  performedBy User? @relation("DeliveryPerformedBy", fields: [performedById], references: [id])
+  performedBy  User?         @relation("DeliveryPerformedBy", fields: [performedById], references: [id])
 
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
   @@index([reportId])
   @@index([notificationId])
   @@index([channel])
@@ -1281,26 +1560,31 @@ model DeliveryLog {
 }
 
 model SecureResultLink {
-  id        String @id @default(cuid())
-  reportId  String
-  patientId String?
-  createdById String?
-  tokenHash String @unique
+  id           String    @id @default(cuid())
+  facilityId   String    @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  reportId     String
+  patientId    String?
+  createdById  String?
+  tokenHash    String    @unique
   passwordHash String?
-  expiresAt DateTime
-  usedAt    DateTime?
-  createdAt DateTime @default(now())
+  expiresAt    DateTime
+  usedAt       DateTime?
+  createdAt    DateTime  @default(now())
 
-  report Report @relation(fields: [reportId], references: [id])
-  patient Patient? @relation(fields: [patientId], references: [id])
-  createdBy User? @relation("SecureLinkCreatedBy", fields: [createdById], references: [id])
+  report    Report   @relation(fields: [reportId], references: [id])
+  patient   Patient? @relation(fields: [patientId], references: [id])
+  createdBy User?    @relation("SecureLinkCreatedBy", fields: [createdById], references: [id])
 
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
   @@index([reportId])
   @@index([expiresAt])
 }
 
 model AuditLog {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
+  facilityId String?
   actorId    String?
   actorRole  UserRole?
   action     String
@@ -1312,10 +1596,13 @@ model AuditLog {
   details    Json?
   ipAddress  String?
   userAgent  String?
-  createdAt  DateTime @default(now())
+  createdAt  DateTime  @default(now())
 
   actor User? @relation("AuditActor", fields: [actorId], references: [id])
 
+  facility Facility? @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+
+  @@index([facilityId])
   @@index([module])
   @@index([action])
   @@index([entityType, entityId])
@@ -1323,35 +1610,43 @@ model AuditLog {
 }
 
 model SystemEvent {
-  id        String @id @default(cuid())
-  actorId   String?
-  level     String @default("info")
-  source    String
-  message   String
-  details   Json?
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  facilityId String?
+  actorId    String?
+  level      String   @default("info")
+  source     String
+  message    String
+  details    Json?
+  createdAt  DateTime @default(now())
 
   actor User? @relation("SystemEventActor", fields: [actorId], references: [id])
 
+  facility Facility? @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+
+  @@index([facilityId])
   @@index([source])
   @@index([level])
   @@index([createdAt])
 }
 
 model ApiRequestLog {
-  id        String @id @default(cuid())
-  userId    String?
-  requestId String?
-  method    String
-  path      String
+  id         String   @id @default(cuid())
+  facilityId String?
+  userId     String?
+  requestId  String?
+  method     String
+  path       String
   statusCode Int?
   durationMs Int?
-  ipAddress String?
-  userAgent String?
-  createdAt DateTime @default(now())
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
 
   user User? @relation("ApiRequestUser", fields: [userId], references: [id])
 
+  facility Facility? @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+
+  @@index([facilityId])
   @@index([userId])
   @@index([path])
   @@index([statusCode])

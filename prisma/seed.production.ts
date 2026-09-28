@@ -1,51 +1,46 @@
 /*
-  Production seed: the minimum reference data a fresh deployment needs to be
-  usable — one administrator account plus departments, equipment and the
-  test/scan catalog with reference ranges. It creates NO demo patients,
-  orders, invoices or extra staff; the administrator provisions real staff
-  accounts and patients through the app.
+  Production seed: creates the platform operator account and nothing else. The
+  operator signs in without a facility code and creates each subscribing
+  facility (with its first administrator) from the platform console; facility
+  administrators then add their own staff, departments, catalog and patients.
 
-  Idempotent: if an admin user already exists the seed exits without touching
-  data, so it is safe to run on every deploy.
+  Idempotent: if a platform administrator already exists the seed exits without
+  touching data, so it is safe to run on every deploy.
 */
-import { UserRole } from '@prisma/client';
+import { PrismaClient, UserRole } from '@prisma/client';
 import { hashPassword } from '../src/utils/password.js';
-import {
-  prisma,
-  seedDepartmentsAndEquipment,
-  seedCatalogAndReferenceRanges
-} from './seed.js';
+
+// Only facility-less platform users are touched here, so the tenant extension
+// is not needed; a plain client keeps this script independent of app config.
+const prisma = new PrismaClient();
 
 async function main() {
-  const existingAdmin = await prisma.user.findFirst({ where: { role: UserRole.ADMIN } });
-  if (existingAdmin) {
-    console.log(`Production seed skipped — an administrator (${existingAdmin.username}) already exists.`);
+  const existing = await prisma.user.findFirst({ where: { role: UserRole.PLATFORM_ADMIN, facilityId: null } });
+  if (existing) {
+    console.log(`Production seed skipped — a platform administrator (${existing.username}) already exists.`);
     return;
   }
 
-  const adminUsername = process.env.SEED_ADMIN_USERNAME || 'admin';
-  const adminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@diagnosis-center.local';
-  const adminPassword = process.env.SEED_ADMIN_PASSWORD;
-  if (!adminPassword || adminPassword.length < 8) {
-    throw new Error('Set SEED_ADMIN_PASSWORD (min 8 chars) before running the production seed.');
+  const username = (process.env.SEED_ADMIN_USERNAME || 'platform').trim().toLowerCase();
+  const email = process.env.SEED_ADMIN_EMAIL || null;
+  const password = process.env.SEED_ADMIN_PASSWORD;
+  if (!password || password.length < 12) {
+    throw new Error('Set SEED_ADMIN_PASSWORD (min 12 chars) before running the production seed.');
   }
 
   await prisma.user.create({
     data: {
-      username: adminUsername,
-      name: 'System Administrator',
-      email: adminEmail,
-      role: UserRole.ADMIN,
-      passwordHash: await hashPassword(adminPassword)
+      username,
+      name: 'Platform Administrator',
+      email,
+      role: UserRole.PLATFORM_ADMIN,
+      facilityId: null,
+      passwordHash: await hashPassword(password)
     }
   });
 
-  await seedDepartmentsAndEquipment();
-  await seedCatalogAndReferenceRanges();
-
   console.log('Production seed complete.');
-  console.log(`Administrator login: ${adminUsername} (change the password after first sign-in).`);
-  console.log('Departments, equipment and the test/scan catalog are loaded. Create staff and patients through the app.');
+  console.log(`Platform administrator: ${username}. Sign in with no facility code and change the password.`);
 }
 
 main()

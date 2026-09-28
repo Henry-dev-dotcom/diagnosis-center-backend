@@ -79,7 +79,8 @@ services:
         sync: false
       - key: SEED_ADMIN_PASSWORD
         sync: false
+      # Platform operator account (signs in with no facility code).
       - key: SEED_ADMIN_USERNAME
-        value: admin
+        value: platform
       - key: SEED_ADMIN_EMAIL
         sync: false
