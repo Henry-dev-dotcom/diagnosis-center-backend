@@ -1,94 +1,47 @@
-# Backend Full Workflow Update
+# LHIMS Backend
 
-This package consolidates backend Phases 2–14 for the upgraded multi-facility diagnostic platform.
+Express + TypeScript + Prisma + PostgreSQL API for LHIMS. It covers reception, the
+doctor portal, laboratory, scan/imaging, billing and finance, results delivery,
+reports and administration. The web app lives in the separate `LHIMS-Frontend` repo.
 
-## Included upgrades
+## Requirements
 
-- Multi-facility schema foundation
-- Facility features, departments, catalog, branding, routing, and limits
-- Facility-scoped role permissions
-- Clinician, Reception, Laboratory, and Scan workflow APIs
-- Laboratory Queue → Accepted Samples → Per-test Result Entry → Push to Clinician
-- Scan Queue → Accepted Scan → Findings/Documents → Push to Clinician
-- Result document uploads for lab and scan results
-- Clinician result inbox and archive
-- Reception walk-in direct routing to Lab Queue / Scan Queue
-- Admin Facilities Management APIs
-- Workflow notifications and audit event tracking
-- Validation and security middleware
-- Demo seed data
-- Route registration and QA scripts
+- Node.js 20 or newer
+- PostgreSQL 13 or newer
 
-## Apply order
-
-Apply the migrations in this order:
-
-1. `20260628130852_multi_facility_workflow_schema`
-2. `20260628134953_result_document_storage`
-3. `20260628135403_clinician_result_delivery_refinement`
-4. `20260628135656_reception_direct_routing_refinement`
-5. `20260628140248_scan_workflow_refinement`
-6. `20260628140630_admin_facilities_api`
-7. `20260628140903_notifications_audit_workflow_tracking`
-8. `20260628141254_validation_security_rules`
-
-## Install and build
+## Local setup
 
 ```bash
-cd backend
-npm install multer
-npm install -D @types/multer
-npx prisma format
-npx prisma migrate dev
+npm ci
+cp .env.example .env          # then set DATABASE_URL and the two JWT secrets
 npx prisma generate
-npm run build
+npx prisma migrate deploy     # creates every table from prisma/migrations
+npm run prisma:seed           # demo users and data (logins printed at the end)
+npm run dev                   # http://localhost:5000, docs at /api/docs
 ```
 
-## Seed demo data
+## Changing the database
+
+1. Edit `prisma/schema.prisma`.
+2. `npx prisma migrate dev --name <short_description>` creates and applies a migration.
+3. Commit the schema and the new `prisma/migrations/<timestamp>_<name>` folder together.
+
+`npm run db:drift` exits non-zero if the database in `DATABASE_URL` no longer matches
+the schema. See `docs/database-baseline.md` for why the migration history starts at
+`20260928000000_baseline`.
+
+## Quality gate
 
 ```bash
-cd backend
-npx tsx prisma/seed.phase13.ts
+npm run qa
 ```
 
-## Route registration
+This runs schema validation, typecheck, lint, the Vitest suite, the build and the
+production readiness check. It must pass before a branch is merged.
 
-Review and register the route examples inside:
+## Deployment
 
-```text
-backend/src/routes/phase4.routes.example.ts
-backend/src/routes/phase7.routes.example.ts
-backend/src/routes/phase8.routes.example.ts
-backend/src/routes/phase9.routes.example.ts
-backend/src/routes/phase10.routes.example.ts
-backend/src/routes/phase11.routes.example.ts
-backend/src/routes/phase12.routes.example.ts
-backend/src/routes/phase14.routes.example.ts
-```
-
-The central route file added in this package is:
-
-```text
-backend/src/routes/diagnosticPlatform.routes.ts
-```
-
-## QA checks
-
-```bash
-cd backend
-npm run build
-npx tsx scripts/phase14_route_integrity_check.ts
-```
-
-After the backend server is running:
-
-```bash
-API_BASE_URL=http://localhost:4000/api \
-API_TOKEN=<JWT_TOKEN> \
-FACILITY_ID=<FACILITY_ID> \
-npx tsx scripts/phase14_http_smoke_test.ts
-```
-
-## Note
-
-This is a consolidated backend patch package. Apply it into the existing backend project, then resolve any naming differences between your current Prisma models and the new migration/model names if your original schema uses different table names.
+See `docs/deployment-runbook.md`. `render.yaml` provisions the API and a PostgreSQL
+database. The start command runs `prisma migrate deploy` and the idempotent
+production seed, which creates the first administrator from the `SEED_ADMIN_*` variables.
+`.env.production.example` lists every production variable.
