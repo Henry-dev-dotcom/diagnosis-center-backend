@@ -1,4 +1,4 @@
-import { AllergySeverity, DiagnosisType, EncounterStatus, EncounterType, OrderUrgency, TriageLevel } from '@prisma/client';
+import { AllergySeverity, Clinic, DiagnosisType, EncounterStatus, EncounterType, OrderUrgency, TriageLevel } from '@prisma/client';
 import { z } from 'zod';
 
 const text = (max: number) => z.string().trim().max(max);
@@ -7,6 +7,7 @@ const optionalText = (max: number) => text(max).optional().transform((value) => 
 export const encounterQuerySchema = z.object({
   status: z.union([z.nativeEnum(EncounterStatus), z.literal('ACTIVE')]).optional(),
   type: z.nativeEnum(EncounterType).optional(),
+  clinic: z.nativeEnum(Clinic).optional(),
   patientId: z.string().min(1).optional(),
   // Encounters started on this calendar day (YYYY-MM-DD, facility time is UTC for now).
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
@@ -16,6 +17,8 @@ export const encounterQuerySchema = z.object({
 export const startEncounterSchema = z.object({
   patientId: z.string().min(1, 'Patient is required'),
   type: z.nativeEnum(EncounterType).default(EncounterType.OPD),
+  // The clinic an outpatient visit is held in (Phase 4C specialty clinics).
+  clinic: z.nativeEnum(Clinic).default(Clinic.GENERAL),
   chiefComplaint: optionalText(500),
   visitId: z.string().min(1).optional(),
   // A SERVICE catalog item (e.g. OPD consultation) charged when the visit starts.

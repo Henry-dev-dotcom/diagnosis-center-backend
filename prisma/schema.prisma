@@ -99,6 +99,7 @@ model Facility {
   bedAssignments            BedAssignment[]
   medicationAdministrations MedicationAdministration[]
   theatres                  Theatre[]
+  clinicalForms             ClinicalForm[]
   surgeries                 Surgery[]
 
   @@index([status])
@@ -394,6 +395,7 @@ model User {
   medicationsGiven    MedicationAdministration[] @relation("AdministeredBy")
   surgeriesBooked     Surgery[]                  @relation("SurgeryBookedBy")
   surgeriesPerformed  Surgery[]                  @relation("SurgerySurgeon")
+  formsWritten        ClinicalForm[]             @relation("FormAuthor")
 
   @@unique([facilityId, username])
   @@unique([facilityId, email])
@@ -540,6 +542,7 @@ model Patient {
   prescriptions Prescription[]
   admissions    Admission[]
   surgeries     Surgery[]
+  clinicalForms ClinicalForm[]
 
   @@unique([facilityId, patientCode])
   @@index([facilityId])
@@ -1822,6 +1825,8 @@ model Encounter {
   patientId             String
   visitId               String?
   type                  EncounterType   @default(OPD)
+  /// The clinic an outpatient visit is held in; each specialty clinic belongs to a module.
+  clinic                Clinic          @default(GENERAL)
   status                EncounterStatus @default(WAITING_TRIAGE)
   triageLevel           TriageLevel?
   chiefComplaint        String?
@@ -1853,12 +1858,14 @@ model Encounter {
   /// Admissions that started from this (OPD/emergency) visit.
   admissionsStarted Admission[]    @relation("AdmissionSource")
   surgeries         Surgery[]
+  forms             ClinicalForm[]
 
   @@unique([facilityId, encounterCode])
   @@index([facilityId])
   @@index([patientId])
   @@index([status])
   @@index([startedAt])
+  @@index([clinic])
 }
 
 model VitalSigns {
@@ -2424,4 +2431,50 @@ model Surgery {
   @@index([facilityId])
   @@index([theatreId, scheduledStart])
   @@index([encounterId])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4C: specialty clinics. A visit is held in a clinic; structured,
+// append-only clinical forms (dental chart, eye exam, ...) record specialty
+// findings. Each form type's data is validated by its own schema on the server.
+// ---------------------------------------------------------------------------
+
+enum Clinic {
+  GENERAL
+  DENTAL
+  EYE
+  PHYSIOTHERAPY
+  DIETETICS
+}
+
+enum ClinicalFormType {
+  DENTAL_CHART
+  EYE_EXAM
+  PHYSIO_ASSESSMENT
+  PHYSIO_SESSION
+  NUTRITION_ASSESSMENT
+}
+
+model ClinicalForm {
+  id          String           @id @default(cuid())
+  facilityId  String           @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  encounterId String
+  patientId   String
+  type        ClinicalFormType
+  data        Json
+  authorId    String?
+  /// A correction of an earlier form of the same type on the same visit.
+  amendsId    String?
+  createdAt   DateTime         @default(now())
+
+  facility   Facility       @relation(fields: [facilityId], references: [id])
+  encounter  Encounter      @relation(fields: [encounterId], references: [id])
+  patient    Patient        @relation(fields: [patientId], references: [id])
+  author     User?          @relation("FormAuthor", fields: [authorId], references: [id])
+  amends     ClinicalForm?  @relation("FormAmendment", fields: [amendsId], references: [id])
+  amendments ClinicalForm[] @relation("FormAmendment")
+
+  @@index([facilityId])
+  @@index([encounterId])
+  @@index([patientId, type, createdAt])
 }

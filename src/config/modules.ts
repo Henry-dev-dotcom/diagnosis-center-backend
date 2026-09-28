@@ -23,7 +23,11 @@ export const MODULE_KEYS = [
   'clinician_portal',
   'results_delivery',
   'reports',
-  'theatre'
+  'theatre',
+  'dental',
+  'eye',
+  'physiotherapy',
+  'dietetics'
 ] as const;
 
 export type ModuleKey = (typeof MODULE_KEYS)[number];
@@ -50,7 +54,11 @@ export const MODULES: readonly ModuleDefinition[] = [
   { key: 'clinician_portal', name: 'Clinician Portal', category: 'clinical', dependsOn: [], description: 'Clinicians place orders, track them and view released results.' },
   { key: 'results_delivery', name: 'Results Delivery', category: 'clinical', dependsOn: [], description: 'Releasing results and delivering them by email, SMS, WhatsApp or PDF.' },
   { key: 'reports', name: 'Reports & Analytics', category: 'insights', dependsOn: [], description: 'Operational, turnaround, revenue and audit reports.' },
-  { key: 'theatre', name: 'Theatre & Surgery', category: 'clinical', dependsOn: [], description: 'Operating theatre list, surgical safety checklist, operation notes and procedure charges.' }
+  { key: 'theatre', name: 'Theatre & Surgery', category: 'clinical', dependsOn: [], description: 'Operating theatre list, surgical safety checklist, operation notes and procedure charges.' },
+  { key: 'dental', name: 'Dental', category: 'clinical', dependsOn: ['opd'], description: 'Dental clinic with a tooth-by-tooth chart (FDI numbering) and treatment record.' },
+  { key: 'eye', name: 'Eye / Optometry', category: 'clinical', dependsOn: ['opd'], description: 'Eye clinic: visual acuity, eye pressure, examination findings and refraction.' },
+  { key: 'physiotherapy', name: 'Physiotherapy', category: 'clinical', dependsOn: ['opd'], description: 'Physiotherapy assessments, goals and treatment sessions.' },
+  { key: 'dietetics', name: 'Dietetics & Nutrition', category: 'clinical', dependsOn: ['opd'], description: 'Nutrition assessments with BMI and MUAC, diet plans and follow-up.' }
 ];
 
 export function isModuleKey(value: string): value is ModuleKey {

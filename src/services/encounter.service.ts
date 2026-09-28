@@ -1,6 +1,7 @@
 import type { Request } from 'express';
 import {
   CatalogItemType,
+  Clinic,
   ClinicalNoteType,
   DiagnosisStatus,
   EncounterStatus,
@@ -21,6 +22,7 @@ import { createWalkIn } from './reception.service.js';
 import { allergyConflicts } from './allergyCheck.js';
 import { AppError } from '../utils/appError.js';
 import type { ModuleKey } from '../config/modules.js';
+import { CLINIC_MODULE, CLINIC_NAME } from '../config/clinics.js';
 
 // Each visit type belongs to a department module.
 const MODULE_FOR_ENCOUNTER_TYPE: Record<EncounterType, ModuleKey> = {
@@ -83,7 +85,8 @@ const encounterDetailInclude = {
     orderBy: { createdAt: 'desc' },
     include: { items: { include: { catalogItem: { select: { id: true, name: true, type: true } } } } }
   },
-  invoices: { orderBy: { createdAt: 'asc' }, include: { items: true } }
+  invoices: { orderBy: { createdAt: 'asc' }, include: { items: true } },
+  forms: { orderBy: { createdAt: 'asc' }, include: { author: staffSelect } }
 } satisfies Prisma.EncounterInclude;
 
 function nextCode(tx: Prisma.TransactionClient, prefix: 'ENC' | 'RX') {
@@ -111,6 +114,7 @@ async function loadActiveEncounter(id: string) {
 export async function listEncounters(query: {
   status?: EncounterStatus | 'ACTIVE';
   type?: EncounterType;
+  clinic?: Clinic;
   patientId?: string;
   date?: string;
   limit: number;
@@ -119,6 +123,7 @@ export async function listEncounters(query: {
   if (query.status === 'ACTIVE') where.status = { in: ACTIVE_STATUSES };
   else if (query.status) where.status = query.status;
   if (query.type) where.type = query.type;
+  if (query.clinic) where.clinic = query.clinic;
   if (query.patientId) where.patientId = query.patientId;
   if (query.date) {
     const start = new Date(`${query.date}T00:00:00.000Z`);
@@ -145,13 +150,20 @@ export async function getEncounter(id: string) {
 }
 
 export async function startEncounter(
-  body: { patientId: string; type: EncounterType; chiefComplaint?: string; visitId?: string; feeItemId?: string },
+  body: { patientId: string; type: EncounterType; clinic?: Clinic; chiefComplaint?: string; visitId?: string; feeItemId?: string },
   req: Request
 ) {
   if (body.type === EncounterType.INPATIENT) {
     throw new AppError('Inpatient stays start by admitting the patient to a bed', 400, 'USE_ADMISSION');
   }
   await assertEncounterTypeAvailable(body.type);
+  const clinic = body.clinic ?? Clinic.GENERAL;
+  if (clinic !== Clinic.GENERAL) {
+    if (body.type !== EncounterType.OPD) throw new AppError('Specialty clinics hold outpatient visits', 400, 'CLINIC_NEEDS_OPD');
+    if (!(await isModuleEnabled(CLINIC_MODULE[clinic]))) {
+      throw new AppError(`The ${CLINIC_NAME[clinic].toLowerCase()} is not enabled for your facility.`, 403, 'MODULE_DISABLED', { module: CLINIC_MODULE[clinic] });
+    }
+  }
   const patient = await prisma.patient.findUnique({ where: { id: body.patientId }, select: { id: true, hospitalId: true } });
   if (!patient) throw new AppError('Patient not found', 404, 'PATIENT_NOT_FOUND');
 
@@ -171,6 +183,7 @@ export async function startEncounter(
         patientId: patient.id,
         visitId: body.visitId ?? null,
         type: body.type,
+        clinic,
         chiefComplaint: body.chiefComplaint ?? null,
         createdById: req.user?.id ?? null
       }
@@ -195,7 +208,7 @@ export async function startEncounter(
     return created;
   });
 
-  await audit(req, 'ENCOUNTER_STARTED', encounter.id, { type: encounter.type, feeCharged: Boolean(charge) });
+  await audit(req, 'ENCOUNTER_STARTED', encounter.id, { type: encounter.type, clinic, feeCharged: Boolean(charge) });
   return getEncounter(encounter.id);
 }
 

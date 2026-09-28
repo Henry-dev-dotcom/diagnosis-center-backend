@@ -360,6 +360,7 @@ async function resetDemoData() {
     prisma.order.updateMany({ where: { encounterId: { not: null } }, data: { encounterId: null } }),
     prisma.invoice.updateMany({ where: { encounterId: { not: null } }, data: { encounterId: null } }),
     // Inpatient care (Phase 4B) points at prescriptions and encounters, so it goes first.
+    prisma.clinicalForm.deleteMany(),
     prisma.surgery.deleteMany(),
     prisma.theatre.deleteMany(),
     prisma.medicationAdministration.deleteMany(),
@@ -546,6 +547,15 @@ export async function seedCatalogAndReferenceRanges() {
   // OPD consultation fee: a service item charged when a visit starts.
   await prisma.catalogItem.create({
     data: { id: 'SVC-CONSULT', catalogCode: 'CONSULT-OPD', name: 'OPD consultation', type: CatalogItemType.SERVICE, price: '50' }
+  });
+  // Specialty clinic fees (Phase 4C); the visit screen picks the one matching the clinic.
+  await prisma.catalogItem.createMany({
+    data: [
+      { id: 'SVC-CONSULT-DENTAL', catalogCode: 'CONSULT-DENTAL', name: 'Dental consultation', type: CatalogItemType.SERVICE, price: '80' },
+      { id: 'SVC-CONSULT-EYE', catalogCode: 'CONSULT-EYE', name: 'Eye consultation', type: CatalogItemType.SERVICE, price: '70' },
+      { id: 'SVC-CONSULT-PHYSIO', catalogCode: 'CONSULT-PHYSIOTHERAPY', name: 'Physiotherapy session', type: CatalogItemType.SERVICE, price: '100' },
+      { id: 'SVC-CONSULT-DIET', catalogCode: 'CONSULT-DIETETICS', name: 'Dietetics consultation', type: CatalogItemType.SERVICE, price: '60' }
+    ]
   });
 
   for (const item of catalog) {
