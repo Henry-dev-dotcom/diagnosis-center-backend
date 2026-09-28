@@ -133,6 +133,18 @@ describe('tenant extension: nested writes and transactions', () => {
     expect(contacts[0]?.facilityId).toBe(A);
   });
 
+  it('stamps unchecked creates that mix scalar foreign keys with nested back-relation creates', async () => {
+    // Same shape as an order (patientId + items: { create }): a scalar FK
+    // (hospitalId) plus a nested back-relation list (contacts).
+    const hospital = await inA(() => prisma.hospital.create({ data: { name: 'Referrer', code: `REF-${suffix}` } }));
+    const created = await inA(() =>
+      patient(`MIXED-${suffix}`, { hospitalId: hospital.id, contacts: { create: [{ type: 'phone', value: '2' }] } })
+    );
+    expect(created.facilityId).toBe(A);
+    const contacts = await inA(() => prisma.patientContact.findMany({ where: { patientId: created.id } }));
+    expect(contacts[0]?.facilityId).toBe(A);
+  });
+
   it('stamps creates that use relation (checked) input', async () => {
     const p = await inA(() => patient(`CHECKED-${suffix}`));
     const contact = await inA(() =>

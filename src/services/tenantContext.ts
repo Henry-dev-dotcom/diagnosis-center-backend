@@ -66,14 +66,23 @@ export function currentFacilityId(): string | null {
 type RelationMap = Map<string, string>;
 const tenantModels = new Set<string>();
 const relationsByModel = new Map<string, RelationMap>();
+// Relation fields that hold a foreign key on this model (e.g. Order.patient).
+// Only these distinguish Prisma's "checked" create input from the "unchecked"
+// one; back-relation lists (Order.items) are accepted by both.
+const owningRelationsByModel = new Map<string, Set<string>>();
 
 for (const model of Prisma.dmmf.datamodel.models) {
   const relations: RelationMap = new Map();
+  const owning = new Set<string>();
   for (const field of model.fields) {
-    if (field.kind === 'object') relations.set(field.name, field.type);
+    if (field.kind === 'object') {
+      relations.set(field.name, field.type);
+      if (field.relationFromFields?.length) owning.add(field.name);
+    }
     if (field.name === 'facilityId') tenantModels.add(model.name);
   }
   relationsByModel.set(model.name, relations);
+  owningRelationsByModel.set(model.name, owning);
 }
 
 /** Log tables may be written before a facility is known (e.g. failed logins). */
@@ -99,8 +108,10 @@ function rejectFacilityChange(model: string, data: Data | undefined) {
 
 /** Stamps one create payload, choosing the checked or unchecked input shape Prisma expects. */
 function stampCreate(model: string, data: Data, facilityId: string): Data {
-  const relations = relationsByModel.get(model)!;
-  const usesRelationInputs = Object.keys(data).some((key) => relations.has(key) && key !== 'facility');
+  // `patient: { connect }` means checked input, which needs `facility: { connect }`;
+  // otherwise the unchecked shape (scalar foreign keys) takes a scalar facilityId.
+  const owning = owningRelationsByModel.get(model)!;
+  const usesRelationInputs = Object.keys(data).some((key) => owning.has(key) && key !== 'facility');
   const stamped: Data = { ...data };
   delete stamped.facilityId;
   delete stamped.facility;
