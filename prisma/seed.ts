@@ -361,6 +361,9 @@ async function resetDemoData() {
     prisma.invoice.updateMany({ where: { encounterId: { not: null } }, data: { encounterId: null } }),
     // Inpatient care (Phase 4B) points at prescriptions and encounters, so it goes first.
     prisma.clinicalForm.deleteMany(),
+    prisma.newborn.deleteMany(),
+    prisma.delivery.deleteMany(),
+    prisma.pregnancy.deleteMany(),
     prisma.surgery.deleteMany(),
     prisma.theatre.deleteMany(),
     prisma.medicationAdministration.deleteMany(),
@@ -1219,6 +1222,28 @@ async function seedTheatres() {
   });
 }
 
+/** One ongoing pregnancy (about 30 weeks today) so the antenatal clinic has someone to see. */
+async function seedMaternity() {
+  const lmp = new Date(Date.now() - 210 * 86_400_000);
+  lmp.setUTCHours(0, 0, 0, 0);
+  await prisma.pregnancy.create({
+    data: {
+      id: 'PRG-DEMO-1',
+      pregnancyCode: `PRG-${new Date().getUTCFullYear()}-0001`,
+      patientId: 'PAT-0003',
+      lmp,
+      eddByLmp: new Date(lmp.getTime() + 280 * 86_400_000),
+      gravida: 2,
+      parity: 1,
+      livingChildren: 1,
+      bloodGroup: 'O+',
+      riskFactors: ['PREVIOUS_CAESAREAN'],
+      screening: { hiv: 'NEGATIVE', syphilis: 'NEGATIVE', hepatitisB: 'NEGATIVE', sickling: 'NEGATIVE' },
+      bookedById: 'USR-006'
+    }
+  });
+}
+
 async function seedAuditAndSystemEvents() {
   await prisma.auditLog.createMany({
     data: [
@@ -1261,6 +1286,7 @@ export async function seedFacility(facility: DemoFacility) {
       await seedPharmacy();
       await seedWards();
       await seedTheatres();
+      await seedMaternity();
       await seedOrders();
       await seedReceptionWorkflow();
       await seedLabAndScanWorkflow();

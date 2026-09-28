@@ -100,6 +100,9 @@ model Facility {
   medicationAdministrations MedicationAdministration[]
   theatres                  Theatre[]
   clinicalForms             ClinicalForm[]
+  pregnancies               Pregnancy[]
+  deliveries                Delivery[]
+  newborns                  Newborn[]
   surgeries                 Surgery[]
 
   @@index([status])
@@ -396,6 +399,8 @@ model User {
   surgeriesBooked     Surgery[]                  @relation("SurgeryBookedBy")
   surgeriesPerformed  Surgery[]                  @relation("SurgerySurgeon")
   formsWritten        ClinicalForm[]             @relation("FormAuthor")
+  pregnanciesBooked   Pregnancy[]                @relation("PregnancyBookedBy")
+  deliveriesAttended  Delivery[]                 @relation("DeliveryAttendant")
 
   @@unique([facilityId, username])
   @@unique([facilityId, email])
@@ -543,6 +548,9 @@ model Patient {
   admissions    Admission[]
   surgeries     Surgery[]
   clinicalForms ClinicalForm[]
+  pregnancies   Pregnancy[]
+  /// Set when this patient was born here and registered at delivery.
+  birthRecord   Newborn?         @relation("NewbornPatient")
 
   @@unique([facilityId, patientCode])
   @@index([facilityId])
@@ -1792,6 +1800,7 @@ enum ClinicalNoteType {
   DISCHARGE
   NURSING
   OPERATION
+  DELIVERY
 }
 
 enum DiagnosisType {
@@ -1859,6 +1868,7 @@ model Encounter {
   admissionsStarted Admission[]    @relation("AdmissionSource")
   surgeries         Surgery[]
   forms             ClinicalForm[]
+  deliveries        Delivery[]
 
   @@unique([facilityId, encounterCode])
   @@index([facilityId])
@@ -2445,6 +2455,8 @@ enum Clinic {
   EYE
   PHYSIOTHERAPY
   DIETETICS
+  ANTENATAL
+  POSTNATAL
 }
 
 enum ClinicalFormType {
@@ -2453,6 +2465,8 @@ enum ClinicalFormType {
   PHYSIO_ASSESSMENT
   PHYSIO_SESSION
   NUTRITION_ASSESSMENT
+  ANC_VISIT
+  POSTNATAL_CHECK
 }
 
 model ClinicalForm {
@@ -2465,6 +2479,8 @@ model ClinicalForm {
   authorId    String?
   /// A correction of an earlier form of the same type on the same visit.
   amendsId    String?
+  /// Antenatal and postnatal forms belong to a pregnancy.
+  pregnancyId String?
   createdAt   DateTime         @default(now())
 
   facility   Facility       @relation(fields: [facilityId], references: [id])
@@ -2473,8 +2489,143 @@ model ClinicalForm {
   author     User?          @relation("FormAuthor", fields: [authorId], references: [id])
   amends     ClinicalForm?  @relation("FormAmendment", fields: [amendsId], references: [id])
   amendments ClinicalForm[] @relation("FormAmendment")
+  pregnancy  Pregnancy?     @relation(fields: [pregnancyId], references: [id])
 
   @@index([facilityId])
   @@index([encounterId])
   @@index([patientId, type, createdAt])
+  @@index([pregnancyId])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4C: maternity. A Pregnancy is followed through antenatal visits
+// (ClinicalForm ANC_VISIT), ends in a Delivery (or another outcome), and is
+// followed up with postnatal checks. Live-born babies become patients.
+// ---------------------------------------------------------------------------
+
+enum PregnancyStatus {
+  ACTIVE
+  DELIVERED
+  ENDED
+}
+
+enum PregnancyEndReason {
+  MISCARRIAGE
+  ECTOPIC
+  MOLAR
+  TERMINATION
+  TRANSFERRED_OUT
+  LOST_TO_FOLLOW_UP
+}
+
+enum DeliveryMode {
+  SVD
+  VACUUM
+  FORCEPS
+  ASSISTED_BREECH
+  CAESAREAN
+}
+
+enum BirthOutcome {
+  LIVE_BIRTH
+  FRESH_STILLBIRTH
+  MACERATED_STILLBIRTH
+}
+
+enum PerinealOutcome {
+  INTACT
+  FIRST_DEGREE
+  SECOND_DEGREE
+  THIRD_DEGREE
+  FOURTH_DEGREE
+  EPISIOTOMY
+}
+
+model Pregnancy {
+  id             String              @id @default(cuid())
+  facilityId     String              @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  pregnancyCode  String
+  patientId      String
+  status         PregnancyStatus     @default(ACTIVE)
+  lmp            DateTime?
+  eddByLmp       DateTime?
+  /// An early ultrasound date replaces the LMP date when they disagree.
+  eddByScan      DateTime?
+  gravida        Int
+  parity         Int
+  livingChildren Int?
+  bloodGroup     String?
+  riskFactors    String[]            @default([])
+  /// Booking screening results (HIV, syphilis, hepatitis B, sickling, ...): { test: result }.
+  screening      Json                @default("{}")
+  bookedAt       DateTime            @default(now())
+  bookedById     String?
+  endedAt        DateTime?
+  endReason      PregnancyEndReason?
+  endNote        String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  facility Facility       @relation(fields: [facilityId], references: [id])
+  patient  Patient        @relation(fields: [patientId], references: [id])
+  bookedBy User?          @relation("PregnancyBookedBy", fields: [bookedById], references: [id])
+  forms    ClinicalForm[]
+  delivery Delivery?
+
+  @@unique([facilityId, pregnancyCode])
+  @@index([facilityId])
+  @@index([patientId])
+  @@index([status])
+}
+
+model Delivery {
+  id               String           @id @default(cuid())
+  facilityId       String           @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  pregnancyId      String           @unique
+  /// The visit or labour-ward stay the delivery was recorded in.
+  encounterId      String
+  deliveredAt      DateTime
+  mode             DeliveryMode
+  gestationWeeks   Int?
+  placentaComplete Boolean          @default(true)
+  bloodLossMl      Int?
+  perineum         PerinealOutcome?
+  oxytocinGiven    Boolean          @default(false)
+  complications    String?
+  notes            String?
+  attendantId      String?
+  createdAt        DateTime         @default(now())
+
+  facility  Facility  @relation(fields: [facilityId], references: [id])
+  pregnancy Pregnancy @relation(fields: [pregnancyId], references: [id])
+  encounter Encounter @relation(fields: [encounterId], references: [id])
+  attendant User?     @relation("DeliveryAttendant", fields: [attendantId], references: [id])
+  babies    Newborn[]
+
+  @@index([facilityId])
+  @@index([deliveredAt])
+}
+
+model Newborn {
+  id           String       @id @default(cuid())
+  facilityId   String       @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  deliveryId   String
+  /// The baby's own patient record (live births only).
+  patientId    String?      @unique
+  birthOrder   Int
+  sex          String
+  outcome      BirthOutcome
+  birthWeightG Int?
+  apgar1       Int?
+  apgar5       Int?
+  resuscitated Boolean      @default(false)
+  notes        String?
+  createdAt    DateTime     @default(now())
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+  delivery Delivery @relation(fields: [deliveryId], references: [id])
+  patient  Patient? @relation("NewbornPatient", fields: [patientId], references: [id])
+
+  @@unique([deliveryId, birthOrder])
+  @@index([facilityId])
 }

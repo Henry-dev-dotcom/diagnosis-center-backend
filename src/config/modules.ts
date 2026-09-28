@@ -27,7 +27,8 @@ export const MODULE_KEYS = [
   'dental',
   'eye',
   'physiotherapy',
-  'dietetics'
+  'dietetics',
+  'maternity'
 ] as const;
 
 export type ModuleKey = (typeof MODULE_KEYS)[number];
@@ -58,7 +59,8 @@ export const MODULES: readonly ModuleDefinition[] = [
   { key: 'dental', name: 'Dental', category: 'clinical', dependsOn: ['opd'], description: 'Dental clinic with a tooth-by-tooth chart (FDI numbering) and treatment record.' },
   { key: 'eye', name: 'Eye / Optometry', category: 'clinical', dependsOn: ['opd'], description: 'Eye clinic: visual acuity, eye pressure, examination findings and refraction.' },
   { key: 'physiotherapy', name: 'Physiotherapy', category: 'clinical', dependsOn: ['opd'], description: 'Physiotherapy assessments, goals and treatment sessions.' },
-  { key: 'dietetics', name: 'Dietetics & Nutrition', category: 'clinical', dependsOn: ['opd'], description: 'Nutrition assessments with BMI and MUAC, diet plans and follow-up.' }
+  { key: 'dietetics', name: 'Dietetics & Nutrition', category: 'clinical', dependsOn: ['opd'], description: 'Nutrition assessments with BMI and MUAC, diet plans and follow-up.' },
+  { key: 'maternity', name: 'Maternity', category: 'clinical', dependsOn: ['opd'], description: 'Pregnancy register, antenatal and postnatal clinics, labour and delivery with newborn registration.' }
 ];
 
 export function isModuleKey(value: string): value is ModuleKey {

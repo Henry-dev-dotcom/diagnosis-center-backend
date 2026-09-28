@@ -133,7 +133,12 @@ export const PERMISSIONS = {
   THEATRE_SCHEDULE: 'theatre:schedule',
   THEATRE_CHECKLIST: 'theatre:checklist',
   THEATRE_OPERATE: 'theatre:operate',
-  THEATRE_MANAGE: 'theatre:theatres:manage'
+  THEATRE_MANAGE: 'theatre:theatres:manage',
+
+  // Maternity, Phase 4C.
+  MATERNITY_READ: 'maternity:read',
+  MATERNITY_REGISTER: 'maternity:register',
+  MATERNITY_DELIVER: 'maternity:deliver'
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -171,7 +176,11 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly
     PERMISSIONS.THEATRE_READ,
     PERMISSIONS.THEATRE_SCHEDULE,
     PERMISSIONS.THEATRE_CHECKLIST,
-    PERMISSIONS.THEATRE_OPERATE
+    PERMISSIONS.THEATRE_OPERATE,
+    // Pregnancy care and deliveries (Maternity module).
+    PERMISSIONS.MATERNITY_READ,
+    PERMISSIONS.MATERNITY_REGISTER,
+    PERMISSIONS.MATERNITY_DELIVER
   ],
   [UserRole.NURSE]: [
     PERMISSIONS.SYSTEM_READ,
@@ -189,7 +198,11 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly
     PERMISSIONS.INPATIENT_BED_STATUS,
     // Theatre nurses run the surgical safety checklist.
     PERMISSIONS.THEATRE_READ,
-    PERMISSIONS.THEATRE_CHECKLIST
+    PERMISSIONS.THEATRE_CHECKLIST,
+    // Midwives: pregnancy booking, antenatal care and deliveries.
+    PERMISSIONS.MATERNITY_READ,
+    PERMISSIONS.MATERNITY_REGISTER,
+    PERMISSIONS.MATERNITY_DELIVER
   ],
   [UserRole.PHARMACIST]: [
     PERMISSIONS.SYSTEM_READ,

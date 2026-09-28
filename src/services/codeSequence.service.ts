@@ -40,7 +40,8 @@ export const CODE_SERIES = {
   RX: { table: 'Prescription', column: 'prescriptionCode', yearly: true },
   DSP: { table: 'Dispensation', column: 'dispensationCode', yearly: true },
   ADM: { table: 'Admission', column: 'admissionCode', yearly: true },
-  SRG: { table: 'Surgery', column: 'surgeryCode', yearly: true }
+  SRG: { table: 'Surgery', column: 'surgeryCode', yearly: true },
+  PRG: { table: 'Pregnancy', column: 'pregnancyCode', yearly: true }
 } satisfies Record<string, SeriesConfig>;
 
 export type CodeSeries = keyof typeof CODE_SERIES;

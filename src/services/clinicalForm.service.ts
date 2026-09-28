@@ -8,6 +8,7 @@ import { isModuleEnabled, permissionsInclude } from './facilityAccess.service.js
 import { createAuditLog, getRequestAuditContext } from './audit.service.js';
 import { getEncounter } from './encounter.service.js';
 import { AppError } from '../utils/appError.js';
+import { ancAlerts, daysBetween, gestationalAge, postnatalAlerts } from './obstetrics.js';
 
 /*
   Structured clinical forms (Phase 4C). Forms are append-only like notes: a
@@ -42,7 +43,19 @@ export function muacCategory(muacCm: number, ageMonths: number | null) {
   return muacCm < 18.5 ? 'Undernourished' : muacCm < 23 ? 'At risk' : 'Normal';
 }
 
-function derive(type: ClinicalFormType, data: Record<string, unknown>, ageMonths: number | null) {
+type PregnancyForDerive = { lmp: Date | null; eddByLmp: Date | null; eddByScan: Date | null; delivery: { deliveredAt: Date } | null } | null;
+
+function derive(type: ClinicalFormType, data: Record<string, unknown>, ageMonths: number | null, pregnancy: PregnancyForDerive) {
+  const now = new Date();
+  if (type === ClinicalFormType.ANC_VISIT) {
+    const ga = pregnancy ? gestationalAge(pregnancy, now) : null;
+    const gestation = ga ? { weeks: ga.weeks, days: ga.extraDays, basis: ga.basis } : null;
+    return { ...data, derived: { gestation, alerts: ancAlerts(data as Parameters<typeof ancAlerts>[0], ga?.weeks ?? null) } };
+  }
+  if (type === ClinicalFormType.POSTNATAL_CHECK) {
+    const dayPostpartum = pregnancy?.delivery ? daysBetween(pregnancy.delivery.deliveredAt, now) : null;
+    return { ...data, derived: { dayPostpartum, alerts: postnatalAlerts(data as Parameters<typeof postnatalAlerts>[0]) } };
+  }
   if (type !== ClinicalFormType.NUTRITION_ASSESSMENT) return data;
   const weight = data.weightKg as number;
   const height = data.heightCm as number | undefined;
@@ -60,7 +73,11 @@ function derive(type: ClinicalFormType, data: Record<string, unknown>, ageMonths
   return { ...data, derived };
 }
 
-export async function addClinicalForm(encounterId: string, body: { type: ClinicalFormType; data: Record<string, unknown>; amendsId?: string }, req: Request) {
+export async function addClinicalForm(
+  encounterId: string,
+  body: { type: ClinicalFormType; data: Record<string, unknown>; amendsId?: string; pregnancyId?: string },
+  req: Request
+) {
   const encounter = await prisma.encounter.findUnique({ where: { id: encounterId }, include: { patient: { select: { dateOfBirth: true } } } });
   if (!encounter) throw new AppError('Encounter not found', 404, 'ENCOUNTER_NOT_FOUND');
   if (!OPEN.includes(encounter.status)) throw new AppError('This visit is closed and can no longer be changed', 409, 'ENCOUNTER_CLOSED');
@@ -81,15 +98,37 @@ export async function addClinicalForm(encounterId: string, body: { type: Clinica
   }
 
   if (body.amendsId) {
-    const original = await prisma.clinicalForm.findUnique({ where: { id: body.amendsId }, select: { encounterId: true, type: true } });
-    if (!original || original.encounterId !== encounterId || original.type !== body.type) {
+    const original = await prisma.clinicalForm.findUnique({ where: { id: body.amendsId }, select: { encounterId: true, type: true, pregnancyId: true } });
+    if (!original || original.encounterId !== encounterId || original.type !== body.type || original.pregnancyId !== (body.pregnancyId ?? null)) {
       throw new AppError('The form being corrected is not a form of this type on this visit', 400, 'FORM_NOT_ON_ENCOUNTER');
     }
   }
 
-  const data = derive(body.type, parsed.data as Record<string, unknown>, ageInMonths(encounter.patient.dateOfBirth, new Date()));
+  // Antenatal and postnatal forms belong to this woman's pregnancy, at the right stage.
+  let pregnancy: PregnancyForDerive = null;
+  if (rule.pregnancy) {
+    if (!body.pregnancyId) throw new AppError('Choose the pregnancy this form belongs to', 400, 'PREGNANCY_REQUIRED');
+    const found = await prisma.pregnancy.findUnique({ where: { id: body.pregnancyId }, include: { delivery: { select: { deliveredAt: true } } } });
+    if (!found || found.patientId !== encounter.patientId) throw new AppError('That pregnancy is not this patient’s', 400, 'PREGNANCY_MISMATCH');
+    if (found.status !== rule.pregnancy) {
+      throw new AppError(rule.pregnancy === 'ACTIVE' ? 'Antenatal visits are recorded on an ongoing pregnancy' : 'Postnatal checks are recorded after the delivery', 409, 'PREGNANCY_WRONG_STATUS');
+    }
+    pregnancy = found;
+  } else if (body.pregnancyId) {
+    throw new AppError('Only antenatal and postnatal forms belong to a pregnancy', 400, 'PREGNANCY_NOT_EXPECTED');
+  }
+
+  const data = derive(body.type, parsed.data as Record<string, unknown>, ageInMonths(encounter.patient.dateOfBirth, new Date()), pregnancy);
   const form = await prisma.clinicalForm.create({
-    data: { encounterId, patientId: encounter.patientId, type: body.type, data: data as Prisma.InputJsonObject, authorId: req.user?.id ?? null, amendsId: body.amendsId ?? null }
+    data: {
+      encounterId,
+      patientId: encounter.patientId,
+      type: body.type,
+      data: data as Prisma.InputJsonObject,
+      authorId: req.user?.id ?? null,
+      amendsId: body.amendsId ?? null,
+      pregnancyId: body.pregnancyId ?? null
+    }
   });
   await createAuditLog({ ...getRequestAuditContext(req), action: body.amendsId ? 'CLINICAL_FORM_AMENDED' : 'CLINICAL_FORM_ADDED', module: 'Encounters', entityType: 'Encounter', entityId: encounterId, details: { formId: form.id, type: body.type } });
   return getEncounter(encounterId);

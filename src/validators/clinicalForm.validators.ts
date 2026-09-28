@@ -100,19 +100,82 @@ const nutritionAssessment = z.object({
   followUpWeeks: z.coerce.number().int().min(1).max(52).optional()
 });
 
+const bothOrNeither = (a?: number, b?: number) => (a === undefined) === (b === undefined);
+const URINE = z.enum(['NEGATIVE', 'TRACE', '1+', '2+', '3+', '4+']);
+const DANGER_SIGNS = ['VAGINAL_BLEEDING', 'SEVERE_HEADACHE', 'BLURRED_VISION', 'CONVULSIONS', 'SEVERE_ABDOMINAL_PAIN', 'FEVER', 'REDUCED_FETAL_MOVEMENT', 'LEAKING_LIQUOR', 'SWELLING_FACE_HANDS', 'DIFFICULTY_BREATHING'] as const;
+
+const ancVisit = z
+  .object({
+    weightKg: z.coerce.number().min(25).max(250).optional(),
+    bpSystolic: z.coerce.number().int().min(60).max(260).optional(),
+    bpDiastolic: z.coerce.number().int().min(30).max(180).optional(),
+    fundalHeightCm: z.coerce.number().min(5).max(50).optional(),
+    presentation: z.enum(['CEPHALIC', 'BREECH', 'TRANSVERSE', 'OBLIQUE', 'NOT_DETERMINED']).optional(),
+    lie: z.enum(['LONGITUDINAL', 'TRANSVERSE', 'OBLIQUE']).optional(),
+    fetalHeartRate: z.coerce.number().int().min(50).max(240).optional(),
+    fetalMovements: z.enum(['PRESENT', 'REDUCED', 'ABSENT']).optional(),
+    oedema: z.enum(['NONE', 'FEET', 'LEGS', 'GENERALISED']).optional(),
+    urineProtein: URINE.optional(),
+    urineGlucose: URINE.optional(),
+    haemoglobin: z.coerce.number().min(2).max(22).optional(),
+    // Intermittent preventive treatment of malaria (SP) and tetanus-diphtheria doses given today.
+    iptpSpDose: z.coerce.number().int().min(1).max(5).optional(),
+    tdDose: z.coerce.number().int().min(1).max(5).optional(),
+    llinGiven: z.boolean().default(false),
+    ironFolateGiven: z.boolean().default(false),
+    dangerSigns: z.array(z.enum(DANGER_SIGNS)).max(DANGER_SIGNS.length).default([]),
+    complaints: optionalText(1000),
+    plan: optionalText(2000),
+    nextVisit: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional()
+  })
+  .refine((v) => bothOrNeither(v.bpSystolic, v.bpDiastolic), { message: 'Record both systolic and diastolic blood pressure', path: ['bpDiastolic'] })
+  .refine((v) => [v.weightKg, v.bpSystolic, v.fundalHeightCm, v.fetalHeartRate, v.haemoglobin, v.urineProtein, v.presentation].some((x) => x !== undefined) || v.dangerSigns.length > 0 || v.complaints, { message: 'Record at least one finding' });
+
+const postnatalCheck = z.object({
+  mother: z
+    .object({
+      bpSystolic: z.coerce.number().int().min(60).max(260).optional(),
+      bpDiastolic: z.coerce.number().int().min(30).max(180).optional(),
+      temperatureC: z.coerce.number().min(30).max(43).optional(),
+      pulseBpm: z.coerce.number().int().min(30).max(220).optional(),
+      uterus: z.enum(['WELL_CONTRACTED', 'BOGGY', 'TENDER', 'INVOLUTED']).optional(),
+      lochia: z.enum(['NORMAL', 'HEAVY', 'OFFENSIVE', 'NONE']).optional(),
+      perineum: z.enum(['HEALING', 'INFECTED', 'BREAKDOWN', 'NOT_APPLICABLE']).optional(),
+      breastfeeding: z.enum(['EXCLUSIVE', 'MIXED', 'NOT_BREASTFEEDING']).optional(),
+      mood: z.enum(['WELL', 'LOW', 'CONCERN']).optional()
+    })
+    .refine((m) => bothOrNeither(m.bpSystolic, m.bpDiastolic), { message: 'Record both systolic and diastolic blood pressure' }),
+  baby: z
+    .object({
+      weightG: z.coerce.number().int().min(300).max(8000).optional(),
+      temperatureC: z.coerce.number().min(30).max(43).optional(),
+      feeding: z.enum(['GOOD', 'POOR']).optional(),
+      cord: z.enum(['CLEAN', 'INFECTED', 'SEPARATED']).optional(),
+      jaundice: z.enum(['NONE', 'MILD', 'SEVERE']).optional()
+    })
+    .optional(),
+  familyPlanningCounselled: z.boolean().default(false),
+  familyPlanningMethod: optionalText(120),
+  plan: optionalText(2000)
+});
+
 export const FORM_SCHEMAS: Record<ClinicalFormType, z.ZodTypeAny> = {
   [ClinicalFormType.DENTAL_CHART]: dentalChart,
   [ClinicalFormType.EYE_EXAM]: eyeExam,
   [ClinicalFormType.PHYSIO_ASSESSMENT]: physioAssessment,
   [ClinicalFormType.PHYSIO_SESSION]: physioSession,
-  [ClinicalFormType.NUTRITION_ASSESSMENT]: nutritionAssessment
+  [ClinicalFormType.NUTRITION_ASSESSMENT]: nutritionAssessment,
+  [ClinicalFormType.ANC_VISIT]: ancVisit,
+  [ClinicalFormType.POSTNATAL_CHECK]: postnatalCheck
 };
 
 // The envelope; the data itself is checked against FORM_SCHEMAS[type] in the service.
 export const clinicalFormSchema = z.object({
   type: z.nativeEnum(ClinicalFormType),
   data: z.record(z.unknown()),
-  amendsId: z.string().min(1).optional()
+  amendsId: z.string().min(1).optional(),
+  // Required for antenatal and postnatal forms.
+  pregnancyId: z.string().min(1).optional()
 });
 
 export const patientFormsQuerySchema = z.object({
