@@ -29,7 +29,8 @@ export const MODULE_KEYS = [
   'physiotherapy',
   'dietetics',
   'maternity',
-  'child_health'
+  'child_health',
+  'claims'
 ] as const;
 
 export type ModuleKey = (typeof MODULE_KEYS)[number];
@@ -62,7 +63,8 @@ export const MODULES: readonly ModuleDefinition[] = [
   { key: 'physiotherapy', name: 'Physiotherapy', category: 'clinical', dependsOn: ['opd'], description: 'Physiotherapy assessments, goals and treatment sessions.' },
   { key: 'dietetics', name: 'Dietetics & Nutrition', category: 'clinical', dependsOn: ['opd'], description: 'Nutrition assessments with BMI and MUAC, diet plans and follow-up.' },
   { key: 'maternity', name: 'Maternity', category: 'clinical', dependsOn: ['opd'], description: 'Pregnancy register, antenatal and postnatal clinics, labour and delivery with newborn registration.' },
-  { key: 'child_health', name: 'Child Health & Immunisation', category: 'clinical', dependsOn: ['opd'], description: 'Child welfare clinic, growth monitoring, the EPI immunisation schedule and the defaulter list.' }
+  { key: 'child_health', name: 'Child Health & Immunisation', category: 'clinical', dependsOn: ['opd'], description: 'Child welfare clinic, growth monitoring, the EPI immunisation schedule and the defaulter list.' },
+  { key: 'claims', name: 'Insurance Claims (NHIS)', category: 'finance', dependsOn: ['billing'], description: 'NHIS and private scheme memberships, claim preparation, monthly batches, adjudication and scheme payments.' }
 ];
 
 export function isModuleKey(value: string): value is ModuleKey {

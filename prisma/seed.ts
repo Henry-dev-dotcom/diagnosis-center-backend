@@ -399,6 +399,9 @@ async function resetDemoData() {
     prisma.floatTransaction.deleteMany(),
     prisma.payment.deleteMany(),
     prisma.cashierShift.deleteMany(),
+    prisma.claimLine.deleteMany(),
+    prisma.claim.deleteMany(),
+    prisma.claimBatch.deleteMany(),
     prisma.invoiceItem.deleteMany(),
     prisma.invoice.deleteMany(),
     prisma.scanRetake.deleteMany(),
@@ -429,6 +432,7 @@ async function resetDemoData() {
     prisma.department.deleteMany(),
     prisma.patientDuplicateFlag.deleteMany(),
     prisma.patientInsurance.deleteMany(),
+    prisma.insuranceScheme.deleteMany(),
     prisma.patientContact.deleteMany(),
     prisma.patient.deleteMany(),
     prisma.doctorProfile.deleteMany(),
@@ -1245,6 +1249,19 @@ async function seedMaternity() {
   });
 }
 
+/** NHIS and one private scheme; Ama Serwaa Boateng holds an NHIS card. */
+async function seedInsuranceSchemes() {
+  await prisma.insuranceScheme.createMany({
+    data: [
+      { id: 'SCH-NHIS', code: 'NHIS', name: 'National Health Insurance Scheme', type: 'NHIS' },
+      { id: 'SCH-PRIVATE', code: 'PRIVATE', name: 'Private Health Insurance (demo)', type: 'PRIVATE' }
+    ]
+  });
+  await prisma.patientInsurance.create({
+    data: { id: 'INS-NHIS-0001', patientId: 'PAT-0001', schemeId: 'SCH-NHIS', provider: 'National Health Insurance Scheme', policyNumber: '10293847', expiresAt: new Date(Date.now() + 300 * 86_400_000), status: 'Active' }
+  });
+}
+
 async function seedAuditAndSystemEvents() {
   await prisma.auditLog.createMany({
     data: [
@@ -1288,6 +1305,7 @@ export async function seedFacility(facility: DemoFacility) {
       await seedWards();
       await seedTheatres();
       await seedMaternity();
+      await seedInsuranceSchemes();
       await seedOrders();
       await seedReceptionWorkflow();
       await seedLabAndScanWorkflow();

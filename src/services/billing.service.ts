@@ -218,6 +218,10 @@ export async function recordInvoicePayment(invoiceId: string, body: PaymentPaylo
   if (([InvoiceStatus.REFUNDED, InvoiceStatus.WRITTEN_OFF] as InvoiceStatus[]).includes(before.status)) {
     throw new AppError('Payments cannot be added to refunded or written-off invoices', 409, 'INVOICE_PAYMENT_BLOCKED');
   }
+  // The scheme pays a claimed invoice; whatever it does not pay returns to the patient after adjudication.
+  if (before.status === InvoiceStatus.INSURANCE_PENDING) {
+    throw new AppError(`This invoice is being claimed from insurance${before.insuranceClaimRef ? ` (${before.insuranceClaimRef})` : ''}; take payment after the claim is decided`, 409, 'INVOICE_UNDER_CLAIM');
+  }
   const amount = roundMoney(Number(body.amount));
   if (amount <= 0) throw new AppError('Payment amount must be greater than zero', 400, 'INVALID_PAYMENT_AMOUNT');
   if (amount > Number(before.balance)) throw new AppError('Payment amount cannot exceed invoice balance', 409, 'PAYMENT_EXCEEDS_BALANCE');

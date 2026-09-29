@@ -142,7 +142,14 @@ export const PERMISSIONS = {
 
   // Child health and immunisation, Phase 4C.
   IMMUNIZATION_READ: 'immunization:read',
-  IMMUNIZATION_RECORD: 'immunization:record'
+  IMMUNIZATION_RECORD: 'immunization:record',
+
+  // Insurance claims, Phase 4D.
+  CLAIMS_READ: 'claims:read',
+  CLAIMS_MANAGE: 'claims:manage',
+  CLAIMS_ADJUDICATE: 'claims:adjudicate',
+  CLAIMS_MEMBERSHIPS: 'claims:memberships',
+  CLAIMS_SCHEMES_MANAGE: 'claims:schemes:manage'
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -245,7 +252,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly
     PERMISSIONS.ENCOUNTERS_CREATE,
     PERMISSIONS.ENCOUNTERS_CANCEL,
     PERMISSIONS.NOTIFICATIONS_READ,
-    PERMISSIONS.PRICING_READ
+    PERMISSIONS.PRICING_READ,
+    // Record patients' NHIS / scheme cards at registration (Claims module).
+    PERMISSIONS.CLAIMS_MEMBERSHIPS
   ],
   [UserRole.LAB_STAFF]: [
     PERMISSIONS.SYSTEM_READ,
@@ -304,7 +313,12 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly
     PERMISSIONS.REPORTS_EXPORT,
     PERMISSIONS.RESULTS_DELIVERY_READ,
     PERMISSIONS.NOTIFICATIONS_READ,
-    PERMISSIONS.PRICING_READ
+    PERMISSIONS.PRICING_READ,
+    // The claims office (Claims module).
+    PERMISSIONS.CLAIMS_READ,
+    PERMISSIONS.CLAIMS_MANAGE,
+    PERMISSIONS.CLAIMS_ADJUDICATE,
+    PERMISSIONS.CLAIMS_MEMBERSHIPS
   ]
 };
 

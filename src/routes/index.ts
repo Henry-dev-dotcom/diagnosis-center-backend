@@ -24,6 +24,7 @@ import { inpatientRoutes } from './inpatient.routes.js';
 import { theatreRoutes } from './theatre.routes.js';
 import { maternityRoutes } from './maternity.routes.js';
 import { childHealthRoutes } from './childHealth.routes.js';
+import { claimsRoutes } from './claims.routes.js';
 
 export const apiRouter = Router();
 
@@ -53,3 +54,4 @@ apiRouter.use(inpatientRoutes);
 apiRouter.use(theatreRoutes);
 apiRouter.use(maternityRoutes);
 apiRouter.use(childHealthRoutes);
+apiRouter.use(claimsRoutes);

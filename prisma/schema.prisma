@@ -104,6 +104,10 @@ model Facility {
   deliveries                Delivery[]
   newborns                  Newborn[]
   immunizations             Immunization[]
+  insuranceSchemes          InsuranceScheme[]
+  claims                    Claim[]
+  claimLines                ClaimLine[]
+  claimBatches              ClaimBatch[]
   surgeries                 Surgery[]
 
   @@index([status])
@@ -404,6 +408,7 @@ model User {
   deliveriesAttended  Delivery[]                 @relation("DeliveryAttendant")
   immunizationsGiven  Immunization[]             @relation("ImmunizationGivenBy")
   immunizationsVoided Immunization[]             @relation("ImmunizationVoidedBy")
+  claimsCreated       Claim[]                    @relation("ClaimCreatedBy")
 
   @@unique([facilityId, username])
   @@unique([facilityId, email])
@@ -555,6 +560,7 @@ model Patient {
   /// Set when this patient was born here and registered at delivery.
   birthRecord   Newborn?         @relation("NewbornPatient")
   immunizations Immunization[]
+  claims        Claim[]
 
   @@unique([facilityId, patientCode])
   @@index([facilityId])
@@ -584,16 +590,20 @@ model PatientContact {
 }
 
 model PatientInsurance {
-  id           String   @id @default(cuid())
-  facilityId   String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  id           String    @id @default(cuid())
+  facilityId   String    @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
   patientId    String
   provider     String
   policyNumber String
-  status       String   @default("Active")
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  status       String    @default("Active")
+  /// Set for memberships of a configured scheme (claims module).
+  schemeId     String?
+  expiresAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
-  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patient Patient          @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  scheme  InsuranceScheme? @relation(fields: [schemeId], references: [id])
 
   facility Facility @relation(fields: [facilityId], references: [id])
 
@@ -683,6 +693,8 @@ model CatalogItem {
   sampleType              String?
   modality                String?
   aliases                 String[]        @default([])
+  /// Insurance tariff code (e.g. the NHIS G-DRG or medicine code), copied onto claim lines.
+  tariffCode              String?
   isActive                Boolean         @default(true)
   createdAt               DateTime        @default(now())
   updatedAt               DateTime        @updatedAt
@@ -1336,6 +1348,7 @@ model Invoice {
   encounterId  String?
   encounter    Encounter?    @relation(fields: [encounterId], references: [id])
   dispensation Dispensation?
+  claimLines   ClaimLine[]
 
   @@unique([facilityId, invoiceCode])
   @@index([facilityId])
@@ -1358,6 +1371,7 @@ model InvoiceItem {
   total         Decimal @db.Decimal(12, 2)
 
   invoice     Invoice      @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  claimLines  ClaimLine[]
   catalogItem CatalogItem? @relation(fields: [catalogItemId], references: [id])
   orderItem   OrderItem?   @relation(fields: [orderItemId], references: [id])
 
@@ -1874,6 +1888,7 @@ model Encounter {
   forms             ClinicalForm[]
   deliveries        Delivery[]
   immunizations     Immunization[]
+  claims            Claim[]
 
   @@unique([facilityId, encounterCode])
   @@index([facilityId])
@@ -2673,4 +2688,137 @@ model Immunization {
   @@index([facilityId])
   @@index([patientId])
   @@index([givenAt])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4D: insurance claims (NHIS and private schemes). A completed visit's
+// unpaid invoices are claimed from the patient's scheme; the claim snapshots
+// diagnoses and lines, moves through submission and adjudication, and the
+// scheme's payment is applied to the invoices. Shortfalls return to the
+// invoice balance for the patient or a write-off.
+// ---------------------------------------------------------------------------
+
+enum SchemeType {
+  NHIS
+  PRIVATE
+  CORPORATE
+}
+
+enum ClaimStatus {
+  DRAFT
+  SUBMITTED
+  QUERIED
+  APPROVED
+  REJECTED
+  PAID
+  CANCELLED
+}
+
+enum ClaimBatchStatus {
+  OPEN
+  SUBMITTED
+}
+
+model InsuranceScheme {
+  id         String     @id @default(cuid())
+  facilityId String     @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  code       String
+  name       String
+  type       SchemeType
+  isActive   Boolean    @default(true)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  facility    Facility           @relation(fields: [facilityId], references: [id])
+  memberships PatientInsurance[]
+  claims      Claim[]
+  batches     ClaimBatch[]
+
+  @@unique([facilityId, code])
+  @@index([facilityId])
+}
+
+model ClaimBatch {
+  id          String           @id @default(cuid())
+  facilityId  String           @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  batchCode   String
+  schemeId    String
+  /// Claim month, YYYY-MM.
+  period      String
+  status      ClaimBatchStatus @default(OPEN)
+  submittedAt DateTime?
+  createdAt   DateTime         @default(now())
+
+  facility Facility        @relation(fields: [facilityId], references: [id])
+  scheme   InsuranceScheme @relation(fields: [schemeId], references: [id])
+  claims   Claim[]
+
+  @@unique([facilityId, batchCode])
+  @@unique([facilityId, schemeId, period])
+  @@index([facilityId])
+}
+
+model Claim {
+  id               String      @id @default(cuid())
+  facilityId       String      @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  claimCode        String
+  schemeId         String
+  patientId        String
+  encounterId      String
+  batchId          String?
+  membershipNumber String
+  status           ClaimStatus @default(DRAFT)
+  attendanceDate   DateTime
+  /// ICD-10 diagnoses at the time the claim was made: [{ code, description, type }].
+  diagnoses        Json
+  claimedAmount    Decimal     @db.Decimal(12, 2)
+  approvedAmount   Decimal?    @db.Decimal(12, 2)
+  paidAmount       Decimal     @default(0) @db.Decimal(12, 2)
+  paymentReference String?
+  queryNote        String?
+  rejectionReason  String?
+  submittedAt      DateTime?
+  decidedAt        DateTime?
+  paidAt           DateTime?
+  createdById      String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  facility  Facility        @relation(fields: [facilityId], references: [id])
+  scheme    InsuranceScheme @relation(fields: [schemeId], references: [id])
+  patient   Patient         @relation(fields: [patientId], references: [id])
+  encounter Encounter       @relation(fields: [encounterId], references: [id])
+  batch     ClaimBatch?     @relation(fields: [batchId], references: [id])
+  createdBy User?           @relation("ClaimCreatedBy", fields: [createdById], references: [id])
+  lines     ClaimLine[]
+
+  @@unique([facilityId, claimCode])
+  @@index([facilityId])
+  @@index([status])
+  @@index([schemeId, status])
+  @@index([encounterId])
+}
+
+model ClaimLine {
+  id             String   @id @default(cuid())
+  facilityId     String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  claimId        String
+  invoiceId      String
+  invoiceItemId  String?
+  description    String
+  tariffCode     String?
+  quantity       Int
+  unitPrice      Decimal  @db.Decimal(12, 2)
+  amount         Decimal  @db.Decimal(12, 2)
+  approvedAmount Decimal? @db.Decimal(12, 2)
+  rejectedReason String?
+
+  facility    Facility     @relation(fields: [facilityId], references: [id])
+  claim       Claim        @relation(fields: [claimId], references: [id])
+  invoice     Invoice      @relation(fields: [invoiceId], references: [id])
+  invoiceItem InvoiceItem? @relation(fields: [invoiceItemId], references: [id])
+
+  @@index([facilityId])
+  @@index([claimId])
+  @@index([invoiceId])
 }
