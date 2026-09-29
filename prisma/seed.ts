@@ -360,6 +360,10 @@ async function resetDemoData() {
     prisma.order.updateMany({ where: { encounterId: { not: null } }, data: { encounterId: null } }),
     prisma.invoice.updateMany({ where: { encounterId: { not: null } }, data: { encounterId: null } }),
     // Inpatient care (Phase 4B) points at prescriptions and encounters, so it goes first.
+    prisma.leaveRequest.deleteMany(),
+    prisma.rotaEntry.deleteMany(),
+    prisma.shiftType.deleteMany(),
+    prisma.staffProfile.deleteMany(),
     prisma.deceasedRecord.deleteMany(),
     prisma.mortuarySlot.deleteMany(),
     prisma.transfusion.deleteMany(),
@@ -1323,6 +1327,23 @@ async function seedMortuary() {
   await prisma.catalogItem.create({ data: { id: 'SVC-MORT-DAY', catalogCode: 'MORT-DAY', name: 'Mortuary storage (per day)', type: CatalogItemType.SERVICE, price: '80' } });
 }
 
+/** Three shifts and two staff profiles (demo registration numbers). */
+async function seedHr() {
+  await prisma.shiftType.createMany({
+    data: [
+      { id: 'SHIFT-MORN', code: 'M', name: 'Morning', startTime: '07:00', endTime: '14:00' },
+      { id: 'SHIFT-AFT', code: 'A', name: 'Afternoon', startTime: '14:00', endTime: '21:00' },
+      { id: 'SHIFT-NIGHT', code: 'N', name: 'Night', startTime: '21:00', endTime: '07:00' }
+    ]
+  });
+  await prisma.staffProfile.createMany({
+    data: [
+      { id: 'SP-DOCTOR', userId: 'USR-001', staffNumber: 'ST-0001', jobTitle: 'Medical Officer', unit: 'OPD', registrationBody: 'Medical and Dental Council', registrationNumber: 'MDC/DEMO/1001', registrationExpiresAt: new Date(Date.now() + 200 * 86_400_000) },
+      { id: 'SP-NURSE', userId: 'USR-008', staffNumber: 'ST-0002', jobTitle: 'Senior Staff Nurse', unit: 'Female Medical Ward', registrationBody: 'Nursing and Midwifery Council', registrationNumber: 'NMC/DEMO/2002', registrationExpiresAt: new Date(Date.now() + 30 * 86_400_000) }
+    ]
+  });
+}
+
 async function seedAuditAndSystemEvents() {
   await prisma.auditLog.createMany({
     data: [
@@ -1370,6 +1391,7 @@ export async function seedFacility(facility: DemoFacility) {
       await seedStores();
       await seedBloodBank();
       await seedMortuary();
+      await seedHr();
       await seedOrders();
       await seedReceptionWorkflow();
       await seedLabAndScanWorkflow();

@@ -170,7 +170,13 @@ export const PERMISSIONS = {
   MORTUARY_READ: 'mortuary:read',
   MORTUARY_MANAGE: 'mortuary:manage',
   MORTUARY_CERTIFY: 'mortuary:certify',
-  MORTUARY_SLOTS_MANAGE: 'mortuary:slots:manage'
+  MORTUARY_SLOTS_MANAGE: 'mortuary:slots:manage',
+
+  // HR and duty rota, Phase 4D.
+  HR_ROTA_READ: 'hr:rota:read',
+  HR_LEAVE_REQUEST: 'hr:leave:request',
+  HR_MANAGE: 'hr:manage',
+  HR_LEAVE_APPROVE: 'hr:leave:approve'
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -224,7 +230,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly
     PERMISSIONS.BLOODBANK_TRANSFUSE,
     // Certify the cause of death (Mortuary module).
     PERMISSIONS.MORTUARY_READ,
-    PERMISSIONS.MORTUARY_CERTIFY
+    PERMISSIONS.MORTUARY_CERTIFY,
+    // See the duty rota and ask for leave (HR module).
+    PERMISSIONS.HR_ROTA_READ,
+    PERMISSIONS.HR_LEAVE_REQUEST
   ],
   [UserRole.NURSE]: [
     PERMISSIONS.SYSTEM_READ,
@@ -257,7 +266,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly
     PERMISSIONS.BLOODBANK_TRANSFUSE,
     // Keep the deceased register and release bodies (Mortuary module).
     PERMISSIONS.MORTUARY_READ,
-    PERMISSIONS.MORTUARY_MANAGE
+    PERMISSIONS.MORTUARY_MANAGE,
+    // See the duty rota and ask for leave (HR module).
+    PERMISSIONS.HR_ROTA_READ,
+    PERMISSIONS.HR_LEAVE_REQUEST
   ],
   [UserRole.PHARMACIST]: [
     PERMISSIONS.SYSTEM_READ,
@@ -269,7 +281,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly
     PERMISSIONS.PATIENT_ALLERGIES_MANAGE,
     PERMISSIONS.NOTIFICATIONS_READ,
     // Ask the store for supplies (Stores module).
-    PERMISSIONS.STORES_REQUEST
+    PERMISSIONS.STORES_REQUEST,
+    // See the duty rota and ask for leave (HR module).
+    PERMISSIONS.HR_ROTA_READ,
+    PERMISSIONS.HR_LEAVE_REQUEST
   ],
   [UserRole.RECEPTIONIST]: [
     PERMISSIONS.SYSTEM_READ,
@@ -296,7 +311,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly
     // Record patients' NHIS / scheme cards at registration (Claims module).
     PERMISSIONS.CLAIMS_MEMBERSHIPS,
     // Ask the store for supplies (Stores module).
-    PERMISSIONS.STORES_REQUEST
+    PERMISSIONS.STORES_REQUEST,
+    // See the duty rota and ask for leave (HR module).
+    PERMISSIONS.HR_ROTA_READ,
+    PERMISSIONS.HR_LEAVE_REQUEST
   ],
   [UserRole.LAB_STAFF]: [
     PERMISSIONS.SYSTEM_READ,
@@ -322,7 +340,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly
     PERMISSIONS.STORES_REQUEST,
     // Run the blood bank: donors, screening, crossmatch and issue (Blood Bank module).
     PERMISSIONS.BLOODBANK_READ,
-    PERMISSIONS.BLOODBANK_MANAGE
+    PERMISSIONS.BLOODBANK_MANAGE,
+    // See the duty rota and ask for leave (HR module).
+    PERMISSIONS.HR_ROTA_READ,
+    PERMISSIONS.HR_LEAVE_REQUEST
   ],
   [UserRole.SCAN_STAFF]: [
     PERMISSIONS.SYSTEM_READ,
@@ -343,7 +364,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly
     PERMISSIONS.FILES_READ,
     PERMISSIONS.NOTIFICATIONS_READ,
     // Ask the store for supplies (Stores module).
-    PERMISSIONS.STORES_REQUEST
+    PERMISSIONS.STORES_REQUEST,
+    // See the duty rota and ask for leave (HR module).
+    PERMISSIONS.HR_ROTA_READ,
+    PERMISSIONS.HR_LEAVE_REQUEST
   ],
   [UserRole.BILLING_STAFF]: [
     PERMISSIONS.SYSTEM_READ,
@@ -374,7 +398,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly
     PERMISSIONS.STORES_ORDER,
     PERMISSIONS.STORES_RECEIVE,
     PERMISSIONS.STORES_ISSUE,
-    PERMISSIONS.STORES_REQUEST
+    PERMISSIONS.STORES_REQUEST,
+    // See the duty rota and ask for leave (HR module).
+    PERMISSIONS.HR_ROTA_READ,
+    PERMISSIONS.HR_LEAVE_REQUEST
   ]
 };
 

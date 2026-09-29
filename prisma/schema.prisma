@@ -125,6 +125,10 @@ model Facility {
   transfusions              Transfusion[]
   mortuarySlots             MortuarySlot[]
   deceasedRecords           DeceasedRecord[]
+  staffProfiles             StaffProfile[]
+  shiftTypes                ShiftType[]
+  rotaEntries               RotaEntry[]
+  leaveRequests             LeaveRequest[]
   surgeries                 Surgery[]
 
   @@index([status])
@@ -440,6 +444,11 @@ model User {
   deathsCertified        DeceasedRecord[]           @relation("DeathCertifiedBy")
   deathsRegistered       DeceasedRecord[]           @relation("DeathRegisteredBy")
   bodiesReleased         DeceasedRecord[]           @relation("BodyReleasedBy")
+  staffProfile           StaffProfile?
+  rotaEntries            RotaEntry[]                @relation("RotaStaff")
+  rotaEntriesMade        RotaEntry[]                @relation("RotaAssignedBy")
+  leaveRequests          LeaveRequest[]             @relation("LeaveOf")
+  leaveDecisions         LeaveRequest[]             @relation("LeaveDecidedBy")
 
   @@unique([facilityId, username])
   @@unique([facilityId, email])
@@ -3357,4 +3366,125 @@ model DeceasedRecord {
   @@unique([facilityId, bodyTag])
   @@index([facilityId])
   @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4D: HR and the duty rota. Staff profiles extend user accounts; rota
+// entries put a person on a shift on a day (no overlaps, 11 hours' rest,
+// nobody on shift while on approved leave); leave is requested and approved
+// by someone else, with annual leave counted in working days.
+// ---------------------------------------------------------------------------
+
+enum EmploymentType {
+  PERMANENT
+  CONTRACT
+  NATIONAL_SERVICE
+  LOCUM
+  VOLUNTEER
+}
+
+enum LeaveType {
+  ANNUAL
+  SICK
+  MATERNITY
+  PATERNITY
+  STUDY
+  COMPASSIONATE
+  UNPAID
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+model StaffProfile {
+  id                    String         @id @default(cuid())
+  facilityId            String         @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  userId                String         @unique
+  staffNumber           String
+  jobTitle              String
+  unit                  String?
+  employmentType        EmploymentType @default(PERMANENT)
+  dateJoined            DateTime?      @db.Date
+  phone                 String?
+  emergencyContact      String?
+  /// e.g. Medical and Dental Council or Nursing and Midwifery Council PIN.
+  registrationBody      String?
+  registrationNumber    String?
+  registrationExpiresAt DateTime?      @db.Date
+  annualLeaveDays       Int            @default(21)
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+  user     User     @relation(fields: [userId], references: [id])
+
+  @@unique([facilityId, staffNumber])
+  @@index([facilityId])
+}
+
+model ShiftType {
+  id         String   @id @default(cuid())
+  facilityId String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  code       String
+  name       String
+  /// "HH:MM" local time; a shift ending at or before its start runs past midnight.
+  startTime  String
+  endTime    String
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  facility Facility    @relation(fields: [facilityId], references: [id])
+  entries  RotaEntry[]
+
+  @@unique([facilityId, code])
+  @@index([facilityId])
+}
+
+model RotaEntry {
+  id           String   @id @default(cuid())
+  facilityId   String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  userId       String
+  date         DateTime @db.Date
+  shiftTypeId  String
+  unit         String
+  notes        String?
+  assignedById String?
+  createdAt    DateTime @default(now())
+
+  facility   Facility  @relation(fields: [facilityId], references: [id])
+  user       User      @relation("RotaStaff", fields: [userId], references: [id])
+  shiftType  ShiftType @relation(fields: [shiftTypeId], references: [id])
+  assignedBy User?     @relation("RotaAssignedBy", fields: [assignedById], references: [id])
+
+  @@unique([facilityId, userId, date, shiftTypeId])
+  @@index([facilityId, date])
+}
+
+model LeaveRequest {
+  id           String      @id @default(cuid())
+  facilityId   String      @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  userId       String
+  type         LeaveType
+  startDate    DateTime    @db.Date
+  endDate      DateTime    @db.Date
+  /// Working days (Monday to Friday) in the period.
+  days         Int
+  reason       String?
+  status       LeaveStatus @default(PENDING)
+  decidedById  String?
+  decidedAt    DateTime?
+  decisionNote String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  facility  Facility @relation(fields: [facilityId], references: [id])
+  user      User     @relation("LeaveOf", fields: [userId], references: [id])
+  decidedBy User?    @relation("LeaveDecidedBy", fields: [decidedById], references: [id])
+
+  @@index([facilityId])
+  @@index([userId, startDate])
 }
