@@ -1,7 +1,7 @@
 import express from 'express';
 import swaggerUi from 'swagger-ui-express';
 import { env } from './config/env.js';
-import { openApiDocument } from './config/openapi.js';
+import { buildOpenApiDocument } from './config/openapi.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { apiRequestLogger } from './middleware/audit.js';
 import { applyGlobalMiddleware } from './middleware/security.js';
@@ -22,7 +22,7 @@ export function createApp() {
   });
 
   if (env.ENABLE_API_DOCS) {
-    app.use(`${env.API_PREFIX}/docs`, swaggerUi.serve, swaggerUi.setup(openApiDocument));
+    app.use(`${env.API_PREFIX}/docs`, swaggerUi.serve, swaggerUi.setup(buildOpenApiDocument(apiRouter)));
   }
 
   app.use(env.API_PREFIX, apiRequestLogger, apiRouter);

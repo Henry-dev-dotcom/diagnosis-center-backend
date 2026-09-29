@@ -7,6 +7,19 @@ if (process.env.SKIP_DOTENV !== '1') {
   dotenv.config();
 }
 
+/**
+ * true/false settings. (z.coerce.boolean() would read the text 'false' as true.)
+ * Accepts true/false, 1/0, yes/no, on/off; anything else is a configuration error.
+ */
+export const envBoolean = z.union([z.boolean(), z.string()]).transform((value, ctx) => {
+  if (typeof value === 'boolean') return value;
+  const v = value.trim().toLowerCase();
+  if (['true', '1', 'yes', 'on'].includes(v)) return true;
+  if (['false', '0', 'no', 'off', ''].includes(v)) return false;
+  ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Use true or false' });
+  return z.NEVER;
+});
+
 const defaultAccessSecret = 'change-this-access-secret';
 const defaultRefreshSecret = 'change-this-refresh-secret';
 
@@ -31,12 +44,12 @@ const envSchema = z
     JWT_REFRESH_SECRET: z.string().min(10).default(defaultRefreshSecret),
     ACCESS_TOKEN_EXPIRES_IN: z.string().default('15m'),
     REFRESH_TOKEN_EXPIRES_IN: z.string().default('7d'),
-    AUTH_COOKIE_SECURE: z.coerce.boolean().optional(),
+    AUTH_COOKIE_SECURE: envBoolean.optional(),
     AUTH_COOKIE_SAMESITE: z.enum(['lax', 'strict', 'none']).default('lax'),
     AUTH_COOKIE_DOMAIN: z.string().optional(),
     LOG_LEVEL: z.string().default('dev'),
-    TRUST_PROXY: z.coerce.boolean().default(false),
-    ENABLE_API_DOCS: z.coerce.boolean().default(true),
+    TRUST_PROXY: envBoolean.default(false),
+    ENABLE_API_DOCS: envBoolean.default(true),
     BODY_LIMIT: z.string().default('10mb'),
     RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
     RATE_LIMIT_MAX_REQUESTS: z.coerce.number().int().positive().default(240),

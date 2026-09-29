@@ -48,7 +48,9 @@
     "db:drift": "prisma migrate diff --from-schema-datasource prisma/schema.prisma --to-schema-datamodel prisma/schema.prisma --exit-code",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "db:backup": "node scripts/db-backup.mjs",
-    "db:restore-check": "node scripts/db-restore-check.mjs"
+    "db:restore-check": "node scripts/db-restore-check.mjs",
+    "docs:openapi": "tsx scripts/export-openapi.ts",
+    "test:load": "node scripts/load-test.mjs"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
