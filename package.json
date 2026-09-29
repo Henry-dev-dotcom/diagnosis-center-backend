@@ -46,7 +46,9 @@
     "test:coverage": "vitest run --coverage",
     "qa:legacy-docs": "node scripts/check-phase10.mjs && node scripts/check-business-stage1.mjs && node scripts/check-business-stage2.mjs && node scripts/check-business-stage3.mjs && node scripts/check-business-stage4.mjs && node scripts/check-business-stage5.mjs && node scripts/check-business-stage6.mjs && node scripts/check-business-stage7.mjs && node scripts/check-business-stage8.mjs && node scripts/check-business-stage9.mjs && node scripts/check-business-stage10.mjs && node scripts/check-production-readiness.mjs",
     "db:drift": "prisma migrate diff --from-schema-datasource prisma/schema.prisma --to-schema-datamodel prisma/schema.prisma --exit-code",
-    "test:integration": "vitest run --config vitest.integration.config.ts"
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "db:backup": "node scripts/db-backup.mjs",
+    "db:restore-check": "node scripts/db-restore-check.mjs"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

@@ -5,6 +5,7 @@ import { AppError } from '../utils/appError.js';
 import { isProduction } from '../config/env.js';
 import type { ApiError } from '../types/api.js';
 import { auditAccessFailure } from './audit.js';
+import { sendAlert } from '../services/alerts.service.js';
 
 function formatPath(path: Array<string | number>) {
   return path.map((part) => String(part)).join('.');
@@ -91,6 +92,7 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
   }
 
   console.error('Unhandled error', err);
+  void sendAlert('Server error', err instanceof Error ? err.message : String(err), { route: `${req.method} ${req.route?.path ?? req.path}`, requestId: req.requestId });
   const payload: ApiError = {
     ...baseError(req, 'Internal server error', 'INTERNAL_SERVER_ERROR'),
     details: isProduction ? undefined : err instanceof Error ? err.message : String(err)

@@ -10,3 +10,6 @@ uploads/*
 !uploads/.gitkeep
 *.log
 .DS_Store
+
+# Database backups (npm run db:backup) never go into git.
+backups/

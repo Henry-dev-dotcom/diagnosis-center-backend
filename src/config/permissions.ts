@@ -9,6 +9,8 @@ export const PERMISSIONS = {
   PLATFORM_FACILITIES_READ: 'platform:facilities:read',
   PLATFORM_FACILITIES_MANAGE: 'platform:facilities:manage',
   PLATFORM_BILLING_MANAGE: 'platform:billing:manage',
+  // A facility's complete data as one file (Act 843; administrators via '*').
+  ADMIN_DATA_EXPORT: 'admin:data:export',
   // Read-only support sessions inside a facility (audited in that facility).
   PLATFORM_SUPPORT_SESSION: 'platform:support:session',
   // A facility's own subscription (its administrator; '*' covers it).

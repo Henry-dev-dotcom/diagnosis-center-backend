@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { allowedFrontendOrigins, env } from '../config/env.js';
+import { allowedFrontendOrigins, env, isProduction } from '../config/env.js';
 import { checkDatabaseConnection } from '../services/prisma.service.js';
 import { sendSuccess } from '../utils/apiResponse.js';
 
@@ -50,9 +50,8 @@ export function getVersion(_req: Request, res: Response) {
   return sendSuccess(res, 'Version information', {
     name: 'Diagnosis Center Backend API',
     version: '2.1.0',
-    phase: 'Production Readiness Stage - Deployment Hardening and Runtime QA',
     apiPrefix: env.API_PREFIX,
-    apiDocsEnabled: env.ENABLE_API_DOCS,
-    allowedFrontendOrigins
+    // Configuration details only outside production (they help attackers, not users).
+    ...(isProduction ? {} : { apiDocsEnabled: env.ENABLE_API_DOCS, allowedFrontendOrigins })
   });
 }

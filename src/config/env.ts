@@ -53,7 +53,9 @@ const envSchema = z
     PAYSTACK_BASE_URL: z.string().url().default('https://api.paystack.co'),
     // Where the payer returns after checkout (the facility billing page).
     PAYMENT_CALLBACK_URL: z.string().url().optional(),
-    BILLING_GRACE_DAYS: z.coerce.number().int().min(0).max(30).default(7)
+    BILLING_GRACE_DAYS: z.coerce.number().int().min(0).max(30).default(7),
+    // Optional incoming-webhook URL (Slack, Teams, …) for operational alerts.
+    ALERT_WEBHOOK_URL: z.string().url().optional()
   })
   .superRefine((value, ctx) => {
     if (value.NODE_ENV !== 'production') {

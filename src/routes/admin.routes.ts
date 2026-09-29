@@ -28,6 +28,8 @@ import {
   updateUserController
 } from '../controllers/adminBusiness.controller.js';
 import { PERMISSIONS } from '../config/permissions.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
+import { streamFacilityExport } from '../services/dataExport.service.js';
 import { requireAuth, requireAnyPermission, requirePermission, requireRole } from '../middleware/auth.js';
 import { validateRequest } from '../middleware/validate.js';
 import { dateRangeQuerySchema, idParamSchema, paginationQuerySchema } from '../validators/common.validators.js';
@@ -67,6 +69,7 @@ adminRoutes.post('/admin/roles', requirePermission(PERMISSIONS.ADMIN_ROLES_MANAG
 adminRoutes.patch('/admin/roles/:id', requirePermission(PERMISSIONS.ADMIN_ROLES_MANAGE), validateRequest({ params: idParamSchema, body: updateFacilityRoleSchema }), updateRoleController);
 adminRoutes.delete('/admin/roles/:id', requirePermission(PERMISSIONS.ADMIN_ROLES_MANAGE), validateRequest({ params: idParamSchema }), deleteRoleController);
 adminRoutes.get('/admin', requireAnyPermission(PERMISSIONS.ADMIN_AUDIT_READ, PERMISSIONS.ACCESS_MATRIX_READ), moduleLanding('admin'));
+adminRoutes.get('/admin/data-export', requirePermission(PERMISSIONS.ADMIN_DATA_EXPORT), asyncHandler((req, res) => streamFacilityExport(req, res)));
 adminRoutes.get('/admin/users', requirePermission(PERMISSIONS.ADMIN_USERS_MANAGE), validateRequest({ query: paginationQuerySchema }), listUsersController);
 adminRoutes.post('/admin/users', requirePermission(PERMISSIONS.ADMIN_USERS_MANAGE), validateRequest({ body: createUserSchema }), createUserController);
 adminRoutes.patch('/admin/users/:id', requirePermission(PERMISSIONS.ADMIN_USERS_MANAGE), validateRequest({ params: idParamSchema, body: updateUserSchema }), updateUserController);
