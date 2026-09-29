@@ -50,7 +50,8 @@ export const CODE_SERIES = {
   DNR: { table: 'BloodDonor', column: 'donorCode' },
   DON: { table: 'BloodDonation', column: 'donationCode', yearly: true },
   BRQ: { table: 'BloodRequest', column: 'requestCode', yearly: true },
-  MOR: { table: 'DeceasedRecord', column: 'caseCode', yearly: true }
+  MOR: { table: 'DeceasedRecord', column: 'caseCode', yearly: true },
+  ROI: { table: 'RecordRequest', column: 'requestCode', yearly: true }
 } satisfies Record<string, SeriesConfig>;
 
 export type CodeSeries = keyof typeof CODE_SERIES;

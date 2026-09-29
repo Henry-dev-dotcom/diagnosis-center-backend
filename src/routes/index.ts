@@ -29,6 +29,7 @@ import { storesRoutes } from './stores.routes.js';
 import { bloodBankRoutes } from './bloodBank.routes.js';
 import { mortuaryRoutes } from './mortuary.routes.js';
 import { hrRoutes } from './hr.routes.js';
+import { recordsRoutes } from './records.routes.js';
 
 export const apiRouter = Router();
 
@@ -63,3 +64,4 @@ apiRouter.use(storesRoutes);
 apiRouter.use(bloodBankRoutes);
 apiRouter.use(mortuaryRoutes);
 apiRouter.use(hrRoutes);
+apiRouter.use(recordsRoutes);

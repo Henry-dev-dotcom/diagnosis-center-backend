@@ -129,6 +129,8 @@ model Facility {
   shiftTypes                ShiftType[]
   rotaEntries               RotaEntry[]
   leaveRequests             LeaveRequest[]
+  chartAccesses             ChartAccess[]
+  recordRequests            RecordRequest[]
   surgeries                 Surgery[]
 
   @@index([status])
@@ -449,6 +451,10 @@ model User {
   rotaEntriesMade        RotaEntry[]                @relation("RotaAssignedBy")
   leaveRequests          LeaveRequest[]             @relation("LeaveOf")
   leaveDecisions         LeaveRequest[]             @relation("LeaveDecidedBy")
+  chartAccesses          ChartAccess[]              @relation("ChartAccessedBy")
+  recordRequestsLogged   RecordRequest[]            @relation("RecordRequestLoggedBy")
+  recordRequestsDecided  RecordRequest[]            @relation("RecordRequestDecidedBy")
+  recordRequestsReleased RecordRequest[]            @relation("RecordRequestReleasedBy")
 
   @@unique([facilityId, username])
   @@unique([facilityId, email])
@@ -603,6 +609,8 @@ model Patient {
   claims         Claim[]
   bloodRequests  BloodRequest[]
   deceasedRecord DeceasedRecord?
+  chartAccesses  ChartAccess[]
+  recordRequests RecordRequest[]
 
   @@unique([facilityId, patientCode])
   @@index([facilityId])
@@ -3487,4 +3495,88 @@ model LeaveRequest {
 
   @@index([facilityId])
   @@index([userId, startDate])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4D: medical records. Every opening of a patient's full chart is
+// logged with its purpose; release of records to anyone outside the care
+// team goes through a request that needs consent (or a court order) and a
+// second person's approval.
+// ---------------------------------------------------------------------------
+
+enum ChartAccessPurpose {
+  TREATMENT
+  BILLING
+  CLINICAL_AUDIT
+  RECORDS_RELEASE
+  OTHER
+}
+
+enum RecordRequesterType {
+  PATIENT
+  NEXT_OF_KIN
+  INSURER
+  COURT_OR_POLICE
+  OTHER_FACILITY
+  EMPLOYER
+  OTHER
+}
+
+enum RecordRequestStatus {
+  PENDING
+  APPROVED
+  RELEASED
+  REFUSED
+}
+
+model ChartAccess {
+  id         String             @id @default(cuid())
+  facilityId String             @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  patientId  String
+  userId     String?
+  purpose    ChartAccessPurpose
+  note       String?
+  accessedAt DateTime           @default(now())
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+  patient  Patient  @relation(fields: [patientId], references: [id])
+  user     User?    @relation("ChartAccessedBy", fields: [userId], references: [id])
+
+  @@index([facilityId])
+  @@index([patientId, accessedAt])
+}
+
+model RecordRequest {
+  id               String              @id @default(cuid())
+  facilityId       String              @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  requestCode      String
+  patientId        String
+  requesterName    String
+  requesterType    RecordRequesterType
+  purpose          String
+  /// What is to be released, e.g. "Discharge summary and lab results, Jan-Mar 2026".
+  scope            String
+  consentObtained  Boolean             @default(false)
+  /// The signed consent form, court order or ID seen.
+  consentReference String?
+  status           RecordRequestStatus @default(PENDING)
+  loggedById       String?
+  decidedById      String?
+  decidedAt        DateTime?
+  decisionNote     String?
+  releasedById     String?
+  releasedAt       DateTime?
+  releaseMethod    String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  facility   Facility @relation(fields: [facilityId], references: [id])
+  patient    Patient  @relation(fields: [patientId], references: [id])
+  loggedBy   User?    @relation("RecordRequestLoggedBy", fields: [loggedById], references: [id])
+  decidedBy  User?    @relation("RecordRequestDecidedBy", fields: [decidedById], references: [id])
+  releasedBy User?    @relation("RecordRequestReleasedBy", fields: [releasedById], references: [id])
+
+  @@unique([facilityId, requestCode])
+  @@index([facilityId])
+  @@index([status])
 }

@@ -34,7 +34,8 @@ export const MODULE_KEYS = [
   'stores',
   'blood_bank',
   'mortuary',
-  'hr'
+  'hr',
+  'medical_records'
 ] as const;
 
 export type ModuleKey = (typeof MODULE_KEYS)[number];
@@ -72,7 +73,8 @@ export const MODULES: readonly ModuleDefinition[] = [
   { key: 'stores', name: 'Stores & Procurement', category: 'finance', dependsOn: [], description: 'General store items, suppliers, approved purchase orders, goods received and requisitions from wards and departments.' },
   { key: 'blood_bank', name: 'Blood Bank', category: 'diagnostics', dependsOn: [], description: 'Donors and donations, screening and quarantine, crossmatching, issue, emergency release and transfusion records.' },
   { key: 'mortuary', name: 'Mortuary', category: 'clinical', dependsOn: [], description: 'Deceased register, body tags and storage slots, death certification, police cases and release to family.' },
-  { key: 'hr', name: 'HR & Duty Rota', category: 'insights', dependsOn: [], description: 'Staff profiles and professional registration, shift types, the duty rota with rest rules, and leave requests and approvals.' }
+  { key: 'hr', name: 'HR & Duty Rota', category: 'insights', dependsOn: [], description: 'Staff profiles and professional registration, shift types, the duty rota with rest rules, and leave requests and approvals.' },
+  { key: 'medical_records', name: 'Medical Records', category: 'clinical', dependsOn: [], description: 'The full patient chart across departments, a log of who opened each record, and release-of-information requests.' }
 ];
 
 export function isModuleKey(value: string): value is ModuleKey {
