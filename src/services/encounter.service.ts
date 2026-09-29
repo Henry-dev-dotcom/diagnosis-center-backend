@@ -23,6 +23,7 @@ import { allergyConflicts } from './allergyCheck.js';
 import { AppError } from '../utils/appError.js';
 import type { ModuleKey } from '../config/modules.js';
 import { CLINIC_MODULE, CLINIC_NAME } from '../config/clinics.js';
+import { assertPatientAlive } from './mortuary.service.js';
 
 // Each visit type belongs to a department module.
 const MODULE_FOR_ENCOUNTER_TYPE: Record<EncounterType, ModuleKey> = {
@@ -166,6 +167,7 @@ export async function startEncounter(
   }
   const patient = await prisma.patient.findUnique({ where: { id: body.patientId }, select: { id: true, hospitalId: true } });
   if (!patient) throw new AppError('Patient not found', 404, 'PATIENT_NOT_FOUND');
+  await assertPatientAlive(patient.id);
 
   const open = await prisma.encounter.findFirst({ where: { patientId: patient.id, status: { in: ACTIVE_STATUSES } }, select: { encounterCode: true } });
   if (open) throw new AppError(`This patient already has an open visit (${open.encounterCode})`, 409, 'ENCOUNTER_ALREADY_OPEN');

@@ -123,6 +123,8 @@ model Facility {
   bloodRequests             BloodRequest[]
   crossmatches              Crossmatch[]
   transfusions              Transfusion[]
+  mortuarySlots             MortuarySlot[]
+  deceasedRecords           DeceasedRecord[]
   surgeries                 Surgery[]
 
   @@index([status])
@@ -435,6 +437,9 @@ model User {
   crossmatchesDone       Crossmatch[]               @relation("CrossmatchBy")
   transfusionsIssued     Transfusion[]              @relation("TransfusionIssuedBy")
   transfusionsGiven      Transfusion[]              @relation("TransfusionGivenBy")
+  deathsCertified        DeceasedRecord[]           @relation("DeathCertifiedBy")
+  deathsRegistered       DeceasedRecord[]           @relation("DeathRegisteredBy")
+  bodiesReleased         DeceasedRecord[]           @relation("BodyReleasedBy")
 
   @@unique([facilityId, username])
   @@unique([facilityId, email])
@@ -572,22 +577,23 @@ model Patient {
   visits                PatientVisit[]
   secureLinks           SecureResultLink[]
 
-  facility      Facility         @relation(fields: [facilityId], references: [id])
-  encounters    Encounter[]
-  vitalSigns    VitalSigns[]
-  clinicalNotes ClinicalNote[]
-  diagnoses     Diagnosis[]
-  allergies     PatientAllergy[]
-  prescriptions Prescription[]
-  admissions    Admission[]
-  surgeries     Surgery[]
-  clinicalForms ClinicalForm[]
-  pregnancies   Pregnancy[]
+  facility       Facility         @relation(fields: [facilityId], references: [id])
+  encounters     Encounter[]
+  vitalSigns     VitalSigns[]
+  clinicalNotes  ClinicalNote[]
+  diagnoses      Diagnosis[]
+  allergies      PatientAllergy[]
+  prescriptions  Prescription[]
+  admissions     Admission[]
+  surgeries      Surgery[]
+  clinicalForms  ClinicalForm[]
+  pregnancies    Pregnancy[]
   /// Set when this patient was born here and registered at delivery.
-  birthRecord   Newborn?         @relation("NewbornPatient")
-  immunizations Immunization[]
-  claims        Claim[]
-  bloodRequests BloodRequest[]
+  birthRecord    Newborn?         @relation("NewbornPatient")
+  immunizations  Immunization[]
+  claims         Claim[]
+  bloodRequests  BloodRequest[]
+  deceasedRecord DeceasedRecord?
 
   @@unique([facilityId, patientCode])
   @@index([facilityId])
@@ -1896,11 +1902,11 @@ model Encounter {
   createdAt             DateTime        @default(now())
   updatedAt             DateTime        @updatedAt
 
-  facility          Facility       @relation(fields: [facilityId], references: [id])
-  patient           Patient        @relation(fields: [patientId], references: [id])
-  visit             PatientVisit?  @relation(fields: [visitId], references: [id])
-  attending         User?          @relation("EncounterAttending", fields: [attendingId], references: [id])
-  createdBy         User?          @relation("EncounterCreatedBy", fields: [createdById], references: [id])
+  facility          Facility         @relation(fields: [facilityId], references: [id])
+  patient           Patient          @relation(fields: [patientId], references: [id])
+  visit             PatientVisit?    @relation(fields: [visitId], references: [id])
+  attending         User?            @relation("EncounterAttending", fields: [attendingId], references: [id])
+  createdBy         User?            @relation("EncounterCreatedBy", fields: [createdById], references: [id])
   vitalSigns        VitalSigns[]
   notes             ClinicalNote[]
   diagnoses         Diagnosis[]
@@ -1908,15 +1914,16 @@ model Encounter {
   orders            Order[]
   invoices          Invoice[]
   /// The admission this inpatient encounter belongs to.
-  admission         Admission?     @relation("AdmissionEncounter")
+  admission         Admission?       @relation("AdmissionEncounter")
   /// Admissions that started from this (OPD/emergency) visit.
-  admissionsStarted Admission[]    @relation("AdmissionSource")
+  admissionsStarted Admission[]      @relation("AdmissionSource")
   surgeries         Surgery[]
   forms             ClinicalForm[]
   deliveries        Delivery[]
   immunizations     Immunization[]
   claims            Claim[]
   bloodRequests     BloodRequest[]
+  deathRecords      DeceasedRecord[]
 
   @@unique([facilityId, encounterCode])
   @@index([facilityId])
@@ -3267,4 +3274,87 @@ model Transfusion {
 
   @@index([facilityId])
   @@index([requestId])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4D: mortuary. A DeceasedRecord is a body in the facility's care: a
+// patient who died here, or a person brought in dead (possibly unidentified).
+// One body per slot while in storage; release needs a certified cause of death
+// (or police clearance for a police case) and the collector's identity.
+// ---------------------------------------------------------------------------
+
+enum PlaceOfDeath {
+  WARD
+  EMERGENCY
+  THEATRE
+  OUTPATIENT
+  BROUGHT_IN_DEAD
+}
+
+enum DeceasedStatus {
+  IN_STORAGE
+  RELEASED
+}
+
+model MortuarySlot {
+  id         String   @id @default(cuid())
+  facilityId String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  code       String
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  facility Facility         @relation(fields: [facilityId], references: [id])
+  bodies   DeceasedRecord[]
+
+  @@unique([facilityId, code])
+  @@index([facilityId])
+}
+
+model DeceasedRecord {
+  id                 String         @id @default(cuid())
+  facilityId         String         @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  caseCode           String
+  /// The deceased's patient record, when known.
+  patientId          String?        @unique
+  /// For people without a patient record (e.g. unidentified brought-in-dead).
+  fullName           String
+  sex                String
+  estimatedAgeYears  Int?
+  dateOfDeath        DateTime
+  placeOfDeath       PlaceOfDeath
+  encounterId        String?
+  causeOfDeath       String?
+  causeIcd10         String?
+  certifiedById      String?
+  certifiedAt        DateTime?
+  policeCase         Boolean        @default(false)
+  policeReference    String?
+  policeClearanceRef String?
+  slotId             String?
+  bodyTag            String
+  admittedAt         DateTime       @default(now())
+  registeredById     String?
+  status             DeceasedStatus @default(IN_STORAGE)
+  releasedAt         DateTime?
+  releasedTo         String?
+  releasedToRelation String?
+  releasedToIdNumber String?
+  releasedById       String?
+  storageDays        Int?
+  notes              String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  facility     Facility      @relation(fields: [facilityId], references: [id])
+  patient      Patient?      @relation(fields: [patientId], references: [id])
+  encounter    Encounter?    @relation(fields: [encounterId], references: [id])
+  slot         MortuarySlot? @relation(fields: [slotId], references: [id])
+  certifiedBy  User?         @relation("DeathCertifiedBy", fields: [certifiedById], references: [id])
+  registeredBy User?         @relation("DeathRegisteredBy", fields: [registeredById], references: [id])
+  releasedBy   User?         @relation("BodyReleasedBy", fields: [releasedById], references: [id])
+
+  @@unique([facilityId, caseCode])
+  @@unique([facilityId, bodyTag])
+  @@index([facilityId])
+  @@index([status])
 }

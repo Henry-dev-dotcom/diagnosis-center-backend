@@ -360,6 +360,8 @@ async function resetDemoData() {
     prisma.order.updateMany({ where: { encounterId: { not: null } }, data: { encounterId: null } }),
     prisma.invoice.updateMany({ where: { encounterId: { not: null } }, data: { encounterId: null } }),
     // Inpatient care (Phase 4B) points at prescriptions and encounters, so it goes first.
+    prisma.deceasedRecord.deleteMany(),
+    prisma.mortuarySlot.deleteMany(),
     prisma.transfusion.deleteMany(),
     prisma.crossmatch.deleteMany(),
     prisma.bloodUnit.deleteMany(),
@@ -1315,6 +1317,12 @@ async function seedBloodBank() {
   }
 }
 
+/** Six cold-room slots and the per-day storage charge (demo price). */
+async function seedMortuary() {
+  await prisma.mortuarySlot.createMany({ data: ['A1', 'A2', 'A3', 'B1', 'B2', 'B3'].map((code) => ({ id: `SLOT-${code}`, code })) });
+  await prisma.catalogItem.create({ data: { id: 'SVC-MORT-DAY', catalogCode: 'MORT-DAY', name: 'Mortuary storage (per day)', type: CatalogItemType.SERVICE, price: '80' } });
+}
+
 async function seedAuditAndSystemEvents() {
   await prisma.auditLog.createMany({
     data: [
@@ -1361,6 +1369,7 @@ export async function seedFacility(facility: DemoFacility) {
       await seedInsuranceSchemes();
       await seedStores();
       await seedBloodBank();
+      await seedMortuary();
       await seedOrders();
       await seedReceptionWorkflow();
       await seedLabAndScanWorkflow();

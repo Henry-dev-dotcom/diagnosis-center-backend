@@ -18,6 +18,7 @@ import { isModuleEnabled } from './facilityAccess.service.js';
 import { nextCode as issueCode } from './codeSequence.service.js';
 import { createAuditLog, getRequestAuditContext } from './audit.service.js';
 import { AppError } from '../utils/appError.js';
+import { assertPatientAlive } from './mortuary.service.js';
 
 /*
   Inpatient care (Phase 4B). An Admission owns an INPATIENT encounter, so the
@@ -219,6 +220,7 @@ export async function admit(
 ) {
   const patient = await prisma.patient.findUnique({ where: { id: body.patientId }, select: { id: true, gender: true } });
   if (!patient) throw new AppError('Patient not found', 404, 'PATIENT_NOT_FOUND');
+  await assertPatientAlive(patient.id);
   const current = await prisma.admission.findFirst({ where: { patientId: patient.id, status: AdmissionStatus.ADMITTED }, include: { ward: true, bed: true } });
   if (current) throw new AppError(`Already admitted to ${current.ward.name}, bed ${current.bed.label} (${current.admissionCode})`, 409, 'PATIENT_ALREADY_ADMITTED');
   await assertBedFor(body.wardId, body.bedId, patient.gender);

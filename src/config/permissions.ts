@@ -164,7 +164,13 @@ export const PERMISSIONS = {
   BLOODBANK_READ: 'bloodbank:read',
   BLOODBANK_MANAGE: 'bloodbank:manage',
   BLOODBANK_REQUEST: 'bloodbank:request',
-  BLOODBANK_TRANSFUSE: 'bloodbank:transfuse'
+  BLOODBANK_TRANSFUSE: 'bloodbank:transfuse',
+
+  // Mortuary, Phase 4D.
+  MORTUARY_READ: 'mortuary:read',
+  MORTUARY_MANAGE: 'mortuary:manage',
+  MORTUARY_CERTIFY: 'mortuary:certify',
+  MORTUARY_SLOTS_MANAGE: 'mortuary:slots:manage'
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -215,7 +221,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly
     // Request blood and record transfusions (Blood Bank module).
     PERMISSIONS.BLOODBANK_READ,
     PERMISSIONS.BLOODBANK_REQUEST,
-    PERMISSIONS.BLOODBANK_TRANSFUSE
+    PERMISSIONS.BLOODBANK_TRANSFUSE,
+    // Certify the cause of death (Mortuary module).
+    PERMISSIONS.MORTUARY_READ,
+    PERMISSIONS.MORTUARY_CERTIFY
   ],
   [UserRole.NURSE]: [
     PERMISSIONS.SYSTEM_READ,
@@ -245,7 +254,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly
     PERMISSIONS.STORES_REQUEST,
     // Record transfusions and reactions on the ward (Blood Bank module).
     PERMISSIONS.BLOODBANK_READ,
-    PERMISSIONS.BLOODBANK_TRANSFUSE
+    PERMISSIONS.BLOODBANK_TRANSFUSE,
+    // Keep the deceased register and release bodies (Mortuary module).
+    PERMISSIONS.MORTUARY_READ,
+    PERMISSIONS.MORTUARY_MANAGE
   ],
   [UserRole.PHARMACIST]: [
     PERMISSIONS.SYSTEM_READ,
