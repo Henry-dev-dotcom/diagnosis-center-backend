@@ -1,4 +1,4 @@
-import { FacilityStatus } from '@prisma/client';
+import { BillingInterval, FacilityStatus } from '@prisma/client';
 import { z } from 'zod';
 import { MODULE_KEYS, moduleDependencyErrors, type ModuleKey } from '../config/modules.js';
 import { emailSchema, phoneSchema } from './common.validators.js';
@@ -24,8 +24,11 @@ export const createFacilitySchema = z.object({
   phone: phoneSchema,
   email: emailSchema,
   address: z.string().trim().max(240).optional(),
-  // Omitted: every module is switched on.
+  // Omitted: every module is switched on (a platform-managed facility).
   modules: moduleSelectionSchema.optional(),
+  // A plan starts a trial instead; the plan's departments are switched on.
+  planId: z.string().min(1).optional(),
+  interval: z.nativeEnum(BillingInterval).default(BillingInterval.MONTHLY),
   // The facility's first administrator, who then creates the rest of the staff.
   admin: z.object({
     name: z.string().trim().min(2, 'Administrator name is required').max(120),

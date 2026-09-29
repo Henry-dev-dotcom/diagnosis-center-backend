@@ -131,6 +131,8 @@ model Facility {
   leaveRequests             LeaveRequest[]
   chartAccesses             ChartAccess[]
   recordRequests            RecordRequest[]
+  subscription              Subscription?
+  subscriptionInvoices      SubscriptionInvoice[]
   surgeries                 Surgery[]
 
   @@index([status])
@@ -3579,4 +3581,157 @@ model RecordRequest {
   @@unique([facilityId, requestCode])
   @@index([facilityId])
   @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 5: subscriptions. Plans and add-on prices are platform data (no
+// facilityId). A facility's Subscription decides its departments: the plan's
+// modules plus add-ons are written to FacilityModule. A facility without a
+// subscription is platform-managed, as before. An unpaid subscription past
+// its grace period makes the facility read-only; data is never deleted.
+// ---------------------------------------------------------------------------
+
+enum BillingInterval {
+  MONTHLY
+  YEARLY
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  SUSPENDED
+  CANCELLED
+}
+
+enum SubscriptionInvoiceStatus {
+  OPEN
+  PAID
+  VOID
+}
+
+enum SubscriptionInvoiceKind {
+  FIRST
+  RENEWAL
+  UPGRADE
+}
+
+model Plan {
+  id                    String   @id @default(cuid())
+  code                  String   @unique
+  name                  String
+  description           String?
+  monthlyPrice          Decimal  @db.Decimal(12, 2)
+  yearlyDiscountPercent Int      @default(0)
+  /// Staff accounts allowed; null for unlimited.
+  maxUsers              Int?
+  trialDays             Int      @default(14)
+  isActive              Boolean  @default(true)
+  /// Shown on the public pricing page.
+  isPublic              Boolean  @default(true)
+  sortOrder             Int      @default(0)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  modules       PlanModule[]
+  subscriptions Subscription[] @relation("SubscriptionPlan")
+  pendingFor    Subscription[] @relation("SubscriptionPendingPlan")
+}
+
+model PlanModule {
+  planId    String
+  moduleKey String
+
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@id([planId, moduleKey])
+}
+
+/// The monthly price of a department bought as an add-on to any plan.
+model ModulePrice {
+  moduleKey    String   @id
+  monthlyPrice Decimal  @db.Decimal(12, 2)
+  updatedAt    DateTime @updatedAt
+}
+
+model Subscription {
+  id                       String             @id @default(cuid())
+  facilityId               String             @unique @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  planId                   String
+  interval                 BillingInterval    @default(MONTHLY)
+  status                   SubscriptionStatus @default(TRIALING)
+  addOnModules             String[]           @default([])
+  trialEndsAt              DateTime?
+  currentPeriodStart       DateTime?
+  currentPeriodEnd         DateTime?
+  graceEndsAt              DateTime?
+  cancelAtPeriodEnd        Boolean            @default(false)
+  cancelledAt              DateTime?
+  /// A downgrade or interval change waiting for the next renewal.
+  pendingPlanId            String?
+  pendingInterval          BillingInterval?
+  pendingAddOns            String[]           @default([])
+  hasPendingChange         Boolean            @default(false)
+  billingEmail             String?
+  /// Reusable card / mobile money authorisation from the gateway, for renewals.
+  gatewayCustomerCode      String?
+  gatewayAuthorizationCode String?
+  gatewayAuthorizationHint String?
+  createdAt                DateTime           @default(now())
+  updatedAt                DateTime           @updatedAt
+
+  facility    Facility              @relation(fields: [facilityId], references: [id])
+  plan        Plan                  @relation("SubscriptionPlan", fields: [planId], references: [id])
+  pendingPlan Plan?                 @relation("SubscriptionPendingPlan", fields: [pendingPlanId], references: [id])
+  invoices    SubscriptionInvoice[]
+
+  @@index([status])
+  @@index([currentPeriodEnd])
+}
+
+model SubscriptionInvoice {
+  id               String                    @id @default(cuid())
+  facilityId       String                    @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  invoiceNumber    String
+  subscriptionId   String
+  kind             SubscriptionInvoiceKind
+  status           SubscriptionInvoiceStatus @default(OPEN)
+  planId           String
+  interval         BillingInterval
+  addOnModules     String[]                  @default([])
+  amount           Decimal                   @db.Decimal(12, 2)
+  currency         String                    @default("GHS")
+  /// [{ description, amount }]
+  lines            Json
+  periodStart      DateTime
+  periodEnd        DateTime
+  /// The gateway's transaction reference; unique so a payment is applied once.
+  gatewayReference String?                   @unique
+  paidAt           DateTime?
+  attempts         Int                       @default(0)
+  lastError        String?
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+
+  facility     Facility     @relation(fields: [facilityId], references: [id])
+  subscription Subscription @relation(fields: [subscriptionId], references: [id])
+
+  @@unique([facilityId, invoiceNumber])
+  @@index([facilityId])
+  @@index([status])
+}
+
+/// Every gateway webhook, stored before it is processed; eventKey makes processing idempotent.
+model PaymentEvent {
+  id          String    @id @default(cuid())
+  provider    String
+  eventKey    String    @unique
+  type        String
+  reference   String?
+  payload     Json
+  processedAt DateTime?
+  outcome     String?
+  createdAt   DateTime  @default(now())
+
+  @@index([reference])
 }

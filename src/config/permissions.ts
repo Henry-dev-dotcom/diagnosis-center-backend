@@ -8,6 +8,9 @@ export const PERMISSIONS = {
   // PLATFORM_ADMIN role, so a facility ADMIN's '*' never reaches them.
   PLATFORM_FACILITIES_READ: 'platform:facilities:read',
   PLATFORM_FACILITIES_MANAGE: 'platform:facilities:manage',
+  PLATFORM_BILLING_MANAGE: 'platform:billing:manage',
+  // A facility's own subscription (its administrator; '*' covers it).
+  SUBSCRIPTION_MANAGE: 'subscription:manage',
 
   USERS_READ: 'users:read',
   USERS_MANAGE: 'users:manage',
@@ -188,7 +191,7 @@ export const PERMISSIONS = {
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
 
 export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly ['*']> = {
-  [UserRole.PLATFORM_ADMIN]: [PERMISSIONS.SYSTEM_READ, PERMISSIONS.PLATFORM_FACILITIES_READ, PERMISSIONS.PLATFORM_FACILITIES_MANAGE],
+  [UserRole.PLATFORM_ADMIN]: [PERMISSIONS.SYSTEM_READ, PERMISSIONS.PLATFORM_FACILITIES_READ, PERMISSIONS.PLATFORM_FACILITIES_MANAGE, PERMISSIONS.PLATFORM_BILLING_MANAGE],
   [UserRole.ADMIN]: ['*'],
   [UserRole.DOCTOR]: [
     PERMISSIONS.SYSTEM_READ,

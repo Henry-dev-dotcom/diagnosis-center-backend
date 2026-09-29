@@ -11,6 +11,7 @@ import { getPagination, paginationMeta, safeOrderBy } from './query.service.js';
 import { hashPassword } from '../utils/password.js';
 import { AppError } from '../utils/appError.js';
 import { resolveUserRoleAssignment } from './facilityRoles.service.js';
+import { assertUserAllowance } from './subscription.service.js';
 
 function clean(value: unknown) {
   if (typeof value !== 'string') return value ?? null;
@@ -101,6 +102,7 @@ export async function listUsers(query: Request['query']) {
 export async function createUser(body: { name: string; username: string; email?: string | null; role?: UserRole; customRoleId?: string; password: string }, req: Request) {
   const assignment = await resolveUserRoleAssignment(body);
   if (!assignment.role) throw new AppError('Choose a role for this user', 400, 'ROLE_REQUIRED');
+  await assertUserAllowance();
   const user = await prisma.user.create({
     data: {
       name: body.name.trim(),

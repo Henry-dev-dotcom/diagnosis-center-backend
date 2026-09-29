@@ -7,6 +7,8 @@ import { effectivePermissions, modulesForFacility, permissionsInclude } from '..
 import { auditAccessFailure } from './audit.js';
 import { createAuditLog } from '../services/audit.service.js';
 import { verifyAccessToken } from '../utils/token.js';
+import { subscriptionStateFor } from '../services/subscription.service.js';
+import { env } from '../config/env.js';
 import { AppError } from '../utils/appError.js';
 import { getAccessTokenFromCookie } from '../utils/authCookies.js';
 
@@ -88,8 +90,16 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
       customRole: useCustomRole && user.customRole ? { id: user.customRole.id, name: user.customRole.name } : null,
       permissions: effectivePermissions(user.role, user.customRole),
       modules: await modulesForFacility(user.facilityId),
-      sessionId: session.id
+      sessionId: session.id,
+      subscription: user.facilityId ? await subscriptionStateFor(user.facilityId) : null
     };
+
+    // An unpaid (suspended) or cancelled subscription leaves the facility read-only:
+    // staff can still see everything, and can reach billing to pay.
+    if (req.user.subscription?.readOnly && !['GET', 'HEAD', 'OPTIONS'].includes(req.method) && !req.originalUrl.startsWith(`${env.API_PREFIX}/subscription`) && !req.originalUrl.startsWith(`${env.API_PREFIX}/auth/`)) {
+      auditAccessFailure(req, 402, 'SUBSCRIPTION_READ_ONLY', 'Facility is read-only until the subscription is paid');
+      throw new AppError(req.user.subscription.status === 'CANCELLED' ? 'Your subscription has ended, so records are read-only. An administrator can renew it under Subscription & billing.' : 'Your subscription is unpaid, so records are read-only. An administrator can pay under Subscription & billing.', 402, 'SUBSCRIPTION_READ_ONLY');
+    }
 
     // Everything downstream (handlers, services, Prisma) runs in this context.
     if (user.facilityId) runWithFacility(user.facilityId, () => next());

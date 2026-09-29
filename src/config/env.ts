@@ -46,7 +46,14 @@ const envSchema = z
     UPLOAD_ROOT: z.string().default('uploads'),
     MAX_UPLOAD_BYTES: z.coerce.number().int().positive().default(25 * 1024 * 1024),
     SIGNED_FILE_URL_TTL_MINUTES: z.coerce.number().int().positive().default(15),
-    DICOM_GATEWAY_MODE: z.enum(['metadata-only', 'pacs-ready']).default('metadata-only')
+    DICOM_GATEWAY_MODE: z.enum(['metadata-only', 'pacs-ready']).default('metadata-only'),
+    // Subscription payments (Phase 5). 'fake' simulates a gateway for development and tests only.
+    PAYMENT_GATEWAY: z.enum(['paystack', 'fake', 'disabled']).optional(),
+    PAYSTACK_SECRET_KEY: z.string().optional(),
+    PAYSTACK_BASE_URL: z.string().url().default('https://api.paystack.co'),
+    // Where the payer returns after checkout (the facility billing page).
+    PAYMENT_CALLBACK_URL: z.string().url().optional(),
+    BILLING_GRACE_DAYS: z.coerce.number().int().min(0).max(30).default(7)
   })
   .superRefine((value, ctx) => {
     if (value.NODE_ENV !== 'production') {
@@ -67,6 +74,13 @@ const envSchema = z
         path: ['JWT_REFRESH_SECRET'],
         message: 'Production JWT_REFRESH_SECRET must be changed and at least 32 characters long.'
       });
+    }
+
+    if (value.PAYMENT_GATEWAY === 'fake') {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['PAYMENT_GATEWAY'], message: 'The fake payment gateway cannot be used in production.' });
+    }
+    if (value.PAYMENT_GATEWAY === 'paystack' && !value.PAYSTACK_SECRET_KEY) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['PAYSTACK_SECRET_KEY'], message: 'PAYSTACK_SECRET_KEY is required when PAYMENT_GATEWAY is paystack.' });
     }
 
     if (value.JWT_ACCESS_SECRET === value.JWT_REFRESH_SECRET) {
@@ -103,3 +117,6 @@ export const authCookieConfig = {
   // Refresh cookie is only ever sent to the auth endpoints, limiting exposure.
   refreshPath: `${env.API_PREFIX}/auth`
 } as const;
+
+/** The gateway in use: explicit, else Paystack when a key is set, else fake outside production and disabled in production. */
+export const paymentGateway: 'paystack' | 'fake' | 'disabled' = env.PAYMENT_GATEWAY ?? (env.PAYSTACK_SECRET_KEY ? 'paystack' : isProduction ? 'disabled' : 'fake');

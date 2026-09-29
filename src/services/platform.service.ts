@@ -6,6 +6,7 @@ import { runWithFacility } from './tenantContext.js';
 import { createAuditLog, getRequestAuditContext } from './audit.service.js';
 import { hashPassword } from '../utils/password.js';
 import { AppError } from '../utils/appError.js';
+import { startTrial } from './subscription.service.js';
 import type { CreateFacilityInput, UpdateFacilityInput } from '../validators/platform.validators.js';
 
 // Platform administration works on Facility rows, which are not tenant-owned.
@@ -116,7 +117,8 @@ export async function createFacility(input: CreateFacilityInput, req: Request) {
         select: { id: true, username: true, name: true }
       })
     );
-    await writeModules(tx, facility.id, input.modules ?? MODULE_KEYS);
+    if (input.planId) await runWithFacility(facility.id, () => startTrial(tx, { planId: input.planId as string, interval: input.interval, billingEmail: emptyToNull(input.email) }));
+    else await writeModules(tx, facility.id, input.modules ?? MODULE_KEYS);
     return { facility, admin };
   });
 
@@ -124,7 +126,7 @@ export async function createFacility(input: CreateFacilityInput, req: Request) {
     code: created.facility.code,
     name: created.facility.name,
     adminUsername: created.admin.username,
-    modules: input.modules ?? MODULE_KEYS
+    modules: input.planId ? `plan ${input.planId}` : input.modules ?? MODULE_KEYS
   });
   return { facility: await getFacility(created.facility.id), admin: created.admin };
 }

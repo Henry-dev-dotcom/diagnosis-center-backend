@@ -111,7 +111,15 @@ export function applyGlobalMiddleware(app: Express) {
   app.use(rateLimit);
   app.use(compression());
   app.use(cookieParser());
-  app.use(express.json({ limit: env.BODY_LIMIT }));
+  app.use(
+    express.json({
+      limit: env.BODY_LIMIT,
+      // Payment webhooks are signed over the exact bytes sent, so keep them for verification.
+      verify: (req, _res, buf) => {
+        if ((req as { originalUrl?: string }).originalUrl?.startsWith(`${env.API_PREFIX}/billing/webhooks/`)) (req as { rawBody?: Buffer }).rawBody = Buffer.from(buf);
+      }
+    })
+  );
   app.use(express.urlencoded({ extended: true, limit: env.BODY_LIMIT }));
   app.use(morgan(env.LOG_LEVEL));
 }

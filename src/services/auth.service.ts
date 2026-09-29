@@ -4,6 +4,7 @@ import { prisma } from './prisma.service.js';
 import { runAsSystem, runWithFacility } from './tenantContext.js';
 import { effectivePermissions, modulesForFacility, type CustomRoleLike } from './facilityAccess.service.js';
 import { createAuditLog } from './audit.service.js';
+import { subscriptionStateFor } from './subscription.service.js';
 import { verifyPassword, hashPassword } from '../utils/password.js';
 import {
   getRefreshExpiryDate,
@@ -51,7 +52,8 @@ async function sanitizeUser(user: {
     status: user.status,
     lastLoginAt: user.lastLoginAt,
     permissions: effectivePermissions(user.role, customRole),
-    modules: await modulesForFacility(facility?.id ?? null)
+    modules: await modulesForFacility(facility?.id ?? null),
+    subscription: facility ? await subscriptionStateFor(facility.id) : null
   };
 }
 

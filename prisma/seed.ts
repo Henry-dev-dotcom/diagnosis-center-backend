@@ -464,6 +464,8 @@ async function resetDemoData() {
     prisma.userSession.deleteMany({ where: { user: { facilityId: currentFacilityId() } } }),
     prisma.user.deleteMany(),
     prisma.facilityRole.deleteMany(),
+    prisma.subscriptionInvoice.deleteMany(),
+    prisma.subscription.deleteMany(),
     prisma.facilityModule.deleteMany(),
     prisma.hospital.deleteMany()
   ]);
@@ -1407,6 +1409,46 @@ export async function seedFacility(facility: DemoFacility) {
   }
 }
 
+/*
+  Subscription plans (Phase 5). PLACEHOLDER PRICES for development: the real
+  tiers and prices are a business decision and are set in the platform console.
+*/
+const DEMO_PLANS = [
+  { code: 'STARTER', name: 'Starter', description: 'Clinics and small health centres: outpatient care, laboratory, pharmacy and billing.', monthlyPrice: 500, maxUsers: 10, sortOrder: 1,
+    modules: ['opd', 'reception', 'laboratory', 'pharmacy', 'billing', 'reports', 'medical_records'] },
+  { code: 'STANDARD', name: 'Standard', description: 'District hospitals: adds wards, emergency, imaging, finance, NHIS claims, stores and HR.', monthlyPrice: 1500, maxUsers: 40, sortOrder: 2,
+    modules: ['opd', 'reception', 'laboratory', 'pharmacy', 'billing', 'reports', 'medical_records', 'emergency', 'inpatient', 'imaging', 'finance', 'claims', 'clinician_portal', 'results_delivery', 'stores', 'hr'] },
+  { code: 'PREMIUM', name: 'Premium', description: 'Full hospitals: every department, unlimited staff accounts.', monthlyPrice: 3500, maxUsers: null, sortOrder: 3, modules: [...MODULE_KEYS] }
+];
+const DEMO_ADDON_PRICES: Record<string, number> = {
+  emergency: 300, inpatient: 400, imaging: 350, finance: 200, claims: 300, clinician_portal: 150, results_delivery: 150, stores: 200, hr: 200,
+  theatre: 400, dental: 200, eye: 200, physiotherapy: 150, dietetics: 100, maternity: 300, child_health: 200, blood_bank: 300, mortuary: 200
+};
+
+/** Plans and add-on prices are platform data; safe to run repeatedly. */
+export async function seedPlans() {
+  for (const { modules, ...plan } of DEMO_PLANS) {
+    const saved = await prisma.plan.upsert({ where: { code: plan.code }, update: {}, create: { ...plan, yearlyDiscountPercent: 15, trialDays: 14 } });
+    if ((await prisma.planModule.count({ where: { planId: saved.id } })) === 0) {
+      await prisma.planModule.createMany({ data: modules.map((moduleKey) => ({ planId: saved.id, moduleKey })) });
+    }
+  }
+  for (const [moduleKey, monthlyPrice] of Object.entries(DEMO_ADDON_PRICES)) {
+    await prisma.modulePrice.upsert({ where: { moduleKey }, update: {}, create: { moduleKey, monthlyPrice } });
+  }
+}
+
+/** The demo facility is a paying Premium subscriber for the current month. */
+async function seedDemoSubscription(facilityId: string) {
+  const premium = await runAsSystem('seed.plans', () => prisma.plan.findUniqueOrThrow({ where: { code: 'PREMIUM' } }));
+  const start = new Date();
+  const end = new Date(start);
+  end.setUTCMonth(end.getUTCMonth() + 1);
+  await runWithFacility(facilityId, () =>
+    prisma.subscription.create({ data: { planId: premium.id, interval: 'MONTHLY', status: 'ACTIVE', currentPeriodStart: start, currentPeriodEnd: end, billingEmail: 'billing@lhims.local' } })
+  );
+}
+
 /** A local platform operator account for trying the platform console. */
 export async function seedDemoPlatformAdmin() {
   const existing = await prisma.user.findFirst({ where: { username: 'platform', facilityId: null } });
@@ -1423,7 +1465,9 @@ export async function seedDemoPlatformAdmin() {
 }
 
 async function main() {
+  await runAsSystem('seed.plans', () => seedPlans());
   await seedFacility(DEMO_FACILITY);
+  await seedDemoSubscription(DEMO_FACILITY.id);
   // User is tenant-scoped; the facility-less platform account needs the system bypass.
   await runAsSystem('seed.platform-admin', () => seedDemoPlatformAdmin());
 
