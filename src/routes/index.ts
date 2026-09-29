@@ -26,6 +26,7 @@ import { maternityRoutes } from './maternity.routes.js';
 import { childHealthRoutes } from './childHealth.routes.js';
 import { claimsRoutes } from './claims.routes.js';
 import { storesRoutes } from './stores.routes.js';
+import { bloodBankRoutes } from './bloodBank.routes.js';
 
 export const apiRouter = Router();
 
@@ -57,3 +58,4 @@ apiRouter.use(maternityRoutes);
 apiRouter.use(childHealthRoutes);
 apiRouter.use(claimsRoutes);
 apiRouter.use(storesRoutes);
+apiRouter.use(bloodBankRoutes);

@@ -46,7 +46,10 @@ export const CODE_SERIES = {
   CLB: { table: 'ClaimBatch', column: 'batchCode', yearly: true },
   PO: { table: 'PurchaseOrder', column: 'poCode', yearly: true },
   GRN: { table: 'GoodsReceipt', column: 'grnCode', yearly: true },
-  REQ: { table: 'Requisition', column: 'reqCode', yearly: true }
+  REQ: { table: 'Requisition', column: 'reqCode', yearly: true },
+  DNR: { table: 'BloodDonor', column: 'donorCode' },
+  DON: { table: 'BloodDonation', column: 'donationCode', yearly: true },
+  BRQ: { table: 'BloodRequest', column: 'requestCode', yearly: true }
 } satisfies Record<string, SeriesConfig>;
 
 export type CodeSeries = keyof typeof CODE_SERIES;

@@ -158,7 +158,13 @@ export const PERMISSIONS = {
   STORES_APPROVE: 'stores:approve',
   STORES_RECEIVE: 'stores:receive',
   STORES_ISSUE: 'stores:issue',
-  STORES_REQUEST: 'stores:request'
+  STORES_REQUEST: 'stores:request',
+
+  // Blood bank, Phase 4D.
+  BLOODBANK_READ: 'bloodbank:read',
+  BLOODBANK_MANAGE: 'bloodbank:manage',
+  BLOODBANK_REQUEST: 'bloodbank:request',
+  BLOODBANK_TRANSFUSE: 'bloodbank:transfuse'
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -205,7 +211,11 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly
     PERMISSIONS.IMMUNIZATION_READ,
     PERMISSIONS.IMMUNIZATION_RECORD,
     // Ask the store for supplies (Stores module).
-    PERMISSIONS.STORES_REQUEST
+    PERMISSIONS.STORES_REQUEST,
+    // Request blood and record transfusions (Blood Bank module).
+    PERMISSIONS.BLOODBANK_READ,
+    PERMISSIONS.BLOODBANK_REQUEST,
+    PERMISSIONS.BLOODBANK_TRANSFUSE
   ],
   [UserRole.NURSE]: [
     PERMISSIONS.SYSTEM_READ,
@@ -232,7 +242,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly
     PERMISSIONS.IMMUNIZATION_READ,
     PERMISSIONS.IMMUNIZATION_RECORD,
     // Ask the store for supplies (Stores module).
-    PERMISSIONS.STORES_REQUEST
+    PERMISSIONS.STORES_REQUEST,
+    // Record transfusions and reactions on the ward (Blood Bank module).
+    PERMISSIONS.BLOODBANK_READ,
+    PERMISSIONS.BLOODBANK_TRANSFUSE
   ],
   [UserRole.PHARMACIST]: [
     PERMISSIONS.SYSTEM_READ,
@@ -294,7 +307,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly
     PERMISSIONS.FILES_READ,
     PERMISSIONS.NOTIFICATIONS_READ,
     // Ask the store for supplies (Stores module).
-    PERMISSIONS.STORES_REQUEST
+    PERMISSIONS.STORES_REQUEST,
+    // Run the blood bank: donors, screening, crossmatch and issue (Blood Bank module).
+    PERMISSIONS.BLOODBANK_READ,
+    PERMISSIONS.BLOODBANK_MANAGE
   ],
   [UserRole.SCAN_STAFF]: [
     PERMISSIONS.SYSTEM_READ,

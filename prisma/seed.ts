@@ -360,6 +360,12 @@ async function resetDemoData() {
     prisma.order.updateMany({ where: { encounterId: { not: null } }, data: { encounterId: null } }),
     prisma.invoice.updateMany({ where: { encounterId: { not: null } }, data: { encounterId: null } }),
     // Inpatient care (Phase 4B) points at prescriptions and encounters, so it goes first.
+    prisma.transfusion.deleteMany(),
+    prisma.crossmatch.deleteMany(),
+    prisma.bloodUnit.deleteMany(),
+    prisma.bloodRequest.deleteMany(),
+    prisma.bloodDonation.deleteMany(),
+    prisma.bloodDonor.deleteMany(),
     prisma.claimLine.deleteMany(),
     prisma.claim.deleteMany(),
     prisma.claimBatch.deleteMany(),
@@ -1287,6 +1293,28 @@ async function seedStores() {
   }
 }
 
+/** A small screened stock: two O- and two A+ red cell units from two donors (demo data). */
+async function seedBloodBank() {
+  const day = 86_400_000;
+  const collected = new Date(Date.now() - 5 * day);
+  const donors = [
+    ['DNR-DEMO-1', 'DNR-0001', 'Kwabena', 'Owusu', '1988-04-12', 'Male', 'O-'],
+    ['DNR-DEMO-2', 'DNR-0002', 'Efua', 'Mensah', '1992-11-03', 'Female', 'A+']
+  ] as const;
+  let n = 0;
+  for (const [id, donorCode, firstName, lastName, dob, gender, bloodGroup] of donors) {
+    await prisma.bloodDonor.create({ data: { id, donorCode, firstName, lastName, dateOfBirth: new Date(dob), gender, bloodGroup, lastDonationAt: collected } });
+    for (let k = 0; k < 2; k += 1) {
+      n += 1;
+      const donationCode = `DON-${new Date().getUTCFullYear()}-${String(n).padStart(4, '0')}`;
+      await prisma.bloodDonation.create({ data: { id: `DON-DEMO-${n}`, donationCode, donorId: id, bloodGroup, volumeMl: 450, haemoglobin: 14, weightKg: 70, collectedAt: collected } });
+      await prisma.bloodUnit.create({
+        data: { id: `BU-DEMO-${n}`, unitCode: `${donationCode}-PRC`, donationId: `DON-DEMO-${n}`, bloodGroup, component: 'PACKED_RED_CELLS', volumeMl: 280, collectedAt: collected, expiresAt: new Date(collected.getTime() + 35 * day), status: 'AVAILABLE', screening: { hiv: 'NEGATIVE', hepatitisB: 'NEGATIVE', hepatitisC: 'NEGATIVE', syphilis: 'NEGATIVE' } }
+      });
+    }
+  }
+}
+
 async function seedAuditAndSystemEvents() {
   await prisma.auditLog.createMany({
     data: [
@@ -1332,6 +1360,7 @@ export async function seedFacility(facility: DemoFacility) {
       await seedMaternity();
       await seedInsuranceSchemes();
       await seedStores();
+      await seedBloodBank();
       await seedOrders();
       await seedReceptionWorkflow();
       await seedLabAndScanWorkflow();

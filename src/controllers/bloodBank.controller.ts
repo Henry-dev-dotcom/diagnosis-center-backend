@@ -1,0 +1,22 @@
+import type { Request, Response } from 'express';
+import { asyncHandler } from '../utils/asyncHandler.js';
+import { sendCreated, sendSuccess } from '../utils/apiResponse.js';
+import * as bank from '../services/bloodBank.service.js';
+
+export const listDonorsController = asyncHandler(async (req: Request, res: Response) => sendSuccess(res, 'Donors loaded', await bank.listDonors(req.query as never)));
+export const getDonorController = asyncHandler(async (req: Request, res: Response) => sendSuccess(res, 'Donor loaded', await bank.getDonor(req.params.id)));
+export const registerDonorController = asyncHandler(async (req: Request, res: Response) => sendCreated(res, 'Donor registered', await bank.registerDonor(req.body, req)));
+export const deferDonorController = asyncHandler(async (req: Request, res: Response) => sendSuccess(res, 'Donor deferred', await bank.deferDonor(req.params.id, req.body, req)));
+export const donationController = asyncHandler(async (req: Request, res: Response) => sendCreated(res, 'Donation recorded; units are in quarantine until screened', await bank.recordDonation(req.params.id, req.body, req)));
+export const screeningController = asyncHandler(async (req: Request, res: Response) => sendSuccess(res, 'Screening recorded', await bank.recordScreening(req.params.id, req.body, req)));
+export const listUnitsController = asyncHandler(async (req: Request, res: Response) => sendSuccess(res, 'Units loaded', await bank.listUnits(req.query as never)));
+export const stockController = asyncHandler(async (_req: Request, res: Response) => sendSuccess(res, 'Stock loaded', await bank.stockSummary()));
+export const discardController = asyncHandler(async (req: Request, res: Response) => sendSuccess(res, 'Unit discarded', await bank.discardUnit(req.params.id, req.body, req)));
+export const listRequestsController = asyncHandler(async (req: Request, res: Response) => sendSuccess(res, 'Blood requests loaded', await bank.listRequests(req.query as never)));
+export const getRequestController = asyncHandler(async (req: Request, res: Response) => sendSuccess(res, 'Blood request loaded', await bank.getRequest(req.params.id)));
+export const createRequestController = asyncHandler(async (req: Request, res: Response) => sendCreated(res, 'Blood requested', await bank.createRequest(req.body, req)));
+export const crossmatchController = asyncHandler(async (req: Request, res: Response) => sendSuccess(res, 'Crossmatch recorded', await bank.recordCrossmatch(req.params.id, req.body, req)));
+export const issueController = asyncHandler(async (req: Request, res: Response) => sendSuccess(res, 'Unit issued', await bank.issueUnit(req.params.id, req.body, req)));
+export const emergencyController = asyncHandler(async (req: Request, res: Response) => sendSuccess(res, 'Emergency release recorded', await bank.emergencyIssue(req.params.id, req.body, req)));
+export const cancelController = asyncHandler(async (req: Request, res: Response) => sendSuccess(res, 'Blood request cancelled', await bank.cancelRequest(req.params.id, req.body, req)));
+export const transfusionController = asyncHandler(async (req: Request, res: Response) => sendSuccess(res, 'Transfusion recorded', await bank.recordTransfusion(req.params.id, req.body, req)));

@@ -117,6 +117,12 @@ model Facility {
   requisitions              Requisition[]
   requisitionLines          RequisitionLine[]
   storeMovements            StoreMovement[]
+  bloodDonors               BloodDonor[]
+  bloodDonations            BloodDonation[]
+  bloodUnits                BloodUnit[]
+  bloodRequests             BloodRequest[]
+  crossmatches              Crossmatch[]
+  transfusions              Transfusion[]
   surgeries                 Surgery[]
 
   @@index([status])
@@ -424,6 +430,11 @@ model User {
   requisitionsMade       Requisition[]              @relation("RequisitionBy")
   requisitionsIssued     Requisition[]              @relation("RequisitionIssuedBy")
   storeMovements         StoreMovement[]            @relation("StoreMovementBy")
+  bloodDonationsTaken    BloodDonation[]            @relation("DonationTakenBy")
+  bloodRequestsMade      BloodRequest[]             @relation("BloodRequestedBy")
+  crossmatchesDone       Crossmatch[]               @relation("CrossmatchBy")
+  transfusionsIssued     Transfusion[]              @relation("TransfusionIssuedBy")
+  transfusionsGiven      Transfusion[]              @relation("TransfusionGivenBy")
 
   @@unique([facilityId, username])
   @@unique([facilityId, email])
@@ -576,6 +587,7 @@ model Patient {
   birthRecord   Newborn?         @relation("NewbornPatient")
   immunizations Immunization[]
   claims        Claim[]
+  bloodRequests BloodRequest[]
 
   @@unique([facilityId, patientCode])
   @@index([facilityId])
@@ -1904,6 +1916,7 @@ model Encounter {
   deliveries        Delivery[]
   immunizations     Immunization[]
   claims            Claim[]
+  bloodRequests     BloodRequest[]
 
   @@unique([facilityId, encounterCode])
   @@index([facilityId])
@@ -3060,4 +3073,198 @@ model StoreMovement {
 
   @@index([facilityId])
   @@index([storeItemId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4D: blood bank. Donations become units that stay in quarantine until
+// every screening test is negative. Units are crossmatched and reserved for a
+// request, issued, and transfused; ABO/Rh compatibility is enforced in
+// src/services/bloodCompatibility.ts. Expired units are never issued.
+// ---------------------------------------------------------------------------
+
+enum BloodComponent {
+  WHOLE_BLOOD
+  PACKED_RED_CELLS
+  PLATELETS
+  FRESH_FROZEN_PLASMA
+  CRYOPRECIPITATE
+}
+
+enum BloodUnitStatus {
+  QUARANTINE
+  AVAILABLE
+  RESERVED
+  ISSUED
+  TRANSFUSED
+  DISCARDED
+  EXPIRED
+}
+
+enum BloodRequestStatus {
+  PENDING
+  CROSSMATCHED
+  ISSUED
+  COMPLETED
+  CANCELLED
+}
+
+enum BloodRequestUrgency {
+  ROUTINE
+  URGENT
+  EMERGENCY
+}
+
+enum TransfusionReaction {
+  NONE
+  MILD
+  SEVERE
+}
+
+model BloodDonor {
+  id             String    @id @default(cuid())
+  facilityId     String    @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  donorCode      String
+  firstName      String
+  lastName       String
+  dateOfBirth    DateTime
+  gender         String
+  phone          String?
+  bloodGroup     String?
+  lastDonationAt DateTime?
+  deferredUntil  DateTime?
+  deferralReason String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  facility  Facility        @relation(fields: [facilityId], references: [id])
+  donations BloodDonation[]
+
+  @@unique([facilityId, donorCode])
+  @@index([facilityId])
+}
+
+model BloodDonation {
+  id           String   @id @default(cuid())
+  facilityId   String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  donationCode String
+  donorId      String
+  bloodGroup   String
+  volumeMl     Int
+  haemoglobin  Decimal  @db.Decimal(4, 1)
+  weightKg     Decimal  @db.Decimal(5, 1)
+  takenById    String?
+  collectedAt  DateTime @default(now())
+
+  facility Facility    @relation(fields: [facilityId], references: [id])
+  donor    BloodDonor  @relation(fields: [donorId], references: [id])
+  takenBy  User?       @relation("DonationTakenBy", fields: [takenById], references: [id])
+  units    BloodUnit[]
+
+  @@unique([facilityId, donationCode])
+  @@index([facilityId])
+}
+
+model BloodUnit {
+  id                   String          @id @default(cuid())
+  facilityId           String          @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  unitCode             String
+  donationId           String?
+  bloodGroup           String
+  component            BloodComponent
+  volumeMl             Int
+  collectedAt          DateTime
+  expiresAt            DateTime
+  status               BloodUnitStatus @default(QUARANTINE)
+  /// Screening results { hiv, hepatitisB, hepatitisC, syphilis }: POSITIVE | NEGATIVE.
+  screening            Json            @default("{}")
+  discardReason        String?
+  reservedForRequestId String?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  facility     Facility       @relation(fields: [facilityId], references: [id])
+  donation     BloodDonation? @relation(fields: [donationId], references: [id])
+  reservedFor  BloodRequest?  @relation("UnitReservedFor", fields: [reservedForRequestId], references: [id])
+  crossmatches Crossmatch[]
+  transfusion  Transfusion?
+
+  @@unique([facilityId, unitCode])
+  @@index([facilityId])
+  @@index([status, bloodGroup, component])
+}
+
+model BloodRequest {
+  id             String              @id @default(cuid())
+  facilityId     String              @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  requestCode    String
+  patientId      String
+  encounterId    String?
+  patientGroup   String
+  component      BloodComponent
+  unitsRequested Int
+  urgency        BloodRequestUrgency @default(ROUTINE)
+  indication     String
+  haemoglobin    Decimal?            @db.Decimal(4, 1)
+  status         BloodRequestStatus  @default(PENDING)
+  requestedById  String?
+  cancelReason   String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  facility      Facility      @relation(fields: [facilityId], references: [id])
+  patient       Patient       @relation(fields: [patientId], references: [id])
+  encounter     Encounter?    @relation(fields: [encounterId], references: [id])
+  requestedBy   User?         @relation("BloodRequestedBy", fields: [requestedById], references: [id])
+  reservedUnits BloodUnit[]   @relation("UnitReservedFor")
+  crossmatches  Crossmatch[]
+  transfusions  Transfusion[]
+
+  @@unique([facilityId, requestCode])
+  @@index([facilityId])
+  @@index([status])
+}
+
+model Crossmatch {
+  id            String   @id @default(cuid())
+  facilityId    String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  requestId     String
+  unitId        String
+  compatible    Boolean
+  notes         String?
+  performedById String?
+  performedAt   DateTime @default(now())
+
+  facility    Facility     @relation(fields: [facilityId], references: [id])
+  request     BloodRequest @relation(fields: [requestId], references: [id])
+  unit        BloodUnit    @relation(fields: [unitId], references: [id])
+  performedBy User?        @relation("CrossmatchBy", fields: [performedById], references: [id])
+
+  @@index([facilityId])
+  @@index([requestId])
+}
+
+model Transfusion {
+  id               String               @id @default(cuid())
+  facilityId       String               @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  requestId        String
+  unitId           String               @unique
+  /// Issued without a crossmatch under emergency release (O-negative only).
+  emergencyRelease Boolean              @default(false)
+  emergencyReason  String?
+  issuedById       String?
+  issuedAt         DateTime             @default(now())
+  givenById        String?
+  startedAt        DateTime?
+  endedAt          DateTime?
+  reaction         TransfusionReaction?
+  reactionNotes    String?
+
+  facility Facility     @relation(fields: [facilityId], references: [id])
+  request  BloodRequest @relation(fields: [requestId], references: [id])
+  unit     BloodUnit    @relation(fields: [unitId], references: [id])
+  issuedBy User?        @relation("TransfusionIssuedBy", fields: [issuedById], references: [id])
+  givenBy  User?        @relation("TransfusionGivenBy", fields: [givenById], references: [id])
+
+  @@index([facilityId])
+  @@index([requestId])
 }
