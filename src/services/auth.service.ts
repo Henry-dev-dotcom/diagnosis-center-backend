@@ -20,10 +20,21 @@ export type RequestContext = {
   userAgent?: string | null;
 };
 
-type FacilitySummary = { id: string; code: string; name: string };
+type FacilitySummary = { id: string; code: string; name: string; logoDataUrl?: string | null; onboardingCompletedAt?: Date | null };
 
 function toFacilitySummary(facility: FacilitySummary | null | undefined): FacilitySummary | null {
-  return facility ? { id: facility.id, code: facility.code, name: facility.name } : null;
+  return facility
+    ? { id: facility.id, code: facility.code, name: facility.name, logoDataUrl: facility.logoDataUrl ?? null, onboardingCompletedAt: facility.onboardingCompletedAt ?? null }
+    : null;
+}
+
+/** Shown to the app during a platform operator's read-only support session. */
+export type SupportInfo = { impersonatorId: string; operatorName: string; reason: string | null; expiresAt: Date };
+
+async function supportInfo(session: { impersonatorId: string | null; supportReason: string | null; expiresAt: Date }): Promise<SupportInfo | null> {
+  if (!session.impersonatorId) return null;
+  const operator = await runAsSystem('auth.support', () => prisma.user.findUnique({ where: { id: session.impersonatorId as string }, select: { name: true } }));
+  return { impersonatorId: session.impersonatorId, operatorName: operator?.name ?? 'LHIMS support', reason: session.supportReason, expiresAt: session.expiresAt };
 }
 
 /** The signed-in user as the frontend sees it, including what they may use. */
@@ -37,7 +48,7 @@ async function sanitizeUser(user: {
   lastLoginAt: Date | null;
   facility?: FacilitySummary | null;
   customRole?: CustomRoleLike | null;
-}) {
+}, support: SupportInfo | null = null) {
   const facility = toFacilitySummary(user.facility);
   const customRole = user.customRole && user.customRole.baseRole === user.role ? user.customRole : null;
   return {
@@ -53,7 +64,8 @@ async function sanitizeUser(user: {
     lastLoginAt: user.lastLoginAt,
     permissions: effectivePermissions(user.role, customRole),
     modules: await modulesForFacility(facility?.id ?? null),
-    subscription: facility ? await subscriptionStateFor(facility.id) : null
+    subscription: facility ? await subscriptionStateFor(facility.id) : null,
+    support
   };
 }
 
@@ -145,13 +157,31 @@ async function authenticate(facility: FacilitySummary | null, normalizedUsername
     throw new AppError('Invalid username or password', 401, 'INVALID_CREDENTIALS');
   }
 
+  return issueSession(user, facility, context);
+}
+
+type SessionUser = Parameters<typeof sanitizeUser>[0];
+
+/**
+ * Opens a session for a user and returns its tokens. A support session
+ * (opened by a platform operator) has a fixed, short expiry, is read-only
+ * (see requireAuth), and does not count as the user signing in.
+ */
+export async function issueSession(
+  user: SessionUser,
+  facility: FacilitySummary | null,
+  context: RequestContext,
+  support?: { impersonatorId: string; reason: string; expiresAt: Date }
+) {
   const session = await prisma.userSession.create({
     data: {
       userId: user.id,
       refreshToken: `pending-${crypto.randomUUID()}`,
       userAgent: context.userAgent ?? null,
       ipAddress: context.ipAddress ?? null,
-      expiresAt: getRefreshExpiryDate()
+      expiresAt: support?.expiresAt ?? getRefreshExpiryDate(),
+      impersonatorId: support?.impersonatorId ?? null,
+      supportReason: support?.reason ?? null
     }
   });
 
@@ -169,30 +199,23 @@ async function authenticate(facility: FacilitySummary | null, normalizedUsername
     type: 'refresh'
   });
 
-  await prisma.$transaction([
-    prisma.userSession.update({
-      where: { id: session.id },
-      data: { refreshToken: hashToken(refreshToken) }
-    }),
-    prisma.user.update({
-      where: { id: user.id },
-      data: { lastLoginAt: new Date() }
-    })
-  ]);
+  await prisma.userSession.update({ where: { id: session.id }, data: { refreshToken: hashToken(refreshToken) } });
+  if (!support) await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
 
   await createAuditLog({
-    actorId: user.id,
-    actorRole: user.role,
-    action: 'AUTH_LOGIN_SUCCESS',
+    actorId: support ? support.impersonatorId : user.id,
+    actorRole: support ? UserRole.PLATFORM_ADMIN : user.role,
+    action: support ? 'AUTH_SUPPORT_SESSION_STARTED' : 'AUTH_LOGIN_SUCCESS',
     module: 'Authentication',
     entityType: 'UserSession',
     entityId: session.id,
+    details: support ? { asUserId: user.id, reason: support.reason, expiresAt: support.expiresAt } : undefined,
     ipAddress: context.ipAddress,
     userAgent: context.userAgent
   });
 
   return {
-    user: await sanitizeUser({ ...user, facility, lastLoginAt: new Date() }),
+    user: await sanitizeUser({ ...user, facility, lastLoginAt: support ? user.lastLoginAt : new Date() }, support ? await supportInfo({ impersonatorId: support.impersonatorId, supportReason: support.reason, expiresAt: support.expiresAt }) : null),
     accessToken,
     refreshToken
   };
@@ -253,7 +276,8 @@ export async function refreshTokenPair(refreshToken: string, context: RequestCon
     where: { id: session.id },
     data: {
       refreshToken: hashToken(newRefreshToken),
-      expiresAt: getRefreshExpiryDate()
+      // A support session never outlives its fixed window.
+      expiresAt: session.impersonatorId ? session.expiresAt : getRefreshExpiryDate()
     }
   });
 
@@ -269,7 +293,7 @@ export async function refreshTokenPair(refreshToken: string, context: RequestCon
   });
 
   return {
-    user: await sanitizeUser(session.user),
+    user: await sanitizeUser(session.user, await supportInfo(session)),
     accessToken: newAccessToken,
     refreshToken: newRefreshToken
   };
@@ -328,7 +352,7 @@ export async function getCurrentUser(userId: string, sessionId: string) {
     throw new AppError('Session is invalid or expired', 401, 'SESSION_INVALID');
   }
 
-  return await sanitizeUser(user);
+  return await sanitizeUser(user, await supportInfo(session));
 }
 
 export async function changePassword(userId: string, currentPassword: string, newPassword: string, context: RequestContext) {

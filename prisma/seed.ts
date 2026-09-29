@@ -1373,8 +1373,8 @@ export const DEMO_FACILITY: DemoFacility = { id: 'fac_default', code: 'DEMO', na
 export async function seedFacility(facility: DemoFacility) {
   await prisma.facility.upsert({
     where: { id: facility.id },
-    update: { code: facility.code, name: facility.name },
-    create: { id: facility.id, code: facility.code, name: facility.name }
+    update: { code: facility.code, name: facility.name, onboardingCompletedAt: new Date() },
+    create: { id: facility.id, code: facility.code, name: facility.name, onboardingCompletedAt: new Date() }
   });
 
   idPrefix = facility.idPrefix;

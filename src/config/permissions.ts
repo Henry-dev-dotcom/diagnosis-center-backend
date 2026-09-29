@@ -9,6 +9,8 @@ export const PERMISSIONS = {
   PLATFORM_FACILITIES_READ: 'platform:facilities:read',
   PLATFORM_FACILITIES_MANAGE: 'platform:facilities:manage',
   PLATFORM_BILLING_MANAGE: 'platform:billing:manage',
+  // Read-only support sessions inside a facility (audited in that facility).
+  PLATFORM_SUPPORT_SESSION: 'platform:support:session',
   // A facility's own subscription (its administrator; '*' covers it).
   SUBSCRIPTION_MANAGE: 'subscription:manage',
 
@@ -191,7 +193,7 @@ export const PERMISSIONS = {
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
 
 export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly ['*']> = {
-  [UserRole.PLATFORM_ADMIN]: [PERMISSIONS.SYSTEM_READ, PERMISSIONS.PLATFORM_FACILITIES_READ, PERMISSIONS.PLATFORM_FACILITIES_MANAGE, PERMISSIONS.PLATFORM_BILLING_MANAGE],
+  [UserRole.PLATFORM_ADMIN]: [PERMISSIONS.SYSTEM_READ, PERMISSIONS.PLATFORM_FACILITIES_READ, PERMISSIONS.PLATFORM_FACILITIES_MANAGE, PERMISSIONS.PLATFORM_BILLING_MANAGE, PERMISSIONS.PLATFORM_SUPPORT_SESSION],
   [UserRole.ADMIN]: ['*'],
   [UserRole.DOCTOR]: [
     PERMISSIONS.SYSTEM_READ,

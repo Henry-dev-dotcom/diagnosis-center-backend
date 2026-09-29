@@ -17,17 +17,25 @@ enum FacilityStatus {
 /// Every tenant-owned row carries facilityId; see src/services/tenantContext.ts.
 /// Not to be confused with Hospital, which models referring hospitals.
 model Facility {
-  id        String         @id @default(cuid())
-  code      String         @unique
-  name      String
-  status    FacilityStatus @default(ACTIVE)
-  phone     String?
-  email     String?
-  address   String?
-  timezone  String         @default("Africa/Accra")
-  currency  String         @default("GHS")
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
+  id                    String         @id @default(cuid())
+  code                  String         @unique
+  name                  String
+  status                FacilityStatus @default(ACTIVE)
+  phone                 String?
+  email                 String?
+  address               String?
+  timezone              String         @default("Africa/Accra")
+  currency              String         @default("GHS")
+  /// Small logo shown in the app header (a PNG/JPEG/WebP data URL, at most ~200 KB).
+  logoDataUrl           String?
+  /// SELF_SERVICE (signed up on the website) or PLATFORM (created by the operator).
+  signupSource          String         @default("PLATFORM")
+  /// Set when the administrator finishes (or skips) the setup checklist.
+  onboardingCompletedAt DateTime?
+  /// Whether LHIMS support may open a read-only support session in this facility.
+  allowSupportAccess    Boolean        @default(true)
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
 
   modules                   FacilityModule[]
   sequences                 FacilitySequence[]
@@ -466,14 +474,17 @@ model User {
 }
 
 model UserSession {
-  id           String    @id @default(cuid())
-  userId       String
-  refreshToken String    @unique
-  userAgent    String?
-  ipAddress    String?
-  expiresAt    DateTime
-  revokedAt    DateTime?
-  createdAt    DateTime  @default(now())
+  id             String    @id @default(cuid())
+  userId         String
+  refreshToken   String    @unique
+  userAgent      String?
+  ipAddress      String?
+  expiresAt      DateTime
+  revokedAt      DateTime?
+  /// Set on a read-only support session opened by a platform operator for this user.
+  impersonatorId String?
+  supportReason  String?
+  createdAt      DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -3734,4 +3745,31 @@ model PaymentEvent {
   createdAt   DateTime  @default(now())
 
   @@index([reference])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 6: requests for a demo or a call, from the public website. Platform
+// data (no facilityId).
+// ---------------------------------------------------------------------------
+
+enum DemoRequestStatus {
+  NEW
+  CONTACTED
+  CLOSED
+}
+
+model DemoRequest {
+  id           String            @id @default(cuid())
+  name         String
+  organisation String
+  email        String
+  phone        String?
+  facilityType String?
+  message      String?
+  status       DemoRequestStatus @default(NEW)
+  notes        String?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@index([status])
 }

@@ -22,6 +22,8 @@ export type AuthUser = {
   /** Module keys switched on for the user's facility; empty for platform users. */
   modules: string[];
   sessionId: string;
+  /** Set during a platform operator's read-only support session. */
+  support?: { impersonatorId: string; reason: string | null } | null;
   /** The facility's subscription state (null when the platform manages it). */
   subscription?: { status: string; readOnly: boolean; trialEndsAt: Date | null; graceEndsAt: Date | null; currentPeriodEnd: Date | null; cancelAtPeriodEnd: boolean } | null;
 };

@@ -65,7 +65,8 @@ export async function publicCatalogue() {
       void _p; void _a;
       return rest;
     }),
-    addOns: addOns.filter((a) => a.priced)
+    addOns: addOns.filter((a) => a.priced),
+    departments: MODULES.map((m) => ({ key: m.key, name: m.name, category: m.category, description: m.description }))
   };
 }
 
@@ -156,9 +157,11 @@ export async function applyEntitlements(tx: Tx) {
 }
 
 /** Starts a trial on a plan for the current facility (used when a facility is created). */
-export async function startTrial(tx: Tx, input: { planId: string; interval: BillingInterval; billingEmail?: string | null }) {
+export async function startTrial(tx: Tx, input: { planId: string; interval: BillingInterval; addOns?: string[]; billingEmail?: string | null }) {
   const plan = await tx.plan.findUnique({ where: { id: input.planId } });
   if (!plan || !plan.isActive) throw new AppError('Choose an available plan', 400, 'PLAN_NOT_FOUND');
+  // Add-ons chosen at sign-up are part of the trial (checked and de-duplicated like a paid order).
+  const addOns = input.addOns?.length ? (await priceFor(plan.id, input.addOns, input.interval)).addOns : [];
   const now = new Date();
   await tx.subscription.create({
     data: {
@@ -166,6 +169,7 @@ export async function startTrial(tx: Tx, input: { planId: string; interval: Bill
       interval: input.interval,
       status: SubscriptionStatus.TRIALING,
       trialEndsAt: new Date(now.getTime() + plan.trialDays * DAY_MS),
+      addOnModules: addOns,
       billingEmail: input.billingEmail ?? null
     }
   });

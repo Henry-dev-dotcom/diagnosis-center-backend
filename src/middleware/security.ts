@@ -82,6 +82,14 @@ export const authRateLimit = createRateLimiter({
   message: 'Too many authentication attempts. Please try again later.'
 });
 
+// Public website forms (sign-up, demo requests): a few per address per hour.
+export const publicFormRateLimit = createRateLimiter({
+  windowMs: 60 * 60_000,
+  max: 10,
+  keyPrefix: 'public-form',
+  message: 'Too many submissions from this network. Please try again in an hour.'
+});
+
 export function applyGlobalMiddleware(app: Express) {
   if (env.TRUST_PROXY) {
     app.set('trust proxy', 1);

@@ -10,6 +10,12 @@ function formatPath(path: Array<string | number>) {
   return path.map((part) => String(part)).join('.');
 }
 
+function userFacingErrors(details: unknown) {
+  const list = (details as { errors?: unknown })?.errors;
+  if (!Array.isArray(list)) return undefined;
+  return list.map((e: { field?: string; row?: number; message?: string }) => ({ field: e.field ?? (e.row !== undefined ? `rows.${e.row}` : undefined), message: String(e.message ?? '') }));
+}
+
 function baseError(req: Request, message: string, code?: string): ApiError {
   return {
     success: false,
@@ -77,6 +83,8 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
   if (err instanceof AppError) {
     const payload: ApiError = {
       ...baseError(req, err.message, err.code),
+      // Row- or field-level problems the user must fix are always returned.
+      ...(userFacingErrors(err.details) ? { errors: userFacingErrors(err.details) } : {}),
       details: isProduction ? undefined : err.details
     };
     return res.status(err.statusCode).json(payload);

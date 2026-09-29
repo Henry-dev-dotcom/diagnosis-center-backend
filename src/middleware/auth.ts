@@ -91,8 +91,15 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
       permissions: effectivePermissions(user.role, user.customRole),
       modules: await modulesForFacility(user.facilityId),
       sessionId: session.id,
-      subscription: user.facilityId ? await subscriptionStateFor(user.facilityId) : null
+      subscription: user.facilityId ? await subscriptionStateFor(user.facilityId) : null,
+      support: session.impersonatorId ? { impersonatorId: session.impersonatorId, reason: session.supportReason } : null
     };
+
+    // A support session looks but never touches: only signing out is allowed.
+    if (req.user.support && !['GET', 'HEAD', 'OPTIONS'].includes(req.method) && !req.originalUrl.startsWith(`${env.API_PREFIX}/auth/`)) {
+      auditAccessFailure(req, 403, 'SUPPORT_SESSION_READ_ONLY', 'Support sessions are read-only');
+      throw new AppError('This is a read-only support session. Nothing can be changed.', 403, 'SUPPORT_SESSION_READ_ONLY');
+    }
 
     // An unpaid (suspended) or cancelled subscription leaves the facility read-only:
     // staff can still see everything, and can reach billing to pay.
