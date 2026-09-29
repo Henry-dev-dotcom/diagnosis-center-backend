@@ -149,7 +149,16 @@ export const PERMISSIONS = {
   CLAIMS_MANAGE: 'claims:manage',
   CLAIMS_ADJUDICATE: 'claims:adjudicate',
   CLAIMS_MEMBERSHIPS: 'claims:memberships',
-  CLAIMS_SCHEMES_MANAGE: 'claims:schemes:manage'
+  CLAIMS_SCHEMES_MANAGE: 'claims:schemes:manage',
+
+  // Stores and procurement, Phase 4D.
+  STORES_READ: 'stores:read',
+  STORES_MANAGE: 'stores:manage',
+  STORES_ORDER: 'stores:order',
+  STORES_APPROVE: 'stores:approve',
+  STORES_RECEIVE: 'stores:receive',
+  STORES_ISSUE: 'stores:issue',
+  STORES_REQUEST: 'stores:request'
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -194,7 +203,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly
     PERMISSIONS.MATERNITY_DELIVER,
     // Immunisations (Child Health module).
     PERMISSIONS.IMMUNIZATION_READ,
-    PERMISSIONS.IMMUNIZATION_RECORD
+    PERMISSIONS.IMMUNIZATION_RECORD,
+    // Ask the store for supplies (Stores module).
+    PERMISSIONS.STORES_REQUEST
   ],
   [UserRole.NURSE]: [
     PERMISSIONS.SYSTEM_READ,
@@ -219,7 +230,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly
     PERMISSIONS.MATERNITY_DELIVER,
     // Child welfare clinic: immunisations and growth monitoring.
     PERMISSIONS.IMMUNIZATION_READ,
-    PERMISSIONS.IMMUNIZATION_RECORD
+    PERMISSIONS.IMMUNIZATION_RECORD,
+    // Ask the store for supplies (Stores module).
+    PERMISSIONS.STORES_REQUEST
   ],
   [UserRole.PHARMACIST]: [
     PERMISSIONS.SYSTEM_READ,
@@ -229,7 +242,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly
     PERMISSIONS.PHARMACY_STOCK_MANAGE,
     PERMISSIONS.PHARMACY_DISPENSE,
     PERMISSIONS.PATIENT_ALLERGIES_MANAGE,
-    PERMISSIONS.NOTIFICATIONS_READ
+    PERMISSIONS.NOTIFICATIONS_READ,
+    // Ask the store for supplies (Stores module).
+    PERMISSIONS.STORES_REQUEST
   ],
   [UserRole.RECEPTIONIST]: [
     PERMISSIONS.SYSTEM_READ,
@@ -254,7 +269,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly
     PERMISSIONS.NOTIFICATIONS_READ,
     PERMISSIONS.PRICING_READ,
     // Record patients' NHIS / scheme cards at registration (Claims module).
-    PERMISSIONS.CLAIMS_MEMBERSHIPS
+    PERMISSIONS.CLAIMS_MEMBERSHIPS,
+    // Ask the store for supplies (Stores module).
+    PERMISSIONS.STORES_REQUEST
   ],
   [UserRole.LAB_STAFF]: [
     PERMISSIONS.SYSTEM_READ,
@@ -275,7 +292,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly
     PERMISSIONS.REPORTS_EXPORT,
     PERMISSIONS.FILES_UPLOAD,
     PERMISSIONS.FILES_READ,
-    PERMISSIONS.NOTIFICATIONS_READ
+    PERMISSIONS.NOTIFICATIONS_READ,
+    // Ask the store for supplies (Stores module).
+    PERMISSIONS.STORES_REQUEST
   ],
   [UserRole.SCAN_STAFF]: [
     PERMISSIONS.SYSTEM_READ,
@@ -294,7 +313,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly
     PERMISSIONS.REPORTS_EXPORT,
     PERMISSIONS.FILES_UPLOAD,
     PERMISSIONS.FILES_READ,
-    PERMISSIONS.NOTIFICATIONS_READ
+    PERMISSIONS.NOTIFICATIONS_READ,
+    // Ask the store for supplies (Stores module).
+    PERMISSIONS.STORES_REQUEST
   ],
   [UserRole.BILLING_STAFF]: [
     PERMISSIONS.SYSTEM_READ,
@@ -318,7 +339,14 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly
     PERMISSIONS.CLAIMS_READ,
     PERMISSIONS.CLAIMS_MANAGE,
     PERMISSIONS.CLAIMS_ADJUDICATE,
-    PERMISSIONS.CLAIMS_MEMBERSHIPS
+    PERMISSIONS.CLAIMS_MEMBERSHIPS,
+    // Stores office: stock, orders, deliveries and issues (Stores module).
+    PERMISSIONS.STORES_READ,
+    PERMISSIONS.STORES_MANAGE,
+    PERMISSIONS.STORES_ORDER,
+    PERMISSIONS.STORES_RECEIVE,
+    PERMISSIONS.STORES_ISSUE,
+    PERMISSIONS.STORES_REQUEST
   ]
 };
 

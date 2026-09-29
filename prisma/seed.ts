@@ -360,6 +360,9 @@ async function resetDemoData() {
     prisma.order.updateMany({ where: { encounterId: { not: null } }, data: { encounterId: null } }),
     prisma.invoice.updateMany({ where: { encounterId: { not: null } }, data: { encounterId: null } }),
     // Inpatient care (Phase 4B) points at prescriptions and encounters, so it goes first.
+    prisma.claimLine.deleteMany(),
+    prisma.claim.deleteMany(),
+    prisma.claimBatch.deleteMany(),
     prisma.immunization.deleteMany(),
     prisma.clinicalForm.deleteMany(),
     prisma.newborn.deleteMany(),
@@ -399,9 +402,15 @@ async function resetDemoData() {
     prisma.floatTransaction.deleteMany(),
     prisma.payment.deleteMany(),
     prisma.cashierShift.deleteMany(),
-    prisma.claimLine.deleteMany(),
-    prisma.claim.deleteMany(),
-    prisma.claimBatch.deleteMany(),
+    prisma.storeMovement.deleteMany(),
+    prisma.goodsReceiptLine.deleteMany(),
+    prisma.goodsReceipt.deleteMany(),
+    prisma.purchaseOrderLine.deleteMany(),
+    prisma.purchaseOrder.deleteMany(),
+    prisma.requisitionLine.deleteMany(),
+    prisma.requisition.deleteMany(),
+    prisma.storeItem.deleteMany(),
+    prisma.supplier.deleteMany(),
     prisma.invoiceItem.deleteMany(),
     prisma.invoice.deleteMany(),
     prisma.scanRetake.deleteMany(),
@@ -1262,6 +1271,22 @@ async function seedInsuranceSchemes() {
   });
 }
 
+/** A few general store items and one supplier; gloves start below their reorder level. */
+async function seedStores() {
+  await prisma.supplier.create({ data: { id: 'SUP-001', code: 'MEDSUP', name: 'Accra Medical Supplies Ltd (demo)', phone: '+233302000111' } });
+  const items = [
+    ['STI-GLOVES', 'GLV-M', 'Examination gloves, medium', 'box of 100', 'CONSUMABLE', 20, 8],
+    ['STI-SYRINGE', 'SYR-5', 'Syringe 5 ml', 'box of 100', 'CONSUMABLE', 10, 40],
+    ['STI-GAUZE', 'GAUZE', 'Gauze swabs', 'pack', 'CONSUMABLE', 15, 30],
+    ['STI-SHEET', 'SHEET', 'Bed sheet', 'piece', 'LINEN', 10, 60],
+    ['STI-BLEACH', 'BLEACH', 'Bleach 5 L', 'can', 'CLEANING', 5, 12]
+  ] as const;
+  for (const [id, code, name, unit, category, reorderLevel, quantityOnHand] of items) {
+    await prisma.storeItem.create({ data: { id, code, name, unit, category, reorderLevel, quantityOnHand } });
+    await prisma.storeMovement.create({ data: { storeItemId: id, type: 'ADJUSTMENT', quantity: quantityOnHand, balanceAfter: quantityOnHand, reference: 'Opening stock' } });
+  }
+}
+
 async function seedAuditAndSystemEvents() {
   await prisma.auditLog.createMany({
     data: [
@@ -1306,6 +1331,7 @@ export async function seedFacility(facility: DemoFacility) {
       await seedTheatres();
       await seedMaternity();
       await seedInsuranceSchemes();
+      await seedStores();
       await seedOrders();
       await seedReceptionWorkflow();
       await seedLabAndScanWorkflow();

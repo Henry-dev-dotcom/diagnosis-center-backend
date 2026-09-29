@@ -1,0 +1,25 @@
+import type { Request, Response } from 'express';
+import { asyncHandler } from '../utils/asyncHandler.js';
+import { sendCreated, sendSuccess } from '../utils/apiResponse.js';
+import * as stores from '../services/stores.service.js';
+
+export const summaryController = asyncHandler(async (_req: Request, res: Response) => sendSuccess(res, 'Stores summary loaded', await stores.storesSummary()));
+export const listSuppliersController = asyncHandler(async (_req: Request, res: Response) => sendSuccess(res, 'Suppliers loaded', await stores.listSuppliers()));
+export const createSupplierController = asyncHandler(async (req: Request, res: Response) => sendCreated(res, 'Supplier created', await stores.createSupplier(req.body, req)));
+export const updateSupplierController = asyncHandler(async (req: Request, res: Response) => sendSuccess(res, 'Supplier updated', await stores.updateSupplier(req.params.id, req.body, req)));
+export const listItemsController = asyncHandler(async (req: Request, res: Response) => sendSuccess(res, 'Store items loaded', await stores.listItems(req.query as never)));
+export const getItemController = asyncHandler(async (req: Request, res: Response) => sendSuccess(res, 'Store item loaded', await stores.getItem(req.params.id)));
+export const createItemController = asyncHandler(async (req: Request, res: Response) => sendCreated(res, 'Store item created', await stores.createItem(req.body, req)));
+export const updateItemController = asyncHandler(async (req: Request, res: Response) => sendSuccess(res, 'Store item updated', await stores.updateItem(req.params.id, req.body, req)));
+export const adjustController = asyncHandler(async (req: Request, res: Response) => sendSuccess(res, 'Stock adjusted', await stores.adjustStock(req.params.id, req.body, req)));
+export const listPosController = asyncHandler(async (req: Request, res: Response) => sendSuccess(res, 'Purchase orders loaded', await stores.listPurchaseOrders(req.query as never)));
+export const getPoController = asyncHandler(async (req: Request, res: Response) => sendSuccess(res, 'Purchase order loaded', await stores.getPurchaseOrder(req.params.id)));
+export const createPoController = asyncHandler(async (req: Request, res: Response) => sendCreated(res, 'Purchase order raised', await stores.createPurchaseOrder(req.body, req)));
+export const approvePoController = asyncHandler(async (req: Request, res: Response) => sendSuccess(res, 'Purchase order approved', await stores.approvePurchaseOrder(req.params.id, req)));
+export const cancelPoController = asyncHandler(async (req: Request, res: Response) => sendSuccess(res, 'Purchase order cancelled', await stores.cancelPurchaseOrder(req.params.id, req.body, req)));
+export const receiveController = asyncHandler(async (req: Request, res: Response) => sendSuccess(res, 'Goods received', await stores.receiveGoods(req.params.id, req.body, req)));
+export const listRequisitionsController = asyncHandler(async (req: Request, res: Response) => sendSuccess(res, 'Requisitions loaded', await stores.listRequisitions(req.query as never, req)));
+export const getRequisitionController = asyncHandler(async (req: Request, res: Response) => sendSuccess(res, 'Requisition loaded', await stores.getRequisition(req.params.id, req)));
+export const createRequisitionController = asyncHandler(async (req: Request, res: Response) => sendCreated(res, 'Requisition sent to stores', await stores.createRequisition(req.body, req)));
+export const issueController = asyncHandler(async (req: Request, res: Response) => sendSuccess(res, 'Items issued', await stores.issueRequisition(req.params.id, req.body, req)));
+export const rejectController = asyncHandler(async (req: Request, res: Response) => sendSuccess(res, 'Requisition rejected', await stores.rejectRequisition(req.params.id, req.body, req)));

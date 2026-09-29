@@ -108,6 +108,15 @@ model Facility {
   claims                    Claim[]
   claimLines                ClaimLine[]
   claimBatches              ClaimBatch[]
+  suppliers                 Supplier[]
+  storeItems                StoreItem[]
+  purchaseOrders            PurchaseOrder[]
+  purchaseOrderLines        PurchaseOrderLine[]
+  goodsReceipts             GoodsReceipt[]
+  goodsReceiptLines         GoodsReceiptLine[]
+  requisitions              Requisition[]
+  requisitionLines          RequisitionLine[]
+  storeMovements            StoreMovement[]
   surgeries                 Surgery[]
 
   @@index([status])
@@ -385,30 +394,36 @@ model User {
   systemEvents    SystemEvent[]   @relation("SystemEventActor")
   apiRequestLogs  ApiRequestLog[] @relation("ApiRequestUser")
 
-  facility            Facility?                  @relation(fields: [facilityId], references: [id], onDelete: Restrict)
-  createdEncounters   Encounter[]                @relation("EncounterCreatedBy")
-  attendedEncounters  Encounter[]                @relation("EncounterAttending")
-  recordedVitals      VitalSigns[]               @relation("VitalsRecordedBy")
-  authoredNotes       ClinicalNote[]             @relation("NoteAuthor")
-  recordedDiagnoses   Diagnosis[]                @relation("DiagnosisRecordedBy")
-  recordedAllergies   PatientAllergy[]           @relation("AllergyRecordedBy")
-  prescriptionsIssued Prescription[]             @relation("Prescriber")
-  receivedBatches     DrugBatch[]                @relation("BatchReceivedBy")
-  stockMovements      StockMovement[]            @relation("StockMovedBy")
-  dispensations       Dispensation[]             @relation("DispensedBy")
-  admissionsMade      Admission[]                @relation("AdmittedBy")
-  admissionsAttended  Admission[]                @relation("AdmissionAttending")
-  dischargesDone      Admission[]                @relation("DischargedBy")
-  bedMovesMade        BedAssignment[]            @relation("BedAssignedBy")
-  medicationsGiven    MedicationAdministration[] @relation("AdministeredBy")
-  surgeriesBooked     Surgery[]                  @relation("SurgeryBookedBy")
-  surgeriesPerformed  Surgery[]                  @relation("SurgerySurgeon")
-  formsWritten        ClinicalForm[]             @relation("FormAuthor")
-  pregnanciesBooked   Pregnancy[]                @relation("PregnancyBookedBy")
-  deliveriesAttended  Delivery[]                 @relation("DeliveryAttendant")
-  immunizationsGiven  Immunization[]             @relation("ImmunizationGivenBy")
-  immunizationsVoided Immunization[]             @relation("ImmunizationVoidedBy")
-  claimsCreated       Claim[]                    @relation("ClaimCreatedBy")
+  facility               Facility?                  @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+  createdEncounters      Encounter[]                @relation("EncounterCreatedBy")
+  attendedEncounters     Encounter[]                @relation("EncounterAttending")
+  recordedVitals         VitalSigns[]               @relation("VitalsRecordedBy")
+  authoredNotes          ClinicalNote[]             @relation("NoteAuthor")
+  recordedDiagnoses      Diagnosis[]                @relation("DiagnosisRecordedBy")
+  recordedAllergies      PatientAllergy[]           @relation("AllergyRecordedBy")
+  prescriptionsIssued    Prescription[]             @relation("Prescriber")
+  receivedBatches        DrugBatch[]                @relation("BatchReceivedBy")
+  stockMovements         StockMovement[]            @relation("StockMovedBy")
+  dispensations          Dispensation[]             @relation("DispensedBy")
+  admissionsMade         Admission[]                @relation("AdmittedBy")
+  admissionsAttended     Admission[]                @relation("AdmissionAttending")
+  dischargesDone         Admission[]                @relation("DischargedBy")
+  bedMovesMade           BedAssignment[]            @relation("BedAssignedBy")
+  medicationsGiven       MedicationAdministration[] @relation("AdministeredBy")
+  surgeriesBooked        Surgery[]                  @relation("SurgeryBookedBy")
+  surgeriesPerformed     Surgery[]                  @relation("SurgerySurgeon")
+  formsWritten           ClinicalForm[]             @relation("FormAuthor")
+  pregnanciesBooked      Pregnancy[]                @relation("PregnancyBookedBy")
+  deliveriesAttended     Delivery[]                 @relation("DeliveryAttendant")
+  immunizationsGiven     Immunization[]             @relation("ImmunizationGivenBy")
+  immunizationsVoided    Immunization[]             @relation("ImmunizationVoidedBy")
+  claimsCreated          Claim[]                    @relation("ClaimCreatedBy")
+  purchaseOrdersRaised   PurchaseOrder[]            @relation("PoRaisedBy")
+  purchaseOrdersApproved PurchaseOrder[]            @relation("PoApprovedBy")
+  goodsReceived          GoodsReceipt[]             @relation("GoodsReceivedBy")
+  requisitionsMade       Requisition[]              @relation("RequisitionBy")
+  requisitionsIssued     Requisition[]              @relation("RequisitionIssuedBy")
+  storeMovements         StoreMovement[]            @relation("StoreMovementBy")
 
   @@unique([facilityId, username])
   @@unique([facilityId, email])
@@ -2821,4 +2836,228 @@ model ClaimLine {
   @@index([facilityId])
   @@index([claimId])
   @@index([invoiceId])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4D: general stores and procurement. Purchase orders are approved by
+// someone other than the person who raised them, received against goods
+// received notes (never more than ordered), and stock is issued to wards and
+// departments on requisition. Every change is a StoreMovement; stock never
+// goes below zero (database CHECK).
+// ---------------------------------------------------------------------------
+
+enum StoreCategory {
+  CONSUMABLE
+  LINEN
+  STATIONERY
+  CLEANING
+  EQUIPMENT
+  FOOD
+  OTHER
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  APPROVED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
+enum RequisitionStatus {
+  PENDING
+  ISSUED
+  PARTIALLY_ISSUED
+  REJECTED
+}
+
+enum StoreMovementType {
+  RECEIPT
+  ISSUE
+  ADJUSTMENT
+}
+
+model Supplier {
+  id         String   @id @default(cuid())
+  facilityId String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  code       String
+  name       String
+  phone      String?
+  email      String?
+  address    String?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  facility       Facility        @relation(fields: [facilityId], references: [id])
+  purchaseOrders PurchaseOrder[]
+
+  @@unique([facilityId, code])
+  @@index([facilityId])
+}
+
+model StoreItem {
+  id             String        @id @default(cuid())
+  facilityId     String        @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  code           String
+  name           String
+  unit           String
+  category       StoreCategory @default(CONSUMABLE)
+  reorderLevel   Int           @default(0)
+  quantityOnHand Int           @default(0)
+  lastUnitCost   Decimal?      @db.Decimal(12, 2)
+  isActive       Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  facility         Facility            @relation(fields: [facilityId], references: [id])
+  purchaseLines    PurchaseOrderLine[]
+  receiptLines     GoodsReceiptLine[]
+  requisitionLines RequisitionLine[]
+  movements        StoreMovement[]
+
+  @@unique([facilityId, code])
+  @@index([facilityId])
+}
+
+model PurchaseOrder {
+  id           String              @id @default(cuid())
+  facilityId   String              @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  poCode       String
+  supplierId   String
+  status       PurchaseOrderStatus @default(DRAFT)
+  notes        String?
+  raisedById   String?
+  approvedById String?
+  approvedAt   DateTime?
+  cancelReason String?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  facility   Facility            @relation(fields: [facilityId], references: [id])
+  supplier   Supplier            @relation(fields: [supplierId], references: [id])
+  raisedBy   User?               @relation("PoRaisedBy", fields: [raisedById], references: [id])
+  approvedBy User?               @relation("PoApprovedBy", fields: [approvedById], references: [id])
+  lines      PurchaseOrderLine[]
+  receipts   GoodsReceipt[]
+
+  @@unique([facilityId, poCode])
+  @@index([facilityId])
+  @@index([status])
+}
+
+model PurchaseOrderLine {
+  id               String  @id @default(cuid())
+  facilityId       String  @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  purchaseOrderId  String
+  storeItemId      String
+  quantityOrdered  Int
+  quantityReceived Int     @default(0)
+  unitCost         Decimal @db.Decimal(12, 2)
+
+  facility      Facility           @relation(fields: [facilityId], references: [id])
+  purchaseOrder PurchaseOrder      @relation(fields: [purchaseOrderId], references: [id])
+  storeItem     StoreItem          @relation(fields: [storeItemId], references: [id])
+  receiptLines  GoodsReceiptLine[]
+
+  @@unique([purchaseOrderId, storeItemId])
+  @@index([facilityId])
+}
+
+model GoodsReceipt {
+  id              String   @id @default(cuid())
+  facilityId      String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  grnCode         String
+  purchaseOrderId String
+  deliveryNote    String?
+  receivedById    String?
+  receivedAt      DateTime @default(now())
+
+  facility      Facility           @relation(fields: [facilityId], references: [id])
+  purchaseOrder PurchaseOrder      @relation(fields: [purchaseOrderId], references: [id])
+  receivedBy    User?              @relation("GoodsReceivedBy", fields: [receivedById], references: [id])
+  lines         GoodsReceiptLine[]
+
+  @@unique([facilityId, grnCode])
+  @@index([facilityId])
+}
+
+model GoodsReceiptLine {
+  id             String    @id @default(cuid())
+  facilityId     String    @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  goodsReceiptId String
+  poLineId       String
+  storeItemId    String
+  quantity       Int
+  batchNumber    String?
+  expiryDate     DateTime?
+
+  facility     Facility          @relation(fields: [facilityId], references: [id])
+  goodsReceipt GoodsReceipt      @relation(fields: [goodsReceiptId], references: [id])
+  poLine       PurchaseOrderLine @relation(fields: [poLineId], references: [id])
+  storeItem    StoreItem         @relation(fields: [storeItemId], references: [id])
+
+  @@index([facilityId])
+}
+
+model Requisition {
+  id             String            @id @default(cuid())
+  facilityId     String            @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  reqCode        String
+  /// The ward, unit or department asking for stock.
+  requestingUnit String
+  status         RequisitionStatus @default(PENDING)
+  notes          String?
+  requestedById  String?
+  issuedById     String?
+  issuedAt       DateTime?
+  rejectReason   String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  facility    Facility          @relation(fields: [facilityId], references: [id])
+  requestedBy User?             @relation("RequisitionBy", fields: [requestedById], references: [id])
+  issuedBy    User?             @relation("RequisitionIssuedBy", fields: [issuedById], references: [id])
+  lines       RequisitionLine[]
+
+  @@unique([facilityId, reqCode])
+  @@index([facilityId])
+  @@index([status])
+}
+
+model RequisitionLine {
+  id                String @id @default(cuid())
+  facilityId        String @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  requisitionId     String
+  storeItemId       String
+  quantityRequested Int
+  quantityIssued    Int    @default(0)
+
+  facility    Facility    @relation(fields: [facilityId], references: [id])
+  requisition Requisition @relation(fields: [requisitionId], references: [id])
+  storeItem   StoreItem   @relation(fields: [storeItemId], references: [id])
+
+  @@unique([requisitionId, storeItemId])
+  @@index([facilityId])
+}
+
+model StoreMovement {
+  id           String            @id @default(cuid())
+  facilityId   String            @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  storeItemId  String
+  type         StoreMovementType
+  /// Signed: positive for stock in, negative for stock out.
+  quantity     Int
+  balanceAfter Int
+  /// GRN, requisition code or adjustment reason.
+  reference    String
+  actorId      String?
+  createdAt    DateTime          @default(now())
+
+  facility  Facility  @relation(fields: [facilityId], references: [id])
+  storeItem StoreItem @relation(fields: [storeItemId], references: [id])
+  actor     User?     @relation("StoreMovementBy", fields: [actorId], references: [id])
+
+  @@index([facilityId])
+  @@index([storeItemId, createdAt])
 }
