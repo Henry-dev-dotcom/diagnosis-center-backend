@@ -78,6 +78,7 @@ const labResultInclude = {
   enteredBy: { select: { id: true, name: true, role: true } },
   parameters: { include: { referenceParameter: true }, orderBy: { createdAt: 'asc' as const } },
   reviews: { include: { reviewer: { select: { id: true, name: true, role: true } } }, orderBy: { createdAt: 'desc' as const } },
+  amendments: { include: { amendedBy: { select: { id: true, name: true, role: true } } }, orderBy: { createdAt: 'desc' as const } },
   reports: { orderBy: { generatedAt: 'desc' as const }, take: 1 }
 } satisfies Prisma.LabResultInclude;
 
@@ -567,7 +568,7 @@ export async function reverseLabResult(resultId: string, body: ReversePayload, r
         labResultId: resultId,
         amendedById: req.user?.id ?? null,
         reason: body.reason,
-        beforeData: { status: before.status, interpretation: before.interpretation, parameters: before.parameters.map((p) => ({ name: p.name, value: p.value, unit: p.unit, flag: p.flag })) },
+        beforeData: { status: before.status, interpretation: before.interpretation, parameters: before.parameters.map((p) => ({ testName: before.orderItem.catalogItem.name, name: p.name, value: p.value, unit: p.unit, flag: p.flag })) },
         afterData: { status: LabResultStatus.DRAFT }
       }
     });

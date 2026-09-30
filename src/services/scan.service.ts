@@ -81,6 +81,7 @@ const scanResultInclude = {
   reportedBy: { select: { id: true, name: true, role: true } },
   files: { orderBy: { uploadedAt: 'desc' as const } },
   reviews: { include: { reviewer: { select: { id: true, name: true, role: true } } }, orderBy: { createdAt: 'desc' as const } },
+  amendments: { include: { amendedBy: { select: { id: true, name: true, role: true } } }, orderBy: { createdAt: 'desc' as const } },
   reports: { orderBy: { generatedAt: 'desc' as const }, take: 1 }
 } satisfies Prisma.ScanResultInclude;
 
