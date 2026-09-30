@@ -6,7 +6,9 @@ import {
   OrderStatus,
   Prisma,
   ReportStatus,
-  ScanStatus
+  ScanStatus,
+  UserRole,
+  UserStatus
 } from '@prisma/client';
 import type { Request } from 'express';
 import { prisma } from './prisma.service.js';
@@ -140,6 +142,7 @@ type ScanResultPayload = {
 
 type SubmitReviewPayload = { resultId: string; notes?: string | null };
 type SignOffPayload = { decision: 'SIGNED_OFF' | 'REJECTED'; reviewerComment?: string | null };
+type ReversePayload = { reason: string };
 type ScanRetakePayload = { resultId: string; reason: string; notes?: string | null };
 type ScanFilesPayload = { files: ScanResultFilePayload[] };
 
@@ -271,7 +274,9 @@ async function createScanResultFiles(tx: Prisma.TransactionClient, scanResultId:
 async function createReportIfNeeded(resultId: string, tx: Prisma.TransactionClient, actorId?: string | null) {
   const result = await tx.scanResult.findUnique({ where: { id: resultId }, include: { orderItem: true } });
   if (!result) throw new AppError('Scan result was not found', 404, 'SCAN_RESULT_NOT_FOUND');
-  const existing = await tx.report.findFirst({ where: { scanResultId: result.id } });
+  // A report voided by reverseScanResult must not be reused: sign-off after a
+  // correction gets a genuinely new report, not the withdrawn one.
+  const existing = await tx.report.findFirst({ where: { scanResultId: result.id, status: { not: ReportStatus.VOIDED } } });
   if (existing) return existing;
 
   const reportCode = await nextReportCode(tx);
@@ -579,6 +584,99 @@ export async function signOffScanResult(resultId: string, body: SignOffPayload, 
     details: { reportId: updated.report?.id ?? null, retakeId: updated.retake?.id ?? null, reviewerComment: body.reviewerComment ?? null }
   });
   return { result, report: updated.report, retake: updated.retake };
+}
+
+/**
+ * Pulls back a scan report the unit itself already sent (signed off, so a
+ * Report exists and may have been released to the clinician). The unit
+ * corrects it through the normal draft -> submit -> sign-off cycle
+ * afterwards; nothing here is destructive. Any report already generated for
+ * this result is voided and its secure links are expired at once, so an old
+ * copy can no longer be opened. If the whole order had been finally
+ * released, it reopens; ward charges and payments already taken are
+ * untouched.
+ */
+export async function reverseScanResult(resultId: string, body: ReversePayload, req: Request) {
+  if (!req.user) throw new AppError('Authentication is required', 401, 'AUTH_REQUIRED');
+  const before = await prisma.scanResult.findUnique({ where: { id: resultId }, include: scanResultInclude });
+  if (!before) throw new AppError('Scan result was not found', 404, 'SCAN_RESULT_NOT_FOUND');
+  if (before.status !== ScanStatus.SIGNED_OFF) {
+    throw new AppError('Only a signed-off (sent) report can be reversed; edit it directly while it is still a draft', 409, 'SCAN_RESULT_NOT_SENT');
+  }
+  const sentOrderItemStatuses: OrderItemStatus[] = [OrderItemStatus.SIGNED_OFF, OrderItemStatus.FINAL_RELEASED];
+  if (!sentOrderItemStatuses.includes(before.orderItem.status)) {
+    throw new AppError('This order can no longer be reversed from here', 409, 'ORDER_ITEM_NOT_REVERSIBLE');
+  }
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const result = await tx.scanResult.update({ where: { id: resultId }, data: { status: ScanStatus.DRAFT, signedOffAt: null } });
+    if (before.acceptanceId) await tx.scanAcceptance.update({ where: { id: before.acceptanceId }, data: { status: ScanStatus.DRAFT } });
+    await tx.orderItem.update({ where: { id: before.orderItemId }, data: { status: OrderItemStatus.DRAFT, completedAt: null } });
+    await tx.scanReview.create({ data: { scanResultId: resultId, reviewerId: req.user?.id ?? null, decision: 'REVERSED', note: body.reason } });
+    await tx.scanResultAmendment.create({
+      data: {
+        scanResultId: resultId,
+        amendedById: req.user?.id ?? null,
+        reason: body.reason,
+        beforeData: { status: before.status, findings: before.findings, impression: before.impression, recommendations: before.recommendations, comparison: before.comparison },
+        afterData: { status: ScanStatus.DRAFT }
+      }
+    });
+
+    const reports = await tx.report.findMany({ where: { scanResultId: resultId, status: { not: ReportStatus.VOIDED } } });
+    for (const report of reports) {
+      await tx.report.update({ where: { id: report.id }, data: { status: ReportStatus.VOIDED, voidedAt: new Date(), voidedById: req.user?.id ?? null, voidReason: body.reason } });
+      await tx.secureResultLink.updateMany({ where: { reportId: report.id, expiresAt: { gt: new Date() } }, data: { expiresAt: new Date() } });
+    }
+
+    // Reopen the order: this item is back to DRAFT, so it can no longer be "ready for review"
+    // or final. Unlike the automatic progress check, a deliberate reversal is allowed to move
+    // a finally-released order back — that is the point of reversing a sent result.
+    const order = await tx.order.findUniqueOrThrow({ where: { id: before.orderItem.orderId }, include: { items: true } });
+    if (order.status !== OrderStatus.CANCELLED) {
+      const hasAnyStarted = order.items.some((item) => item.id === before.orderItemId || item.status !== OrderItemStatus.REQUESTED);
+      const nextStatus = hasAnyStarted ? OrderStatus.IN_PROGRESS : order.status;
+      if (nextStatus !== order.status) {
+        await tx.order.update({ where: { id: order.id }, data: { status: nextStatus, ...(order.status === OrderStatus.FINAL_RELEASED ? { releasedAt: null } : {}) } });
+        await tx.orderStatusHistory.create({
+          data: { orderId: order.id, fromStatus: order.status, toStatus: nextStatus, actorId: req.user?.id ?? null, note: `Scan report reversed: ${body.reason}` }
+        });
+      }
+    }
+
+    const recipients = new Map<string, { recipientUserId: string; recipientEmail?: string | null }>();
+    const doctorUserId = before.orderItem.order.doctor?.user?.id;
+    if (doctorUserId) recipients.set(doctorUserId, { recipientUserId: doctorUserId, recipientEmail: before.orderItem.order.doctor?.user?.email });
+    const receptionUsers = await tx.user.findMany({ where: { role: UserRole.RECEPTIONIST, status: UserStatus.ACTIVE }, select: { id: true } });
+    for (const { id } of receptionUsers) recipients.set(id, { recipientUserId: id });
+    for (const recipient of recipients.values()) {
+      await tx.notification.create({
+        data: {
+          orderId: before.orderItem.orderId,
+          createdById: req.user?.id ?? null,
+          ...recipient,
+          type: NotificationType.ORDER_UPDATE,
+          title: 'Scan report withdrawn for correction',
+          body: `${before.resultCode} was sent, then withdrawn by the scan unit to correct it: ${body.reason}. A corrected report will follow.`
+        }
+      });
+    }
+
+    return { result, reports };
+  });
+
+  const result = await prisma.scanResult.findUniqueOrThrow({ where: { id: updated.result.id }, include: scanResultInclude });
+  await createAuditLog({
+    ...getRequestAuditContext(req),
+    action: 'SCAN_RESULT_REVERSED',
+    module: 'Scan',
+    entityType: 'ScanResult',
+    entityId: result.id,
+    beforeData: before,
+    afterData: result,
+    details: { reason: body.reason, reportsVoided: updated.reports.map((r) => r.id) }
+  });
+  return result;
 }
 
 export async function requestScanRetake(body: ScanRetakePayload, req: Request) {

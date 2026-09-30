@@ -68,6 +68,10 @@ export const signOffScanResultSchema = z.object({
   path: ['reviewerComment']
 });
 
+export const reverseScanResultSchema = z.object({
+  reason: requiredReasonSchema
+});
+
 export const scanRetakeSchema = z.object({
   resultId: z.string().min(1, 'Result ID is required'),
   reason: requiredReasonSchema,

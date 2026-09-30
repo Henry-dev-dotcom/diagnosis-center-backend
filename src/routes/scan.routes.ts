@@ -13,6 +13,7 @@ import {
   listScanBookingsController,
   listScanReviewQueueController,
   requestScanRetakeController,
+  reverseScanResultController,
   saveScanResultDraftController,
   signOffScanResultController,
   submitScanResultReviewController
@@ -27,6 +28,7 @@ import {
   acceptScanFromOrderSchema,
   acceptScanSchema,
   scanBookingSchema,
+  reverseScanResultSchema,
   scanResultFilesSchema,
   scanResultSchema,
   scanRetakeSchema,
@@ -48,6 +50,8 @@ scanRoutes.post('/scan/results/draft', requirePermission(PERMISSIONS.SCAN_RESULT
 scanRoutes.post('/scan/results', requirePermission(PERMISSIONS.SCAN_RESULTS_CREATE), validateRequest({ body: scanResultSchema }), saveScanResultDraftController);
 scanRoutes.post('/scan/results/submit-review', requirePermission(PERMISSIONS.SCAN_RESULTS_SUBMIT_REVIEW), validateRequest({ body: submitScanResultReviewSchema }), submitScanResultReviewController);
 scanRoutes.post('/scan/results/:id/sign-off', requirePermission(PERMISSIONS.SCAN_RESULTS_SIGN_OFF), validateRequest({ params: idParamSchema, body: signOffScanResultSchema }), signOffScanResultController);
+// A signed-off (sent) report, pulled back by the scan unit itself to correct it — see docs/SECURITY_AND_DATA_PROTECTION.md.
+scanRoutes.post('/scan/results/:id/reverse', requirePermission(PERMISSIONS.SCAN_RESULTS_REVERSE), validateRequest({ params: idParamSchema, body: reverseScanResultSchema }), reverseScanResultController);
 scanRoutes.post('/scan/retake', requirePermission(PERMISSIONS.SCAN_RETAKE_MANAGE), validateRequest({ body: scanRetakeSchema }), requestScanRetakeController);
 scanRoutes.get('/scan/review-queue', requirePermission(PERMISSIONS.SCAN_REVIEW_QUEUE_READ), validateRequest({ query: scanWorkflowQuerySchema }), listScanReviewQueueController);
 scanRoutes.get('/scan/rejected-retake', requirePermission(PERMISSIONS.SCAN_RETAKE_MANAGE), validateRequest({ query: scanWorkflowQuerySchema }), listRejectedRetakeScansController);

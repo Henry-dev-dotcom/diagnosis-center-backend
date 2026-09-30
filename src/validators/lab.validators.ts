@@ -53,6 +53,10 @@ export const signOffLabResultSchema = z.object({
   path: ['reviewerComment']
 });
 
+export const reverseLabResultSchema = z.object({
+  reason: requiredReasonSchema
+});
+
 export const rejectSampleSchema = z.object({
   reason: requiredReasonSchema,
   requestRecollection: z.boolean().default(false),

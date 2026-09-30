@@ -15,6 +15,7 @@ import {
   listRejectedRetestSamples,
   recordInventoryTransaction,
   rejectLabSample,
+  reverseLabResult,
   saveLabResultDraft,
   signOffLabResult,
   submitLabResultForReview
@@ -48,6 +49,11 @@ export const submitLabResultReviewController = asyncHandler(async (req: Request,
 export const signOffLabResultController = asyncHandler(async (req: Request, res: Response) => {
   const result = await signOffLabResult(req.params.id, req.body, req);
   return sendSuccess(res, 'Lab result review decision saved successfully', result);
+});
+
+export const reverseLabResultController = asyncHandler(async (req: Request, res: Response) => {
+  const result = await reverseLabResult(req.params.id, req.body, req);
+  return sendSuccess(res, 'Sent lab result reversed for correction', result);
 });
 
 export const attachLabResultFilesController = asyncHandler(async (req: Request, res: Response) => {

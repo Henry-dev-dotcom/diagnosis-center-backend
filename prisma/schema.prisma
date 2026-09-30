@@ -142,6 +142,7 @@ model Facility {
   subscription              Subscription?
   subscriptionInvoices      SubscriptionInvoice[]
   surgeries                 Surgery[]
+  ScanResultAmendment       ScanResultAmendment[]
 
   @@index([status])
 }
@@ -394,11 +395,12 @@ model User {
   qcRuns                QualityControlRun[]    @relation("QCPerformedBy")
   inventoryTransactions InventoryTransaction[] @relation("InventoryPerformedBy")
 
-  scanAcceptances ScanAcceptance[] @relation("ScanAcceptedBy")
-  scanBookings    ScanBooking[]    @relation("ScanBookingCreatedBy")
-  scanResults     ScanResult[]     @relation("ScanResultReportedBy")
-  scanReviews     ScanReview[]     @relation("ScanReviewedBy")
-  scanRetakes     ScanRetake[]     @relation("ScanRetakeRequestedBy")
+  scanAcceptances ScanAcceptance[]      @relation("ScanAcceptedBy")
+  scanBookings    ScanBooking[]         @relation("ScanBookingCreatedBy")
+  scanResults     ScanResult[]          @relation("ScanResultReportedBy")
+  scanReviews     ScanReview[]          @relation("ScanReviewedBy")
+  scanRetakes     ScanRetake[]          @relation("ScanRetakeRequestedBy")
+  scanAmendments  ScanResultAmendment[] @relation("ScanAmendmentBy")
 
   createdInvoices   Invoice[]          @relation("InvoiceCreatedBy")
   receivedPayments  Payment[]          @relation("PaymentReceivedBy")
@@ -409,6 +411,7 @@ model User {
   ledgerEntries     LedgerEntry[]      @relation("LedgerEntryUser")
 
   generatedReports     Report[]           @relation("ReportGeneratedBy")
+  voidedReports        Report[]           @relation("ReportVoidedBy")
   createdNotifications Notification[]     @relation("NotificationCreatedBy")
   deliveryLogs         DeliveryLog[]      @relation("DeliveryPerformedBy")
   secureResultLinks    SecureResultLink[] @relation("SecureLinkCreatedBy")
@@ -1300,11 +1303,12 @@ model ScanResult {
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 
-  orderItem  OrderItem        @relation(fields: [orderItemId], references: [id])
-  acceptance ScanAcceptance?  @relation(fields: [acceptanceId], references: [id])
-  reportedBy User?            @relation("ScanResultReportedBy", fields: [reportedById], references: [id])
+  orderItem  OrderItem             @relation(fields: [orderItemId], references: [id])
+  acceptance ScanAcceptance?       @relation(fields: [acceptanceId], references: [id])
+  reportedBy User?                 @relation("ScanResultReportedBy", fields: [reportedById], references: [id])
   files      ScanResultFile[]
   reviews    ScanReview[]
+  amendments ScanResultAmendment[]
   reports    Report[]
 
   facility Facility @relation(fields: [facilityId], references: [id])
@@ -1352,6 +1356,26 @@ model ScanReview {
 
   scanResult ScanResult @relation(fields: [scanResultId], references: [id], onDelete: Cascade)
   reviewer   User?      @relation("ScanReviewedBy", fields: [reviewerId], references: [id])
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
+  @@index([scanResultId])
+  @@index([createdAt])
+}
+
+model ScanResultAmendment {
+  id           String   @id @default(cuid())
+  facilityId   String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  scanResultId String
+  amendedById  String?
+  reason       String
+  beforeData   Json?
+  afterData    Json?
+  createdAt    DateTime @default(now())
+
+  scanResult ScanResult @relation(fields: [scanResultId], references: [id], onDelete: Cascade)
+  amendedBy  User?      @relation("ScanAmendmentBy", fields: [amendedById], references: [id])
 
   facility Facility @relation(fields: [facilityId], references: [id])
 
@@ -1643,11 +1667,16 @@ model Report {
   secureToken   String?      @unique
   generatedAt   DateTime     @default(now())
   downloadedAt  DateTime?
+  /// Set when a lab/scan department reverses a result already sent out (VOIDED).
+  voidedAt      DateTime?
+  voidedById    String?
+  voidReason    String?
 
   order        Order              @relation(fields: [orderId], references: [id])
   labResult    LabResult?         @relation(fields: [labResultId], references: [id])
   scanResult   ScanResult?        @relation(fields: [scanResultId], references: [id])
   generatedBy  User?              @relation("ReportGeneratedBy", fields: [generatedById], references: [id])
+  voidedBy     User?              @relation("ReportVoidedBy", fields: [voidedById], references: [id])
   deliveryLogs DeliveryLog[]
   secureLinks  SecureResultLink[]
 

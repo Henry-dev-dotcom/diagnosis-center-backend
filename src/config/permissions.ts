@@ -56,6 +56,8 @@ export const PERMISSIONS = {
   LAB_TRENDS_READ: 'lab:trends:read',
   LAB_QC_MANAGE: 'lab:qc:manage',
   LAB_INVENTORY_MANAGE: 'lab:inventory:manage',
+  // A signed-off (sent) lab result, pulled back by the lab itself to correct it.
+  LAB_RESULTS_REVERSE: 'lab:results:reverse',
 
   SCAN_QUEUE_READ: 'scan:queue:read',
   SCAN_ACCEPT: 'scan:accept',
@@ -66,6 +68,8 @@ export const PERMISSIONS = {
   SCAN_REVIEW_QUEUE_READ: 'scan:review-queue:read',
   SCAN_RETAKE_MANAGE: 'scan:retake:manage',
   SCAN_FILES_UPLOAD: 'scan:files:upload',
+  // A signed-off (sent) scan report, pulled back by the scan unit itself to correct it.
+  SCAN_RESULTS_REVERSE: 'scan:results:reverse',
 
   BILLING_INVOICES_READ: 'billing:invoices:read',
   BILLING_INVOICES_MANAGE: 'billing:invoices:manage',
@@ -204,6 +208,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly
     PERMISSIONS.DOCTOR_PATIENTS_READ_OWN,
     PERMISSIONS.DOCTOR_ORDERS_CREATE,
     PERMISSIONS.DOCTOR_ORDERS_READ_OWN,
+    // Reverse (cancel) an order they sent, while it is still their own to withdraw.
+    PERMISSIONS.ORDERS_CANCEL,
     PERMISSIONS.DOCTOR_RESULTS_READ_OWN,
     PERMISSIONS.DOCTOR_TRENDS_READ_OWN,
     PERMISSIONS.PATIENTS_CREATE,
@@ -347,6 +353,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly
     PERMISSIONS.LAB_RESULTS_CREATE,
     PERMISSIONS.LAB_RESULTS_SUBMIT_REVIEW,
     PERMISSIONS.LAB_RESULTS_SIGN_OFF,
+    // A wrong result already sent out (signed off) can be pulled back for correction.
+    PERMISSIONS.LAB_RESULTS_REVERSE,
     PERMISSIONS.LAB_REVIEW_QUEUE_READ,
     PERMISSIONS.LAB_TRENDS_READ,
     PERMISSIONS.LAB_QC_MANAGE,
@@ -375,6 +383,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly
     PERMISSIONS.SCAN_RESULTS_CREATE,
     PERMISSIONS.SCAN_RESULTS_SUBMIT_REVIEW,
     PERMISSIONS.SCAN_RESULTS_SIGN_OFF,
+    // A wrong report already sent out (signed off) can be pulled back for correction.
+    PERMISSIONS.SCAN_RESULTS_REVERSE,
     PERMISSIONS.SCAN_REVIEW_QUEUE_READ,
     PERMISSIONS.SCAN_RETAKE_MANAGE,
     PERMISSIONS.SCAN_FILES_UPLOAD,

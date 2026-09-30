@@ -12,6 +12,7 @@ import {
   listScanReviewQueue,
   requestScanRetake,
   saveScanResultDraft,
+  reverseScanResult,
   signOffScanResult,
   submitScanResultForReview
 } from '../services/scan.service.js';
@@ -54,6 +55,11 @@ export const submitScanResultReviewController = asyncHandler(async (req: Request
 export const signOffScanResultController = asyncHandler(async (req: Request, res: Response) => {
   const result = await signOffScanResult(req.params.id, req.body, req);
   return sendSuccess(res, 'Scan report review decision saved successfully', result);
+});
+
+export const reverseScanResultController = asyncHandler(async (req: Request, res: Response) => {
+  const result = await reverseScanResult(req.params.id, req.body, req);
+  return sendSuccess(res, 'Sent scan report reversed for correction', result);
 });
 
 export const requestScanRetakeController = asyncHandler(async (req: Request, res: Response) => {
