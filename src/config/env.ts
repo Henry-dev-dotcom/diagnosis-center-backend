@@ -68,7 +68,9 @@ const envSchema = z
     PAYMENT_CALLBACK_URL: z.string().url().optional(),
     BILLING_GRACE_DAYS: z.coerce.number().int().min(0).max(30).default(7),
     // Optional incoming-webhook URL (Slack, Teams, …) for operational alerts.
-    ALERT_WEBHOOK_URL: z.string().url().optional()
+    ALERT_WEBHOOK_URL: z.string().url().optional(),
+    // How long each facility's departments and subscription state are cached (0 = off).
+    ACCESS_CACHE_TTL_MS: z.coerce.number().int().min(0).max(60_000).default(5000)
   })
   .superRefine((value, ctx) => {
     if (value.NODE_ENV !== 'production') {

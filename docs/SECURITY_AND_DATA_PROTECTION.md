@@ -24,6 +24,7 @@ Three independent layers; any one of them stops a leak.
   A new route that forgets its guard fails QA.
 - Inside a facility: role, then permission (custom roles pick from a fixed list), then department switch (`requireModule`).
 - An unpaid or cancelled subscription makes the facility read-only; nothing is deleted.
+- Departments and subscription state are cached per facility for 5 seconds (`ACCESS_CACHE_TTL_MS`). A change is enforced at once on the server that made it and within 5 seconds on any other; suspending a whole facility (Platform → Facilities) is not cached and takes effect on the next request.
 
 ## 3. Accounts, sessions and abuse
 

@@ -41,13 +41,26 @@ Settings: `LOAD_FACILITIES` (50), `LOAD_CONCURRENCY` (40), `LOAD_SECONDS` (60).
 
 **7,741 requests, 128.6 per second, p95 416 ms, 0 errors, no isolation breach — passed.**
 
+## Result after tuning, 2026-09-30 (same laptop, production mode)
+
+Run in production mode (`NODE_ENV=production`: no per-query logging), 50 facilities, 40 concurrent users, 60 s each:
+
+| Build | Requests/s | p50 ms | p95 ms | Errors | Isolation |
+|---|---|---|---|---|---|
+| Before tuning | 139.7 | 286 | 374 | 0 | held |
+| + departments and subscription state cached per facility (5 s) | 152.7 | 250 | 385 | 0 | held |
+| + request logs written in batches (every second or 200 rows) | **234.0** | **163** | **256** | 0 | held |
+
+Per request type after tuning (p50): `GET /catalog` 112 ms, `GET /auth/me` 149, `GET /onboarding` 149, `GET /patients` 175, `GET /admin/audit-logs` 204, `POST /patients` 230. All 32,250 request-log rows were written.
+
+Trade-offs, both deliberate:
+- A change to a facility's departments or subscription is seen at once by the server that made it and within 5 seconds by any other server (`ACCESS_CACHE_TTL_MS`; 0 turns caching off).
+- If the process crashes, up to one second of request-log rows can be lost. Audit-log entries (who did what) are still written immediately.
+
 ## What it means
 
-- One API process handled about 130 requests a second with 40 users working at once. A busy
-  50-bed hospital makes roughly 1–3 requests a second at peak, so one process serves several
-  dozen such facilities; add processes behind the load balancer as facilities grow.
-- Latency here is mostly per-request work every call does (session, facility, departments and
-  subscription checks, request logging). If needed later: cache the department and subscription
-  state for a few seconds per facility, and write request logs in batches.
+- One API process now handles about 230 requests a second with 40 users working at once. A busy
+  50-bed hospital makes roughly 1–3 requests a second at peak, so one process serves dozens of
+  such facilities; add processes behind the load balancer as facilities grow.
 - Rate limits are kept per process. With more than one process, move them to a shared store
   (see SECURITY_AND_DATA_PROTECTION.md).

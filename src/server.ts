@@ -4,6 +4,7 @@ import { env } from './config/env.js';
 import { connectDatabase, disconnectDatabase } from './services/prisma.service.js';
 import { runBillingCycle } from './services/subscription.service.js';
 import { sendAlert } from './services/alerts.service.js';
+import { flushApiRequestLogs } from './services/audit.service.js';
 
 const app = createApp();
 const server = createServer(app);
@@ -41,6 +42,7 @@ async function startServer() {
 async function shutdown(signal: string) {
   console.log(`${signal} received. Closing server...`);
   server.close(async () => {
+    await flushApiRequestLogs();
     await disconnectDatabase();
     console.log('Server closed. Database disconnected.');
     process.exit(0);

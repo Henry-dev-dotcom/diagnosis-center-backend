@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { isDevelopment } from '../config/env.js';
 import { tenantExtension } from './tenantContext.js';
+import { accessCacheExtension } from './accessCache.js';
 
 declare global {
   var __diagnosisCenterPrisma: PrismaClient | undefined;
@@ -11,7 +12,9 @@ declare global {
 function createPrismaClient() {
   return new PrismaClient({
     log: isDevelopment ? ['query', 'warn', 'error'] : ['warn', 'error']
-  }).$extends(tenantExtension) as unknown as PrismaClient;
+  })
+    .$extends(tenantExtension)
+    .$extends(accessCacheExtension) as unknown as PrismaClient;
 }
 
 export const prisma = globalThis.__diagnosisCenterPrisma ?? createPrismaClient();

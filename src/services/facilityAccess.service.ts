@@ -2,7 +2,8 @@ import { CatalogItemType, type UserRole } from '@prisma/client';
 import { PERMISSIONS, ROLE_PERMISSIONS } from '../config/permissions.js';
 import { MODULES, isModuleKey, type ModuleKey } from '../config/modules.js';
 import { prisma } from './prisma.service.js';
-import { runWithFacility } from './tenantContext.js';
+import { currentFacilityId, runWithFacility } from './tenantContext.js';
+import { modulesCache } from './accessCache.js';
 import { AppError } from '../utils/appError.js';
 
 /**
@@ -43,8 +44,13 @@ export function permissionsInclude(permissions: readonly string[], permission: s
 
 /** Enabled module keys for the current facility context. */
 export async function currentFacilityModules(): Promise<ModuleKey[]> {
-  const rows = await prisma.facilityModule.findMany({ where: { enabled: true }, select: { moduleKey: true } });
-  return rows.map((row) => row.moduleKey).filter(isModuleKey).sort();
+  const load = async () => {
+    const rows = await prisma.facilityModule.findMany({ where: { enabled: true }, select: { moduleKey: true } });
+    return rows.map((row) => row.moduleKey).filter(isModuleKey).sort();
+  };
+  const facilityId = currentFacilityId();
+  // Copied so callers can never alter the cached list.
+  return facilityId ? [...(await modulesCache.get(facilityId, load))] : load();
 }
 
 export async function modulesForFacility(facilityId: string | null): Promise<ModuleKey[]> {

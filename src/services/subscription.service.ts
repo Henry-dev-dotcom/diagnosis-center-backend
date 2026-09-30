@@ -1,5 +1,5 @@
 import type { Request } from 'express';
-import { BillingInterval, Prisma, SubscriptionInvoiceKind, SubscriptionInvoiceStatus, SubscriptionStatus, UserStatus } from '@prisma/client';
+import { BillingInterval, NotificationType, Prisma, SubscriptionInvoiceKind, SubscriptionInvoiceStatus, SubscriptionStatus, UserRole, UserStatus } from '@prisma/client';
 import { MODULES, MODULE_KEYS, isModuleKey, moduleDependencyErrors, type ModuleKey } from '../config/modules.js';
 import { env } from '../config/env.js';
 import { prisma } from './prisma.service.js';
@@ -9,6 +9,7 @@ import { createAuditLog, getRequestAuditContext } from './audit.service.js';
 import { gateway, newReference, type ChargeResult } from './paymentGateway.js';
 import { entitledModules, periodEnd, prorationCharge, quote } from './subscriptionPricing.js';
 import { AppError } from '../utils/appError.js';
+import { subscriptionCache } from './accessCache.js';
 
 /*
   Subscriptions (Phase 5).
@@ -77,7 +78,7 @@ function assertModules(modules: string[]) {
   if (errors.length) throw new AppError(errors.join(' '), 400, 'MODULE_DEPENDENCY', { errors });
 }
 
-export async function createPlan(body: { code: string; name: string; description?: string; monthlyPrice: number; yearlyDiscountPercent: number; maxUsers?: number; trialDays: number; isPublic: boolean; sortOrder: number; modules: string[] }, req: Request) {
+export async function createPlan(body: { code: string; name: string; description?: string; monthlyPrice: number; yearlyDiscountPercent: number; maxUsers?: number; maxPatientsPerMonth?: number | null; maxStorageMb?: number | null; trialDays: number; isPublic: boolean; sortOrder: number; modules: string[] }, req: Request) {
   assertModules(body.modules);
   const { modules, ...data } = body;
   try {
@@ -90,7 +91,7 @@ export async function createPlan(body: { code: string; name: string; description
   }
 }
 
-export async function updatePlan(id: string, body: Partial<{ name: string; description: string; monthlyPrice: number; yearlyDiscountPercent: number; maxUsers: number | null; trialDays: number; isActive: boolean; isPublic: boolean; sortOrder: number; modules: string[] }>, req: Request) {
+export async function updatePlan(id: string, body: Partial<{ name: string; description: string; monthlyPrice: number; yearlyDiscountPercent: number; maxUsers: number | null; maxPatientsPerMonth: number | null; maxStorageMb: number | null; trialDays: number; isActive: boolean; isPublic: boolean; sortOrder: number; modules: string[] }>, req: Request) {
   if (!(await prisma.plan.findUnique({ where: { id } }))) throw new AppError('Plan not found', 404, 'PLAN_NOT_FOUND');
   const { modules, ...data } = body;
   if (modules) assertModules(modules);
@@ -178,6 +179,10 @@ export async function startTrial(tx: Tx, input: { planId: string; interval: Bill
 
 /** Read-only state for the signed-in facility, used by requireAuth on every request. */
 export async function subscriptionStateFor(facilityId: string) {
+  return subscriptionCache.get(facilityId, () => loadSubscriptionState(facilityId));
+}
+
+async function loadSubscriptionState(facilityId: string) {
   const s = await runAsSystem('auth.subscription', () =>
     prisma.subscription.findUnique({ where: { facilityId }, select: { status: true, trialEndsAt: true, graceEndsAt: true, currentPeriodEnd: true, cancelAtPeriodEnd: true } })
   );
@@ -194,9 +199,9 @@ export async function mySubscription() {
   const [plans, addOns] = await Promise.all([listPlans(), listModulePrices()]);
   const departments = MODULES.map((m) => ({ key: m.key, name: m.name, category: m.category }));
   if (!subscription) return { subscription: null, plans, addOns: addOns.filter((a) => a.priced), departments, managedByPlatform: true };
-  const [invoices, users] = await Promise.all([
+  const [invoices, used] = await Promise.all([
     prisma.subscriptionInvoice.findMany({ orderBy: { createdAt: 'desc' }, take: 50, select: invoiceSelect }),
-    prisma.user.count({ where: { status: UserStatus.ACTIVE } })
+    facilityUsage()
   ]);
   const current = await priceFor(subscription.planId, subscription.addOnModules, subscription.interval).catch(() => null);
   const { gatewayAuthorizationCode, gatewayCustomerCode: _c, ...safe } = subscription;
@@ -210,7 +215,7 @@ export async function mySubscription() {
       readOnly: NOT_WRITABLE.includes(subscription.status),
       modules: entitledModules(subscription.plan.modules.map((m) => m.moduleKey), subscription.addOnModules),
       price: current ? { lines: current.lines, total: current.total, monthlyEquivalent: current.monthlyEquivalent } : null,
-      usage: { users, maxUsers: subscription.plan.maxUsers }
+      usage: withLimits(used, subscription.plan)
     },
     invoices: invoices.map((i) => ({ ...i, amount: money(i.amount) })),
     plans,
@@ -528,7 +533,118 @@ export async function runBillingCycle(now = new Date()) {
       outcomes.push({ facilityId: s.facilityId, action: `ERROR: ${error instanceof Error ? error.message : 'unknown'}` });
     }
   }
-  return { checked: due.length, outcomes };
+  const reminders = await sendReminders(now);
+  return { checked: due.length, outcomes, reminders };
+}
+
+/* ------------------------------------------------ fair use and reminders */
+
+const round1 = (v: number) => Math.round(v * 10) / 10;
+
+/** What the current facility uses against its plan. Runs in the facility's context. */
+export async function facilityUsage(now = new Date()) {
+  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const [users, patientsThisMonth, files] = await Promise.all([
+    prisma.user.count({ where: { status: UserStatus.ACTIVE } }),
+    prisma.patient.count({ where: { createdAt: { gte: monthStart } } }),
+    prisma.scanResultFile.aggregate({ _sum: { fileSize: true } })
+  ]);
+  return { users, patientsThisMonth, storageMb: round1((files._sum.fileSize ?? 0) / 1_048_576) };
+}
+
+/**
+ * Usage beside the plan's limits. The staff limit is enforced when accounts
+ * are created; patient and storage limits are fair-use only: the facility and
+ * the operator are told, but care is never blocked.
+ */
+function withLimits(u: Awaited<ReturnType<typeof facilityUsage>>, plan: { maxUsers: number | null; maxPatientsPerMonth: number | null; maxStorageMb: number | null }) {
+  return {
+    ...u,
+    maxUsers: plan.maxUsers,
+    maxPatientsPerMonth: plan.maxPatientsPerMonth,
+    maxStorageMb: plan.maxStorageMb,
+    overFairUse: Boolean((plan.maxPatientsPerMonth && u.patientsThisMonth > plan.maxPatientsPerMonth) || (plan.maxStorageMb && u.storageMb > plan.maxStorageMb))
+  };
+}
+
+type Reminder = { key: string; title: string; body: string };
+const day = (d: Date) => d.toISOString().slice(0, 10);
+const niceDate = (d: Date) => new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeZone: 'Africa/Accra' }).format(d);
+
+/** The reminders a subscription is due now. Keys include the date, so each is sent once. */
+export function remindersDue(
+  s: { status: SubscriptionStatus; trialEndsAt: Date | null; currentPeriodEnd: Date | null; graceEndsAt: Date | null; cancelAtPeriodEnd: boolean; cancelledAt: Date | null; gatewayAuthorizationHint: string | null; gatewayAuthorizationCode: string | null; plan: { name: string; maxPatientsPerMonth: number | null; maxStorageMb: number | null } },
+  usage: { patientsThisMonth: number; storageMb: number } | null,
+  now: Date
+): Reminder[] {
+  const out: Reminder[] = [];
+  const daysTo = (d: Date) => (d.getTime() - now.getTime()) / DAY_MS;
+  if (s.status === SubscriptionStatus.TRIALING && s.trialEndsAt) {
+    const d = daysTo(s.trialEndsAt);
+    if (d > 0 && d <= 1) out.push({ key: `TRIAL_1D:${day(s.trialEndsAt)}`, title: 'Your free trial ends tomorrow', body: `The ${s.plan.name} trial ends on ${niceDate(s.trialEndsAt)}. Choose a plan under Subscription & Billing to keep full use; afterwards records become read-only until you do.` });
+    else if (d > 1 && d <= 3) out.push({ key: `TRIAL_3D:${day(s.trialEndsAt)}`, title: 'Your free trial ends in 3 days', body: `The ${s.plan.name} trial ends on ${niceDate(s.trialEndsAt)}. Choose a plan under Subscription & Billing to keep full use.` });
+  }
+  if (s.status === SubscriptionStatus.ACTIVE && s.currentPeriodEnd) {
+    const d = daysTo(s.currentPeriodEnd);
+    if (d > 0 && d <= 3) {
+      if (s.cancelAtPeriodEnd) out.push({ key: `ENDING_3D:${day(s.currentPeriodEnd)}`, title: 'Your subscription ends soon', body: `It ends on ${niceDate(s.currentPeriodEnd)}, as you asked; records then become read-only. Choose "Keep my subscription" to continue.` });
+      else out.push({
+        key: `RENEWAL_3D:${day(s.currentPeriodEnd)}`,
+        title: 'Your subscription renews soon',
+        body: s.gatewayAuthorizationCode
+          ? `It renews on ${niceDate(s.currentPeriodEnd)}; ${s.gatewayAuthorizationHint || 'your saved payment method'} will be charged.`
+          : `It renews on ${niceDate(s.currentPeriodEnd)}. No payment method is saved, so pay the renewal invoice under Subscription & Billing when it appears.`
+      });
+    }
+  }
+  if (s.status === SubscriptionStatus.PAST_DUE && s.graceEndsAt) out.push({ key: `PAST_DUE:${day(s.graceEndsAt)}`, title: 'Subscription payment failed', body: `The renewal payment did not go through. Pay under Subscription & Billing by ${niceDate(s.graceEndsAt)}, or records become read-only.` });
+  if (s.status === SubscriptionStatus.SUSPENDED) {
+    const since = s.currentPeriodEnd ?? s.trialEndsAt;
+    out.push({ key: `SUSPENDED:${since ? day(since) : 'x'}`, title: 'Records are now read-only', body: 'The subscription is unpaid. Staff can still view everything, but nothing can be added or changed until payment is made under Subscription & Billing. No data has been deleted.' });
+  }
+  if (s.status === SubscriptionStatus.CANCELLED && s.cancelledAt && now.getTime() - s.cancelledAt.getTime() < 2 * DAY_MS) {
+    out.push({ key: `CANCELLED:${day(s.cancelledAt)}`, title: 'Your subscription has ended', body: 'Records are read-only and kept safe. Renew under Subscription & Billing at any time, or download all your data from Facility Setup.' });
+  }
+  const month = now.toISOString().slice(0, 7);
+  if (usage && s.plan.maxPatientsPerMonth && usage.patientsThisMonth > s.plan.maxPatientsPerMonth) {
+    out.push({ key: `FAIRUSE_PATIENTS:${month}`, title: 'More patients than your plan covers', body: `${usage.patientsThisMonth} new patients this month; the ${s.plan.name} plan covers ${s.plan.maxPatientsPerMonth}. Nothing is blocked, but please consider a larger plan.` });
+  }
+  if (usage && s.plan.maxStorageMb && usage.storageMb > s.plan.maxStorageMb) {
+    out.push({ key: `FAIRUSE_STORAGE:${month}`, title: 'More storage than your plan covers', body: `Files use ${usage.storageMb} MB; the ${s.plan.name} plan covers ${s.plan.maxStorageMb} MB. Nothing is blocked, but please consider a larger plan.` });
+  }
+  return out;
+}
+
+/** Sends due reminders to every active administrator of each facility, once each. */
+async function sendReminders(now: Date) {
+  const subscriptions = await runAsSystem('billing.reminders', () =>
+    prisma.subscription.findMany({
+      where: { OR: [{ status: { not: SubscriptionStatus.CANCELLED } }, { cancelledAt: { gte: new Date(now.getTime() - 2 * DAY_MS) } }] },
+      include: { plan: { select: { name: true, maxPatientsPerMonth: true, maxStorageMb: true } } }
+    })
+  );
+  let sent = 0;
+  for (const s of subscriptions) {
+    try {
+      await runWithFacility(s.facilityId, async () => {
+        const usage = s.plan.maxPatientsPerMonth || s.plan.maxStorageMb ? await facilityUsage(now) : null;
+        const due = remindersDue(s, usage, now).filter((r) => !s.remindersSent.includes(r.key));
+        if (!due.length) return;
+        const admins = await prisma.user.findMany({ where: { role: UserRole.ADMIN, status: UserStatus.ACTIVE }, select: { id: true } });
+        for (const r of due) {
+          for (const a of admins) {
+            await prisma.notification.create({ data: { type: NotificationType.PAYMENT_UPDATE, title: r.title, body: r.body, recipientUserId: a.id, recipientEmail: s.billingEmail } });
+          }
+          sent += 1;
+        }
+        await prisma.subscription.update({ where: { id: s.id }, data: { remindersSent: [...due.map((r) => r.key), ...s.remindersSent].slice(0, 40) } });
+        await audit(null, 'SUBSCRIPTION_REMINDERS_SENT', s.id, { keys: due.map((r) => r.key) });
+      });
+    } catch (error) {
+      console.error('Reminder failed for', s.facilityId, error instanceof Error ? error.message : error);
+    }
+  }
+  return sent;
 }
 
 /** The platform operator's view of every subscription. */
@@ -539,8 +655,12 @@ export async function listSubscriptions() {
       include: { facility: { select: { id: true, code: true, name: true } }, plan: { select: { code: true, name: true } }, invoices: { where: { status: SubscriptionInvoiceStatus.OPEN }, select: { invoiceNumber: true, amount: true, kind: true } } }
     })
   );
-  return rows.map(({ gatewayAuthorizationCode, gatewayCustomerCode: _c, invoices, ...s }) => {
+  const out = [];
+  for (const { gatewayAuthorizationCode, gatewayCustomerCode: _c, invoices, ...s } of rows) {
     void _c;
-    return { ...s, hasSavedPaymentMethod: Boolean(gatewayAuthorizationCode), openInvoices: invoices.map((i) => ({ ...i, amount: money(i.amount) })) };
-  });
+    const plan = await runAsSystem('platform.billing', () => prisma.plan.findUniqueOrThrow({ where: { id: s.planId }, select: { maxUsers: true, maxPatientsPerMonth: true, maxStorageMb: true } }));
+    const usage = withLimits(await runWithFacility(s.facilityId, () => facilityUsage()), plan);
+    out.push({ ...s, usage, hasSavedPaymentMethod: Boolean(gatewayAuthorizationCode), openInvoices: invoices.map((i) => ({ ...i, amount: money(i.amount) })) });
+  }
+  return out;
 }

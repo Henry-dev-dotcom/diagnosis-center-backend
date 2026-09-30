@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import type { Prisma, UserRole } from '@prisma/client';
 import { prisma } from './prisma.service.js';
-import { currentFacilityId } from './tenantContext.js';
+import { currentFacilityId, runAsSystem } from './tenantContext.js';
 
 // Log rows carry facilityId when known. Callers outside a tenant context (for
 // example 'finish' handlers) pass it explicitly; otherwise the current context is used.
@@ -97,23 +97,47 @@ export async function createSystemEvent(input: SystemEventInput) {
   }
 }
 
+/*
+  Request logs (one per API call) are written in batches: at most every
+  second, or every 200 rows, and on shutdown. This takes a database write off
+  every request. Audit logs are not batched.
+*/
+const pendingRequestLogs: Prisma.ApiRequestLogCreateManyInput[] = [];
+let requestLogTimer: NodeJS.Timeout | null = null;
+const REQUEST_LOG_FLUSH_MS = 1000;
+const REQUEST_LOG_BATCH = 200;
+
 export async function createApiRequestLog(input: ApiRequestLogInput) {
+  pendingRequestLogs.push({
+    facilityId: input.facilityId ?? currentFacilityId(),
+    userId: input.userId ?? null,
+    requestId: input.requestId ?? null,
+    method: input.method,
+    path: input.path,
+    statusCode: input.statusCode ?? null,
+    durationMs: input.durationMs ?? null,
+    ipAddress: input.ipAddress ?? null,
+    userAgent: input.userAgent ?? null
+  });
+  if (pendingRequestLogs.length >= REQUEST_LOG_BATCH) void flushApiRequestLogs();
+  else if (!requestLogTimer) {
+    requestLogTimer = setTimeout(() => void flushApiRequestLogs(), REQUEST_LOG_FLUSH_MS);
+    requestLogTimer.unref();
+  }
+}
+
+export async function flushApiRequestLogs() {
+  if (requestLogTimer) {
+    clearTimeout(requestLogTimer);
+    requestLogTimer = null;
+  }
+  if (!pendingRequestLogs.length) return;
+  const batch = pendingRequestLogs.splice(0, pendingRequestLogs.length);
   try {
-    await prisma.apiRequestLog.create({
-      data: {
-        facilityId: input.facilityId ?? currentFacilityId(),
-        userId: input.userId ?? null,
-        requestId: input.requestId ?? null,
-        method: input.method,
-        path: input.path,
-        statusCode: input.statusCode ?? null,
-        durationMs: input.durationMs ?? null,
-        ipAddress: input.ipAddress ?? null,
-        userAgent: input.userAgent ?? null
-      }
-    });
+    // Each row carries its own facility (or none), so write them as they are.
+    await runAsSystem('audit.request-log', () => prisma.apiRequestLog.createMany({ data: batch }));
   } catch (error) {
-    console.error('API request log failed', error);
+    console.error(`API request log failed (${batch.length} rows)`, error);
   }
 }
 

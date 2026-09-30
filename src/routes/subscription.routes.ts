@@ -25,6 +25,9 @@ const planFields = {
   monthlyPrice: z.coerce.number().min(0).max(10_000_000),
   yearlyDiscountPercent: z.coerce.number().int().min(0).max(60),
   maxUsers: z.coerce.number().int().min(1).max(100_000).nullable().optional(),
+  // Fair use: shown and warned about, never blocking.
+  maxPatientsPerMonth: z.coerce.number().int().min(1).max(10_000_000).nullable().optional(),
+  maxStorageMb: z.coerce.number().int().min(1).max(100_000_000).nullable().optional(),
   trialDays: z.coerce.number().int().min(0).max(90),
   isActive: z.boolean(),
   isPublic: z.boolean(),

@@ -3636,6 +3636,9 @@ model Plan {
   yearlyDiscountPercent Int      @default(0)
   /// Staff accounts allowed; null for unlimited.
   maxUsers              Int?
+  /// Fair-use limits, shown and warned about but never blocking care; null for none.
+  maxPatientsPerMonth   Int?
+  maxStorageMb          Int?
   trialDays             Int      @default(14)
   isActive              Boolean  @default(true)
   /// Shown on the public pricing page.
@@ -3683,6 +3686,8 @@ model Subscription {
   pendingInterval          BillingInterval?
   pendingAddOns            String[]           @default([])
   hasPendingChange         Boolean            @default(false)
+  /// Reminder keys already sent (for example TRIAL_3D:2026-10-13), so each goes once.
+  remindersSent            String[]           @default([])
   billingEmail             String?
   /// Reusable card / mobile money authorisation from the gateway, for renewals.
   gatewayCustomerCode      String?
