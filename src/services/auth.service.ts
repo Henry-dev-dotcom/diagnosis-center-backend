@@ -48,6 +48,7 @@ async function sanitizeUser(user: {
   lastLoginAt: Date | null;
   facility?: FacilitySummary | null;
   customRole?: CustomRoleLike | null;
+  doctorProfile?: { id: string } | null;
 }, support: SupportInfo | null = null) {
   const facility = toFacilitySummary(user.facility);
   const customRole = user.customRole && user.customRole.baseRole === user.role ? user.customRole : null;
@@ -63,6 +64,9 @@ async function sanitizeUser(user: {
     status: user.status,
     lastLoginAt: user.lastLoginAt,
     permissions: effectivePermissions(user.role, customRole),
+    // The clinician's own profile id, so their workspace finds their own orders
+    // without needing the admin-only doctor list.
+    doctorProfileId: user.doctorProfile?.id ?? null,
     modules: await modulesForFacility(facility?.id ?? null),
     subscription: facility ? await subscriptionStateFor(facility.id) : null,
     support
@@ -116,7 +120,7 @@ async function authenticate(facility: FacilitySummary | null, normalizedUsername
   // sign-in only facility-less users may match.
   const user = await prisma.user.findFirst({
     where: { username: normalizedUsername, ...(facility ? {} : { facilityId: null, role: UserRole.PLATFORM_ADMIN }) },
-    include: { customRole: true }
+    include: { customRole: true, doctorProfile: { select: { id: true } } }
   });
 
   if (!user) {
@@ -229,7 +233,7 @@ export async function refreshTokenPair(refreshToken: string, context: RequestCon
 
   const session = await prisma.userSession.findUnique({
     where: { id: payload.sessionId },
-    include: { user: { include: { facility: true, customRole: true } } }
+    include: { user: { include: { facility: true, customRole: true, doctorProfile: { select: { id: true } } } } }
   });
 
   if (!session || session.revokedAt || session.expiresAt < new Date()) {
@@ -338,7 +342,7 @@ export async function logoutByRefreshToken(refreshToken: string, context: Reques
 // The signed-in user's own row, by the id from their verified session. Runs as
 // system so it also works for platform administrators, who have no facility.
 function findSelf(userId: string) {
-  return runAsSystem('auth.self', () => prisma.user.findUnique({ where: { id: userId }, include: { facility: true, customRole: true } }));
+  return runAsSystem('auth.self', () => prisma.user.findUnique({ where: { id: userId }, include: { facility: true, customRole: true, doctorProfile: { select: { id: true } } } }));
 }
 
 export async function getCurrentUser(userId: string, sessionId: string) {
