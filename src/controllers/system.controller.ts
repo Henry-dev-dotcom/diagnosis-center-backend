@@ -48,7 +48,7 @@ export async function getDatabaseStatus(_req: Request, res: Response) {
 
 export function getVersion(_req: Request, res: Response) {
   return sendSuccess(res, 'Version information', {
-    name: 'Diagnosis Center Backend API',
+    name: 'LHIMS API',
     version: '2.1.0',
     apiPrefix: env.API_PREFIX,
     // Configuration details only outside production (they help attackers, not users).

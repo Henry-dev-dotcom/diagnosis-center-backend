@@ -584,7 +584,7 @@ export async function listReceptionResultsInbox(query: Request['query']) {
 }
 
 function buildSafePatientNotice(reportCode: string, channel: DeliveryChannel | string, provided?: string | null) {
-  const defaultMessage = `Your result report ${reportCode} is ready. Please contact reception or use your secure result link from the diagnosis center.`;
+  const defaultMessage = `Your result report ${reportCode} is ready. Please contact reception or use your secure result link from the hospital.`;
   if (channel === DeliveryChannel.EMAIL && provided) return provided.trim();
   return defaultMessage;
 }

@@ -34,7 +34,7 @@ async function startServer() {
   setInterval(cycle, 60 * 60_000).unref();
 
   server.listen(env.PORT, () => {
-    console.log(`Diagnosis Center Backend API listening on http://localhost:${env.PORT}`);
+    console.log(`LHIMS API listening on http://localhost:${env.PORT}`);
     console.log(`API docs: http://localhost:${env.PORT}${env.API_PREFIX}/docs`);
   });
 }

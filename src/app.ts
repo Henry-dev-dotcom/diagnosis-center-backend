@@ -14,7 +14,7 @@ export function createApp() {
 
   app.get('/', (_req, res) => {
     res.json({
-      name: 'Diagnosis Center Backend API',
+      name: 'LHIMS API',
       status: 'running',
       docs: env.ENABLE_API_DOCS ? `${env.API_PREFIX}/docs` : null,
       health: `${env.API_PREFIX}/health`

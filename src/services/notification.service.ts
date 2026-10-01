@@ -171,7 +171,7 @@ type DeliverNotificationPayload = {
   safeMessage?: boolean;
 };
 
-const PRIVACY_SAFE_NOTICE = 'Your result/notification is ready. Please contact the diagnosis center or use the secure link provided by the facility.';
+const PRIVACY_SAFE_NOTICE = 'Your result/notification is ready. Please contact the hospital or use the secure link provided by the facility.';
 
 function safeDeliveryBody(channel: string, body: string) {
   if (channel === 'SMS' || channel === 'WHATSAPP') return PRIVACY_SAFE_NOTICE;

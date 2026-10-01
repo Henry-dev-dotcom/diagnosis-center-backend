@@ -97,7 +97,7 @@ function isPrivacySafeChannel(channel: DeliveryChannel) {
 
 // SMS and WhatsApp notices must not include clinical values, diagnosis, findings, or lab parameters.
 function buildSafeResultNotice(reportCode: string, channel: DeliveryChannel, customNote?: string | null) {
-  const safe = `Your result report ${reportCode} is ready. Please contact reception or use your secure result link from the diagnosis center.`;
+  const safe = `Your result report ${reportCode} is ready. Please contact reception or use your secure result link from the hospital.`;
   if (isPrivacySafeChannel(channel)) return safe;
   if (customNote?.trim()) return customNote.trim();
   return safe;
