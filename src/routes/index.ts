@@ -32,6 +32,7 @@ import { hrRoutes } from './hr.routes.js';
 import { recordsRoutes } from './records.routes.js';
 import { subscriptionRoutes } from './subscription.routes.js';
 import { onboardingRoutes } from './onboarding.routes.js';
+import { analyzerIngestRoutes, analyzerRoutes } from './analyzer.routes.js';
 
 export const apiRouter = Router();
 
@@ -40,6 +41,9 @@ apiRouter.use(authRoutes);
 // Before the department routers: public pricing, webhooks and the fake checkout need no sign-in.
 apiRouter.use(subscriptionRoutes);
 apiRouter.use(onboardingRoutes);
+// An analyzer authenticates with its own device key, so this must also sit above
+// the department routers that require a staff session.
+apiRouter.use(analyzerIngestRoutes);
 apiRouter.use(accessRoutes);
 apiRouter.use(usersRoutes);
 apiRouter.use(patientsRoutes);
@@ -48,6 +52,7 @@ apiRouter.use(catalogRoutes);
 apiRouter.use(ordersRoutes);
 apiRouter.use(receptionRoutes);
 apiRouter.use(labRoutes);
+apiRouter.use(analyzerRoutes);
 apiRouter.use(scanRoutes);
 apiRouter.use(billingRoutes);
 apiRouter.use(financeRoutes);

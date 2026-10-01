@@ -47,5 +47,25 @@ export default [
         URL: 'readonly'
       }
     }
+  },
+  {
+    // The analyzer bridge is a standalone Node program that runs in a hospital,
+    // not part of the API build, so it gets the full set of Node globals.
+    files: ['tools/**/*.mjs'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      globals: {
+        console: 'readonly',
+        process: 'readonly',
+        fetch: 'readonly',
+        URL: 'readonly',
+        Buffer: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly'
+      }
+    }
   }
 ];

@@ -18,6 +18,7 @@ import { nextCode as issueCode } from './codeSequence.service.js';
 import { normalizeAndStoreFile, type IncomingFilePayload } from './fileStorage.service.js';
 import { createAuditLog, getRequestAuditContext } from './audit.service.js';
 import { getPagination, paginationMeta, safeOrderBy } from './query.service.js';
+import { computeFlag, numberOrNull, referenceDisplay } from './labFlags.js';
 import { AppError } from '../utils/appError.js';
 
 const patientSelect = {
@@ -122,12 +123,6 @@ function cleanString(value: unknown) {
   return trimmed.length ? trimmed : null;
 }
 
-function numberOrNull(value: unknown) {
-  if (value === null || value === undefined || value === '') return null;
-  const parsed = Number(String(value).replace(/,/g, '').trim());
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
 function toDate(value: Date | string | undefined, fallback = new Date()) {
   if (!value) return fallback;
   const date = value instanceof Date ? value : new Date(value);
@@ -189,33 +184,8 @@ function buildSampleStatusFromAction(requestRecollection?: boolean) {
   return requestRecollection ? LabSampleStatus.RECOLLECTION_REQUESTED : LabSampleStatus.REJECTED;
 }
 
-function computeFlag(value: string, range?: { low: Prisma.Decimal | null; high: Prisma.Decimal | null; criticalLow: Prisma.Decimal | null; criticalHigh: Prisma.Decimal | null } | null, provided?: ResultFlag) {
-  if (provided && provided !== ResultFlag.PENDING) return provided;
-  const numeric = numberOrNull(value);
-  if (numeric === null || !range) return ResultFlag.NO_RANGE;
-
-  const criticalLow = range.criticalLow === null ? null : Number(range.criticalLow);
-  const criticalHigh = range.criticalHigh === null ? null : Number(range.criticalHigh);
-  const low = range.low === null ? null : Number(range.low);
-  const high = range.high === null ? null : Number(range.high);
-
-  if (criticalLow !== null && numeric < criticalLow) return ResultFlag.CRITICAL;
-  if (criticalHigh !== null && numeric > criticalHigh) return ResultFlag.CRITICAL;
-  if (low !== null && numeric < low) return ResultFlag.LOW;
-  if (high !== null && numeric > high) return ResultFlag.HIGH;
-  if (low === null && high === null) return ResultFlag.NO_RANGE;
-  return ResultFlag.NORMAL;
-}
-
-function referenceDisplay(parameter: { unit: string | null; ranges: Array<{ displayRange: string | null; low: Prisma.Decimal | null; high: Prisma.Decimal | null }> }) {
-  const range = parameter.ranges[0];
-  if (!range) return null;
-  if (range.displayRange) return range.displayRange;
-  if (range.low !== null && range.high !== null) return `${range.low.toString()} - ${range.high.toString()}${parameter.unit ? ` ${parameter.unit}` : ''}`;
-  return null;
-}
-
-async function setParentOrderProgress(orderId: string, tx: Prisma.TransactionClient, actorId?: string | null) {
+/** Roll the parent order forward as its items progress. Shared with the analyzer path. */
+export async function setParentOrderProgress(orderId: string, tx: Prisma.TransactionClient, actorId?: string | null) {
   const order = await tx.order.findUnique({ where: { id: orderId }, include: { items: true } });
   if (!order) return;
   if (order.status === OrderStatus.CANCELLED || order.status === OrderStatus.FINAL_RELEASED) return;

@@ -113,7 +113,7 @@ export function applyGlobalMiddleware(app: Express) {
       },
       credentials: true,
       methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'x-request-id'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'x-request-id', 'x-analyzer-key'],
       // Lets the app name downloaded files (data export, reports) and show request ids.
       exposedHeaders: ['Content-Disposition', 'x-request-id']
     })

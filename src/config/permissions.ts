@@ -58,6 +58,10 @@ export const PERMISSIONS = {
   LAB_INVENTORY_MANAGE: 'lab:inventory:manage',
   // A signed-off (sent) lab result, pulled back by the lab itself to correct it.
   LAB_RESULTS_REVERSE: 'lab:results:reverse',
+  // Analyzers that send their own results in: the device list, the test-code
+  // mapping, and the log of what each instrument sent.
+  LAB_ANALYZERS_READ: 'lab:analyzers:read',
+  LAB_ANALYZERS_MANAGE: 'lab:analyzers:manage',
 
   SCAN_QUEUE_READ: 'scan:queue:read',
   SCAN_ACCEPT: 'scan:accept',
@@ -359,6 +363,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly
     PERMISSIONS.LAB_TRENDS_READ,
     PERMISSIONS.LAB_QC_MANAGE,
     PERMISSIONS.LAB_INVENTORY_MANAGE,
+    // The bench sets up its own analyzers and fixes their test-code mapping.
+    PERMISSIONS.LAB_ANALYZERS_READ,
+    PERMISSIONS.LAB_ANALYZERS_MANAGE,
     PERMISSIONS.REPORTS_READ,
     PERMISSIONS.REPORTS_EXPORT,
     PERMISSIONS.FILES_UPLOAD,

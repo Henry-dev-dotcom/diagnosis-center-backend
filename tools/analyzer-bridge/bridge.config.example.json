@@ -1,0 +1,20 @@
+{
+  "_comment": "Copy this to bridge.config.json and fill it in. Keep that file readable only by the account that runs the bridge: it holds the analyzer's key.",
+
+  "apiUrl": "https://your-lhims-api.example.com/api",
+  "deviceKey": "lhims_anz_PASTE_THE_KEY_LHIMS_SHOWED_YOU",
+
+  "_mode": "folder watches a directory the analyzer writes to; tcp listens for the analyzer to connect",
+  "mode": "folder",
+
+  "_folderMode": "Point watchDir at the folder the analyzer or its software saves results into. sent/, failed/ and queue/ are created inside it.",
+  "watchDir": "C:/LHIMS/analyzer/incoming",
+  "extensions": [".txt", ".csv", ".hl7", ".dat", ".res", ".json", ".astm"],
+  "pollSeconds": 5,
+
+  "_tcpMode": "Used when mode is tcp. Set the analyzer to send to this machine's address on this port. watchDir is still used to hold anything that could not be delivered.",
+  "host": "0.0.0.0",
+  "port": 9100,
+
+  "retrySeconds": 30
+}
