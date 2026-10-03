@@ -50,7 +50,7 @@ beforeAll(async () => {
   baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   platformToken = await login(undefined, 'platform', 'platform123');
   const plans = (await send('GET', '/public/plans', undefined)).json.data.plans as { id: string; code: string }[];
-  starterId = plans.find((p) => p.code === 'STARTER')!.id;
+  starterId = plans.find((p) => p.code === 'CLINIC')!.id;
 });
 
 afterAll(() => new Promise<void>((resolve) => server.close(() => resolve())));

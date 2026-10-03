@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from 'express';
-import { BillingInterval, Prisma, UserRole } from '@prisma/client';
+import { BillingInterval, FacilityKind, Prisma, UserRole } from '@prisma/client';
 import { z } from 'zod';
 import { PERMISSIONS } from '../config/permissions.js';
 import { MODULE_KEYS } from '../config/modules.js';
@@ -21,6 +21,7 @@ const addOns = z.array(z.enum(MODULE_KEYS)).max(MODULE_KEYS.length).default([]);
 const selection = z.object({ planId: z.string().min(1, 'Choose a plan'), interval: z.nativeEnum(BillingInterval), addOns });
 const planFields = {
   name: z.string().trim().min(2).max(80),
+  facilityKind: z.nativeEnum(FacilityKind),
   description: z.string().trim().max(500).optional(),
   monthlyPrice: z.coerce.number().min(0).max(10_000_000),
   yearlyDiscountPercent: z.coerce.number().int().min(0).max(60),
@@ -34,7 +35,7 @@ const planFields = {
   sortOrder: z.coerce.number().int().min(0).max(1000),
   modules: z.array(z.enum(MODULE_KEYS)).min(1, 'A plan includes at least one department')
 };
-const createPlanSchema = z.object({ code: z.string().trim().min(2).max(20).transform((v) => v.toUpperCase()), ...planFields, isActive: planFields.isActive.default(true), isPublic: planFields.isPublic.default(true), sortOrder: planFields.sortOrder.default(0), yearlyDiscountPercent: planFields.yearlyDiscountPercent.default(0), trialDays: planFields.trialDays.default(14) });
+const createPlanSchema = z.object({ code: z.string().trim().min(2).max(20).transform((v) => v.toUpperCase()), ...planFields, facilityKind: planFields.facilityKind.default(FacilityKind.HOSPITAL), isActive: planFields.isActive.default(true), isPublic: planFields.isPublic.default(true), sortOrder: planFields.sortOrder.default(0), yearlyDiscountPercent: planFields.yearlyDiscountPercent.default(0), trialDays: planFields.trialDays.default(14) });
 const updatePlanSchema = z.object(planFields).partial().refine((v) => Object.keys(v).length > 0, { message: 'Nothing to update' });
 
 export const subscriptionRoutes = Router();

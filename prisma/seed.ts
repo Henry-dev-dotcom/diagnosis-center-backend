@@ -1,6 +1,7 @@
 import { hashPassword } from '../src/utils/password.js';
 
 import {
+  FacilityKind,
   AppointmentStatus,
   CatalogItemType,
   DeliveryChannel,
@@ -1410,17 +1411,62 @@ export async function seedFacility(facility: DemoFacility) {
 }
 
 /*
-  Subscription plans (Phase 5). PLACEHOLDER PRICES for development: the real
-  tiers and prices are a business decision and are set in the platform console.
+  Subscription plans. PLACEHOLDER PRICES for development: the real tiers and
+  prices are a business decision and are set in the platform console.
+
+  Plans are grouped by the kind of facility a customer runs, because that is the
+  question they can actually answer. A diagnostic centre is not a small hospital
+  — it needs imaging and results delivery, and no outpatient clinic at all — so
+  these are different shapes, not rungs of one ladder. Only Hospital has sizes.
+
+  Whatever the plan, any department can still be added on top: a diagnostic
+  centre that opens a dispensary just adds Pharmacy.
 */
+const CLINIC_CORE = ['opd', 'reception', 'laboratory', 'pharmacy', 'billing', 'reports', 'medical_records'] as const;
+
 const DEMO_PLANS = [
-  { code: 'STARTER', name: 'Starter', description: 'Clinics and small health centres: outpatient care, laboratory, pharmacy and billing.', monthlyPrice: 500, maxUsers: 10, sortOrder: 1,
-    modules: ['opd', 'reception', 'laboratory', 'pharmacy', 'billing', 'reports', 'medical_records'] },
-  { code: 'STANDARD', name: 'Standard', description: 'District hospitals: adds wards, emergency, imaging, finance, NHIS claims, stores and HR.', monthlyPrice: 1500, maxUsers: 40, sortOrder: 2,
-    modules: ['opd', 'reception', 'laboratory', 'pharmacy', 'billing', 'reports', 'medical_records', 'emergency', 'inpatient', 'imaging', 'finance', 'claims', 'clinician_portal', 'results_delivery', 'stores', 'hr'] },
-  { code: 'PREMIUM', name: 'Premium', description: 'Full hospitals: every department, unlimited staff accounts.', monthlyPrice: 3500, maxUsers: null, sortOrder: 3, modules: [...MODULE_KEYS] }
+  {
+    code: 'DIAGNOSTIC', name: 'Diagnostic Centre', facilityKind: FacilityKind.DIAGNOSTIC_CENTRE, sortOrder: 1,
+    description: 'Laboratory and scan unit: tests and scans requested by outside clinicians, reported and delivered back to them.',
+    monthlyPrice: 800, maxUsers: 15,
+    // No outpatient clinic: a diagnostic centre does not consult, it receives
+    // requests. Which is why the clinician portal and results delivery are core
+    // to it rather than extras.
+    modules: ['laboratory', 'imaging', 'reception', 'billing', 'reports', 'medical_records', 'clinician_portal', 'results_delivery']
+  },
+  {
+    code: 'PHARMACY', name: 'Pharmacy', facilityKind: FacilityKind.PHARMACY, sortOrder: 2,
+    description: 'A standalone pharmacy: dispensing, stock by batch and expiry, suppliers and sales.',
+    monthlyPrice: 400, maxUsers: 5,
+    modules: ['pharmacy', 'stores', 'billing', 'reports']
+  },
+  {
+    code: 'CLINIC', name: 'Clinic / Health Centre', facilityKind: FacilityKind.CLINIC, sortOrder: 3,
+    description: 'Outpatient care with a small laboratory and dispensary, for clinics and health centres.',
+    monthlyPrice: 500, maxUsers: 10,
+    modules: [...CLINIC_CORE]
+  },
+  {
+    code: 'DISTRICT', name: 'District Hospital', facilityKind: FacilityKind.HOSPITAL, sortOrder: 4,
+    description: 'Wards, emergency, imaging and claims on top of outpatient care — a working district hospital.',
+    monthlyPrice: 1500, maxUsers: 40,
+    modules: [...CLINIC_CORE, 'emergency', 'inpatient', 'imaging', 'finance', 'claims', 'clinician_portal', 'results_delivery', 'stores', 'hr']
+  },
+  {
+    code: 'FULL', name: 'Full Hospital', facilityKind: FacilityKind.HOSPITAL, sortOrder: 5,
+    description: 'Every department, including theatre, maternity, child health, the specialist clinics, blood bank and mortuary. Unlimited staff accounts.',
+    monthlyPrice: 3500, maxUsers: null,
+    modules: [...MODULE_KEYS]
+  }
 ];
+
+/*
+  Every department has a price, so any plan can add any of them. This matters
+  more now that plans differ by shape: a pharmacy that adds a laboratory is
+  buying something its plan never included, not upgrading a tier.
+*/
 const DEMO_ADDON_PRICES: Record<string, number> = {
+  opd: 300, reception: 150, laboratory: 350, pharmacy: 200, billing: 200, reports: 150, medical_records: 150,
   emergency: 300, inpatient: 400, imaging: 350, finance: 200, claims: 300, clinician_portal: 150, results_delivery: 150, stores: 200, hr: 200,
   theatre: 400, dental: 200, eye: 200, physiotherapy: 150, dietetics: 100, maternity: 300, child_health: 200, blood_bank: 300, mortuary: 200
 };
@@ -1438,14 +1484,14 @@ export async function seedPlans() {
   }
 }
 
-/** The demo facility is a paying Premium subscriber for the current month. */
+/** The demo facility is a paying Full Hospital subscriber for the current month. */
 async function seedDemoSubscription(facilityId: string) {
-  const premium = await runAsSystem('seed.plans', () => prisma.plan.findUniqueOrThrow({ where: { code: 'PREMIUM' } }));
+  const fullHospital = await runAsSystem('seed.plans', () => prisma.plan.findUniqueOrThrow({ where: { code: 'FULL' } }));
   const start = new Date();
   const end = new Date(start);
   end.setUTCMonth(end.getUTCMonth() + 1);
   await runWithFacility(facilityId, () =>
-    prisma.subscription.create({ data: { planId: premium.id, interval: 'MONTHLY', status: 'ACTIVE', currentPeriodStart: start, currentPeriodEnd: end, billingEmail: 'billing@lhims.local' } })
+    prisma.subscription.create({ data: { planId: fullHospital.id, interval: 'MONTHLY', status: 'ACTIVE', currentPeriodStart: start, currentPeriodEnd: end, billingEmail: 'billing@lhims.local' } })
   );
 }
 

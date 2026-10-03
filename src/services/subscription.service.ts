@@ -1,6 +1,8 @@
 import type { Request } from 'express';
 import { BillingInterval, NotificationType, Prisma, SubscriptionInvoiceKind, SubscriptionInvoiceStatus, SubscriptionStatus, UserRole, UserStatus } from '@prisma/client';
 import { MODULES, MODULE_KEYS, isModuleKey, moduleDependencyErrors, type ModuleKey } from '../config/modules.js';
+import { FACILITY_KINDS } from '../config/facilityKinds.js';
+import type { FacilityKind } from '@prisma/client';
 import { env } from '../config/env.js';
 import { prisma } from './prisma.service.js';
 import { runAsSystem, runWithFacility, currentFacilityId } from './tenantContext.js';
@@ -59,6 +61,8 @@ export async function listModulePrices() {
 /** Public catalogue for the pricing page: active public plans and add-on prices. */
 export async function publicCatalogue() {
   const [plans, addOns] = await Promise.all([prisma.plan.findMany({ where: { isActive: true, isPublic: true }, orderBy: [{ sortOrder: 'asc' }], include: { modules: true } }), listModulePrices()]);
+  // Only the kinds that actually have a plan to sell are offered.
+  const kindsOnSale = FACILITY_KINDS.filter((kind) => plans.some((plan) => plan.facilityKind === kind.key)).sort((a, b) => a.sortOrder - b.sortOrder);
   return {
     currency: 'GHS',
     plans: plans.map((p) => {
@@ -66,6 +70,7 @@ export async function publicCatalogue() {
       void _p; void _a;
       return rest;
     }),
+    facilityKinds: kindsOnSale.map(({ key, name, summary, examples }) => ({ key, name, summary, examples })),
     addOns: addOns.filter((a) => a.priced),
     departments: MODULES.map((m) => ({ key: m.key, name: m.name, category: m.category, description: m.description }))
   };
@@ -78,7 +83,7 @@ function assertModules(modules: string[]) {
   if (errors.length) throw new AppError(errors.join(' '), 400, 'MODULE_DEPENDENCY', { errors });
 }
 
-export async function createPlan(body: { code: string; name: string; description?: string; monthlyPrice: number; yearlyDiscountPercent: number; maxUsers?: number; maxPatientsPerMonth?: number | null; maxStorageMb?: number | null; trialDays: number; isPublic: boolean; sortOrder: number; modules: string[] }, req: Request) {
+export async function createPlan(body: { code: string; name: string; facilityKind: FacilityKind; description?: string; monthlyPrice: number; yearlyDiscountPercent: number; maxUsers?: number; maxPatientsPerMonth?: number | null; maxStorageMb?: number | null; trialDays: number; isPublic: boolean; sortOrder: number; modules: string[] }, req: Request) {
   assertModules(body.modules);
   const { modules, ...data } = body;
   try {
@@ -91,7 +96,7 @@ export async function createPlan(body: { code: string; name: string; description
   }
 }
 
-export async function updatePlan(id: string, body: Partial<{ name: string; description: string; monthlyPrice: number; yearlyDiscountPercent: number; maxUsers: number | null; maxPatientsPerMonth: number | null; maxStorageMb: number | null; trialDays: number; isActive: boolean; isPublic: boolean; sortOrder: number; modules: string[] }>, req: Request) {
+export async function updatePlan(id: string, body: Partial<{ name: string; facilityKind: FacilityKind; description: string; monthlyPrice: number; yearlyDiscountPercent: number; maxUsers: number | null; maxPatientsPerMonth: number | null; maxStorageMb: number | null; trialDays: number; isActive: boolean; isPublic: boolean; sortOrder: number; modules: string[] }>, req: Request) {
   if (!(await prisma.plan.findUnique({ where: { id } }))) throw new AppError('Plan not found', 404, 'PLAN_NOT_FOUND');
   const { modules, ...data } = body;
   if (modules) assertModules(modules);
@@ -198,7 +203,12 @@ export async function mySubscription() {
   const subscription = await prisma.subscription.findFirst({ include: { plan: { include: { modules: true } }, pendingPlan: { include: { modules: true } } } });
   const [plans, addOns] = await Promise.all([listPlans(), listModulePrices()]);
   const departments = MODULES.map((m) => ({ key: m.key, name: m.name, category: m.category }));
-  if (!subscription) return { subscription: null, plans, addOns: addOns.filter((a) => a.priced), departments, managedByPlatform: true };
+  // The same grouping the public pricing page uses, so an administrator changing
+  // plan sees the choice framed the way they first bought.
+  const facilityKinds = FACILITY_KINDS
+    .filter((kind) => plans.some((plan) => plan.facilityKind === kind.key))
+    .map(({ key, name, summary, examples }) => ({ key, name, summary, examples }));
+  if (!subscription) return { subscription: null, plans, facilityKinds, addOns: addOns.filter((a) => a.priced), departments, managedByPlatform: true };
   const [invoices, used] = await Promise.all([
     prisma.subscriptionInvoice.findMany({ orderBy: { createdAt: 'desc' }, take: 50, select: invoiceSelect }),
     facilityUsage()
@@ -219,6 +229,7 @@ export async function mySubscription() {
     },
     invoices: invoices.map((i) => ({ ...i, amount: money(i.amount) })),
     plans,
+    facilityKinds,
     addOns: addOns.filter((a) => a.priced),
     departments,
     managedByPlatform: false

@@ -7,6 +7,16 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// What a customer actually runs, which is what they choose on the pricing page
+// before they ever see a price. A diagnostic centre is not a small hospital: it
+// needs a different set of departments, not fewer of the same ones.
+enum FacilityKind {
+  DIAGNOSTIC_CENTRE
+  PHARMACY
+  CLINIC
+  HOSPITAL
+}
+
 enum FacilityStatus {
   ACTIVE
   SUSPENDED
@@ -3839,24 +3849,28 @@ enum SubscriptionInvoiceKind {
 }
 
 model Plan {
-  id                    String   @id @default(cuid())
-  code                  String   @unique
+  id                    String       @id @default(cuid())
+  code                  String       @unique
   name                  String
+  /// The kind of facility this plan is for. Plans are grouped by it on the
+  /// pricing page, and a kind may offer more than one size (a district and a
+  /// full hospital).
+  facilityKind          FacilityKind @default(HOSPITAL)
   description           String?
-  monthlyPrice          Decimal  @db.Decimal(12, 2)
-  yearlyDiscountPercent Int      @default(0)
+  monthlyPrice          Decimal      @db.Decimal(12, 2)
+  yearlyDiscountPercent Int          @default(0)
   /// Staff accounts allowed; null for unlimited.
   maxUsers              Int?
   /// Fair-use limits, shown and warned about but never blocking care; null for none.
   maxPatientsPerMonth   Int?
   maxStorageMb          Int?
-  trialDays             Int      @default(14)
-  isActive              Boolean  @default(true)
+  trialDays             Int          @default(14)
+  isActive              Boolean      @default(true)
   /// Shown on the public pricing page.
-  isPublic              Boolean  @default(true)
-  sortOrder             Int      @default(0)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  isPublic              Boolean      @default(true)
+  sortOrder             Int          @default(0)
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
 
   modules       PlanModule[]
   subscriptions Subscription[] @relation("SubscriptionPlan")

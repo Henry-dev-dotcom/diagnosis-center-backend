@@ -56,8 +56,8 @@ beforeAll(async () => {
   baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   platformToken = (await login(undefined, 'platform', 'platform123')).accessToken;
   const plans = (await send('GET', '/platform/plans', platformToken)).json.data as { id: string; code: string }[];
-  starterId = plans.find((p) => p.code === 'STARTER')!.id;
-  premiumId = plans.find((p) => p.code === 'PREMIUM')!.id;
+  starterId = plans.find((p) => p.code === 'CLINIC')!.id;
+  premiumId = plans.find((p) => p.code === 'FULL')!.id;
 });
 
 afterAll(() => new Promise<void>((resolve) => server.close(() => resolve())));
@@ -66,9 +66,55 @@ describe('public pricing', () => {
   it('lists public plans and add-ons without signing in', async () => {
     const res = await send('GET', '/public/plans', undefined);
     expect(res.status).toBe(200);
-    expect(res.json.data.plans.map((p: { code: string }) => p.code)).toEqual(expect.arrayContaining(['STARTER', 'STANDARD', 'PREMIUM']));
+    expect(res.json.data.plans.map((p: { code: string }) => p.code)).toEqual(expect.arrayContaining(['DIAGNOSTIC', 'PHARMACY', 'CLINIC', 'DISTRICT', 'FULL']));
     expect(res.json.data.addOns.some((a: { moduleKey: string }) => a.moduleKey === 'theatre')).toBe(true);
     expect(JSON.stringify(res.json.data)).not.toMatch(/isPublic/);
+  });
+
+  it('groups plans by the kind of facility, so a customer finds their own', async () => {
+    const res = await send('GET', '/public/plans', undefined);
+    const kinds = res.json.data.facilityKinds as Array<{ key: string; name: string; summary: string }>;
+    const plans = res.json.data.plans as Array<{ code: string; facilityKind: string; modules: string[] }>;
+
+    expect(kinds.map((k) => k.key)).toEqual(['DIAGNOSTIC_CENTRE', 'PHARMACY', 'CLINIC', 'HOSPITAL']);
+    expect(kinds.every((k) => k.name && k.summary)).toBe(true);
+    // Every kind offered has at least one plan to sell, and every plan has a kind.
+    for (const kind of kinds) expect(plans.some((p) => p.facilityKind === kind.key)).toBe(true);
+    for (const plan of plans) expect(kinds.some((k) => k.key === plan.facilityKind)).toBe(true);
+    // Hospital is the one kind sold in more than one size.
+    expect(plans.filter((p) => p.facilityKind === 'HOSPITAL').map((p) => p.code).sort()).toEqual(['DISTRICT', 'FULL']);
+  });
+
+  it('gives each kind the departments that kind actually needs', async () => {
+    const res = await send('GET', '/public/plans', undefined);
+    const plans = res.json.data.plans as Array<{ code: string; modules: string[] }>;
+    const modulesOf = (code: string) => plans.find((p) => p.code === code)!.modules;
+
+    // A diagnostic centre takes requests from clinicians elsewhere; it does not consult.
+    expect(modulesOf('DIAGNOSTIC')).toEqual(expect.arrayContaining(['laboratory', 'imaging', 'clinician_portal', 'results_delivery']));
+    expect(modulesOf('DIAGNOSTIC')).not.toContain('opd');
+    // A standalone pharmacy has nothing clinical at all.
+    expect(modulesOf('PHARMACY')).toEqual(expect.arrayContaining(['pharmacy', 'stores', 'billing']));
+    for (const clinical of ['opd', 'laboratory', 'imaging', 'inpatient']) expect(modulesOf('PHARMACY')).not.toContain(clinical);
+  });
+
+  it('prices every department, so any plan can add any of them', async () => {
+    // Plans now differ in shape, not just size: a pharmacy adding a laboratory is
+    // buying something its plan never had, so nothing may be unpriced.
+    const res = await send('GET', '/public/plans', undefined);
+    const addOns = res.json.data.addOns as Array<{ moduleKey: string }>;
+    const departments = res.json.data.departments as Array<{ key: string }>;
+    const unpriced = departments.filter((d) => !addOns.some((a) => a.moduleKey === d.key)).map((d) => d.key);
+    expect(unpriced, `these departments cannot be bought by any facility: ${unpriced.join(', ')}`).toEqual([]);
+  });
+
+  it('lets a pharmacy buy a laboratory, which its own plan does not include', async () => {
+    const plans = (await send('GET', '/public/plans', undefined)).json.data.plans as Array<{ id: string; code: string; monthlyPrice: number }>;
+    const pharmacy = plans.find((p) => p.code === 'PHARMACY')!;
+    const quoted = await send('POST', '/public/quote', undefined, { planId: pharmacy.id, interval: 'MONTHLY', addOns: ['laboratory'] });
+    expect(quoted.status, quoted.text).toBe(200);
+    expect(quoted.json.data.lines).toHaveLength(2);
+    expect(quoted.json.data.total).toBeGreaterThan(pharmacy.monthlyPrice);
   });
 
   it('quotes a yearly price with the discount, and never charges an add-on already in the plan', async () => {
