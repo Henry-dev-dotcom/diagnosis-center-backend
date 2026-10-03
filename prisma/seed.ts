@@ -1485,7 +1485,7 @@ export async function seedPlans() {
 }
 
 /** The demo facility is a paying Full Hospital subscriber for the current month. */
-async function seedDemoSubscription(facilityId: string) {
+export async function seedDemoSubscription(facilityId: string) {
   const fullHospital = await runAsSystem('seed.plans', () => prisma.plan.findUniqueOrThrow({ where: { code: 'FULL' } }));
   const start = new Date();
   const end = new Date(start);

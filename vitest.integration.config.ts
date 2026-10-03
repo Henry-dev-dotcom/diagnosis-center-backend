@@ -16,6 +16,8 @@ if (!/test/i.test(new URL(testDatabaseUrl).pathname)) {
 Object.assign(process.env, {
   NODE_ENV: 'test',
   DATABASE_URL: testDatabaseUrl,
+  // The test database is never behind a pooler, so migrations go to the same place.
+  DIRECT_URL: testDatabaseUrl,
   RATE_LIMIT_MAX_REQUESTS: '100000',
   AUTH_RATE_LIMIT_MAX_REQUESTS: '100000',
   ENABLE_API_DOCS: 'false'

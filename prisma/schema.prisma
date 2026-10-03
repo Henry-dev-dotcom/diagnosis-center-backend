@@ -5,6 +5,12 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  // Migrations cannot run through a connection pooler: they take advisory locks
+  // and issue DDL that pgbouncer in transaction mode will not carry. A hosted
+  // Postgres such as Neon gives two addresses - a pooled one for the running app
+  // and a direct one - and this is the direct one. Where there is no pooler, set
+  // it to the same value as DATABASE_URL.
+  directUrl = env("DIRECT_URL")
 }
 
 // What a customer actually runs, which is what they choose on the pricing page

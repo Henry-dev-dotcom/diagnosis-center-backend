@@ -1,17 +1,21 @@
-# Render blueprint for the Diagnosis Center backend + PostgreSQL.
-# Deploy: push this repo to GitHub, then in Render choose "New +" -> "Blueprint"
-# and point it at this repository. Render reads this file, creates the database
-# and web service, wires DATABASE_URL, and generates the JWT secrets.
+# Render blueprint for the LHIMS backend.
 #
-# After the first deploy, set FRONTEND_URL / FRONTEND_URLS to the GitHub Pages
-# origin and SEED_ADMIN_PASSWORD to a strong value (both marked sync:false
-# below so Render prompts for them).
-
-databases:
-  - name: diagnosis-center-db
-    plan: free
-    databaseName: diagnosis_center
-    user: diagnosis
+# Deploy: push this repo to GitHub, then in Render choose "New +" -> "Blueprint"
+# and point it at this repository. Render reads this file, creates the web
+# service and generates the JWT secrets.
+#
+# The database is NOT created here. Render's free Postgres expires after a fixed
+# window and takes the data with it, which is no good even for a demo. Bring your
+# own Postgres instead - Neon's free tier does not expire - and set these when
+# Render prompts (all marked sync:false):
+#
+#   DATABASE_URL   the POOLED address (Neon: the host contains "-pooler")
+#   DIRECT_URL     the same address WITHOUT "-pooler"; Prisma migrates over this
+#   FRONTEND_URL   the GitHub Pages origin, e.g. https://<you>.github.io
+#   FRONTEND_URLS  same, plus any other origin that may call the API
+#   SEED_ADMIN_PASSWORD / SEED_ADMIN_EMAIL  the platform operator account
+#
+# See docs/DEPLOY_NEON_RENDER.md for the whole walkthrough.
 
 services:
   - type: web
@@ -30,10 +34,13 @@ services:
         value: 5000
       - key: API_PREFIX
         value: /api
+      # Pooled address: what the running app connects with.
       - key: DATABASE_URL
-        fromDatabase:
-          name: diagnosis-center-db
-          property: connectionString
+        sync: false
+      # Unpooled address: what Prisma runs migrations over. A pooler cannot carry
+      # the advisory locks and DDL a migration needs.
+      - key: DIRECT_URL
+        sync: false
       - key: JWT_ACCESS_SECRET
         generateValue: true
       - key: JWT_REFRESH_SECRET
@@ -82,5 +89,10 @@ services:
       # Platform operator account (signs in with no facility code).
       - key: SEED_ADMIN_USERNAME
         value: platform
+      # "true" also seeds the DEMO facility, with shared staff logins people can
+      # explore. For a demonstration instance only: never on one holding real
+      # patient data. See docs/DEPLOY_NEON_RENDER.md.
+      - key: SEED_DEMO_DATA
+        value: "false"
       - key: SEED_ADMIN_EMAIL
         sync: false
