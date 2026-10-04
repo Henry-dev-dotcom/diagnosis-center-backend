@@ -438,6 +438,11 @@ async function resetDemoData() {
     prisma.inventoryItem.deleteMany(),
     prisma.qualityControlRun.deleteMany(),
     prisma.sampleRejection.deleteMany(),
+    // Analyzer rows point at samples, results, catalog items and reference
+    // parameters, so they come out before any of those.
+    prisma.analyzerMessage.deleteMany(),
+    prisma.analyzerTestMap.deleteMany(),
+    prisma.analyzerDevice.deleteMany(),
     prisma.labResultAmendment.deleteMany(),
     prisma.labResultReview.deleteMany(),
     prisma.labResultParameter.deleteMany(),
