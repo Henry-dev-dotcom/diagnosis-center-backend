@@ -14,6 +14,7 @@ import { prisma } from './prisma.service.js';
 import { nextCode as issueCode } from './codeSequence.service.js';
 import { assertItemTypesAvailable, isModuleEnabled } from './facilityAccess.service.js';
 import { currentFacilityId } from './tenantContext.js';
+import { raiseInvoiceForOrder } from './billing.service.js';
 import { createAuditLog, getRequestAuditContext } from './audit.service.js';
 import { getPagination, paginationMeta, safeOrderBy } from './query.service.js';
 import { AppError } from '../utils/appError.js';
@@ -302,6 +303,27 @@ export async function createDoctorOrder(body: CreateOrderPayload, req: Request) 
         }
       }
     });
+
+    /*
+      Raise the bill here when reception is not going to.
+
+      Reception raises it when it receives a request, which is right for a
+      diagnostic centre. In a hospital the order is confirmed on submission and
+      reception never sees it - so without this nothing was ever billed, Finance
+      never saw the work, and the facility did not get paid for it.
+    */
+    if (!viaReception && (await isModuleEnabled('billing'))) {
+      const withItems = await tx.order.findUniqueOrThrow({
+        where: { id: order.id },
+        select: {
+          id: true,
+          patientId: true,
+          hospitalId: true,
+          items: { select: { id: true, catalogItemId: true, catalogItem: { select: { name: true, price: true } } } }
+        }
+      });
+      await raiseInvoiceForOrder(tx, withItems, req.user?.id ?? null);
+    }
 
     if (doctorProfile && !patient.referringDoctorId) {
       await tx.patient.update({ where: { id: patient.id }, data: { referringDoctorId: doctorProfile.id, updatedById: req.user?.id ?? null } });

@@ -118,6 +118,53 @@ async function getOpenShiftForActor(actorId: string) {
   return shift;
 }
 
+/*
+  Raising the bill for an order.
+
+  Whoever starts the work is who raises the bill, and that differs by facility: a
+  diagnostic centre bills when reception receives the request, a hospital bills
+  when the clinician's order is confirmed on submission. Both need the same
+  invoice, so both call this rather than each growing its own version that drifts.
+
+  It takes the transaction it is given, because the bill and the order it belongs
+  to have to exist together or not at all.
+*/
+export type InvoiceableOrder = {
+  id: string;
+  patientId: string;
+  hospitalId: string | null;
+  items: Array<{ id: string; catalogItemId: string; catalogItem: { name: string; price: Prisma.Decimal | number } }>;
+};
+
+export async function raiseInvoiceForOrder(tx: Prisma.TransactionClient, order: InvoiceableOrder, actorId?: string | null) {
+  const subtotal = order.items.reduce((sum, item) => sum + Number(item.catalogItem.price), 0);
+  const invoiceCode = await issueCode(tx, 'INV');
+  return tx.invoice.create({
+    data: {
+      invoiceCode,
+      orderId: order.id,
+      patientId: order.patientId,
+      hospitalId: order.hospitalId,
+      status: InvoiceStatus.UNPAID,
+      subtotal,
+      total: subtotal,
+      balance: subtotal,
+      createdById: actorId ?? null,
+      items: {
+        create: order.items.map((item) => ({
+          catalogItemId: item.catalogItemId,
+          orderItemId: item.id,
+          description: item.catalogItem.name,
+          quantity: 1,
+          unitPrice: item.catalogItem.price,
+          total: item.catalogItem.price
+        }))
+      }
+    },
+    include: { items: true }
+  });
+}
+
 export async function listInvoices(query: Request['query']) {
   const { page, limit, skip, take, search, sortBy, sortOrder } = getPagination(query);
   const where: Prisma.InvoiceWhereInput = {

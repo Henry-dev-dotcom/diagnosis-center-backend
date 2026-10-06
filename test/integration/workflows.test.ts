@@ -187,6 +187,19 @@ describe('a doctor order that goes straight to the bench', () => {
     const accepted = await post('/lab/samples/accept', labToken, { orderId });
     expect(accepted.status, accepted.text).toBe(201);
     expect(accepted.json.data.samples.length).toBeGreaterThan(0);
+
+    /*
+      And it is billed.
+
+      Reception raises the bill when it receives a request. Where it never sees
+      one, the bill has to be raised on submission instead - otherwise the work
+      happens, the result goes out, and nothing is ever charged for it.
+    */
+    const invoice = await runWithFacility(FACILITY_B.id, () => prisma.invoice.findFirst({ where: { orderId }, include: { items: true } }));
+    expect(invoice, 'an order that skips reception was never billed').not.toBeNull();
+    expect(Number(invoice?.total)).toBeGreaterThan(0);
+    expect(invoice?.items.length).toBeGreaterThan(0);
+    expect(invoice?.facilityId).toBe(FACILITY_B.id);
   });
 
   it('still waits for reception where the facility routes orders that way', async () => {

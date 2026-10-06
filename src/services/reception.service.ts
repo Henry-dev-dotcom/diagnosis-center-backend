@@ -3,7 +3,6 @@ import {
   CatalogItemType,
   DeliveryChannel,
   DeliveryStatus,
-  InvoiceStatus,
   NotificationType,
   OrderItemStatus,
   OrderStatus,
@@ -19,6 +18,7 @@ import { prisma } from './prisma.service.js';
 import { nextCode as issueCode } from './codeSequence.service.js';
 import { assertItemTypesAvailable, isModuleEnabled } from './facilityAccess.service.js';
 import { createAuditLog, getRequestAuditContext } from './audit.service.js';
+import { raiseInvoiceForOrder } from './billing.service.js';
 import { getPagination, paginationMeta, safeOrderBy } from './query.service.js';
 import { AppError } from '../utils/appError.js';
 
@@ -222,34 +222,6 @@ async function loadCatalogItems(catalogItemIds: string[]) {
   return items;
 }
 
-async function createInvoiceForOrder(tx: Prisma.TransactionClient, order: { id: string; patientId: string; hospitalId: string | null; items: Array<{ id: string; catalogItemId: string; catalogItem: { name: string; price: Prisma.Decimal | number } }> }, actorId?: string | null) {
-  const subtotal = order.items.reduce((sum, item) => sum + Number(item.catalogItem.price), 0);
-  const invoiceCode = await issueCode(tx, 'INV');
-  return tx.invoice.create({
-    data: {
-      invoiceCode,
-      orderId: order.id,
-      patientId: order.patientId,
-      hospitalId: order.hospitalId,
-      status: InvoiceStatus.UNPAID,
-      subtotal,
-      total: subtotal,
-      balance: subtotal,
-      createdById: actorId ?? null,
-      items: {
-        create: order.items.map((item) => ({
-          catalogItemId: item.catalogItemId,
-          orderItemId: item.id,
-          description: item.catalogItem.name,
-          quantity: 1,
-          unitPrice: item.catalogItem.price,
-          total: item.catalogItem.price
-        }))
-      }
-    },
-    include: { items: true }
-  });
-}
 
 export async function checkInPatient(body: CheckInPayload, req: Request) {
   const patient = await assertPatient(body.patientId);
@@ -395,7 +367,7 @@ export async function createWalkIn(body: WalkInPayload, req: Request) {
       include: { items: { include: { catalogItem: true } } }
     });
 
-    const invoice = raiseInvoice ? await createInvoiceForOrder(tx, order, req.user?.id) : null;
+    const invoice = raiseInvoice ? await raiseInvoiceForOrder(tx, order, req.user?.id) : null;
     const visit = body.checkInNow === false
       ? null
       : await tx.patientVisit.create({
