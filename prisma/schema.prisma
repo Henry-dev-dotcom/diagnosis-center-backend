@@ -1058,6 +1058,11 @@ model PatientVisit {
   status           VisitStatus @default(CHECKED_IN)
   visitType        String      @default("Walk-in")
   identityVerified Boolean     @default(false)
+  /// Whether this visit is being billed to the patient's insurance (NHIS)
+  /// rather than paid for directly. A per-visit fact, not a property of the
+  /// membership: an insured patient may still pay cash for what their scheme
+  /// excludes, and Finance has to know which it was.
+  insuranceUsed    Boolean     @default(false)
   checkedInAt      DateTime    @default(now())
   completedAt      DateTime?
   notes            String?

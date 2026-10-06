@@ -57,6 +57,7 @@ type PatientPayload = {
   address?: string | null;
   nationalId?: string | null;
   insuranceProvider?: string | null;
+  insuranceExpiresAt?: Date | string | null;
   policyNumber?: string | null;
   emergencyContact?: string | null;
   allergiesAndConditions?: string | null;
@@ -143,7 +144,9 @@ function patientCreateData(body: PatientPayload, actorId?: string | null): Prism
     createdBy: actorId ? { connect: { id: actorId } } : undefined,
     updatedBy: actorId ? { connect: { id: actorId } } : undefined,
     contacts: contacts.length > 0 ? { create: contacts } : undefined,
-    insuranceRecords: insuranceProvider && policyNumber ? { create: [{ provider: insuranceProvider, policyNumber }] } : undefined
+    insuranceRecords: insuranceProvider && policyNumber
+      ? { create: [{ provider: insuranceProvider, policyNumber, expiresAt: toDateOrNull(body.insuranceExpiresAt) }] }
+      : undefined
   };
 }
 

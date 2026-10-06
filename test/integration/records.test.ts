@@ -118,3 +118,70 @@ describe('medical records module', () => {
     expect(res.json.code).toBe('MODULE_DISABLED');
   });
 });
+
+/*
+  Checking a patient in at the records desk.
+
+  Two rules carry real consequences. A visit checked in on a scheme without a
+  membership number produces a claim nobody can match to a member later, so it
+  is refused. And one membership number belongs to one person: letting the same
+  number attach to a second patient is how two people's claims end up filed
+  under one member, so that is refused too rather than quietly moved.
+*/
+describe('the records desk check-in', () => {
+  it('records whether the visit is on the scheme, and the membership read off the card', async () => {
+    const policyNumber = `NHIS-${randomUUID().slice(0, 8).toUpperCase()}`;
+    const res = await post('/reception/check-in', 'reception', {
+      patientId: 'PAT-0001',
+      visitType: 'Follow-up',
+      insuranceUsed: true,
+      notes: 'Review of last month’s results',
+      insurance: { provider: 'NHIS', policyNumber, expiresAt: '2027-04-18', verified: true }
+    });
+    expect(res.status, res.text).toBe(201);
+    const visit = res.json.data.visit ?? res.json.data;
+    expect(visit.visitType).toBe('Follow-up');
+    expect(visit.insuranceUsed).toBe(true);
+
+    // The membership is now on the patient, so the next clerk sees it.
+    const patient = await get('/patients/PAT-0001', 'reception');
+    expect(patient.status, patient.text).toBe(200);
+    const records = patient.json.data.patient?.insuranceRecords ?? patient.json.data.insuranceRecords ?? [];
+    expect(records.some((entry: { policyNumber: string }) => entry.policyNumber === policyNumber)).toBe(true);
+  });
+
+  it('refuses to check in on a scheme with no membership number', async () => {
+    const res = await post('/reception/check-in', 'reception', {
+      patientId: 'PAT-0002',
+      visitType: 'Outpatient',
+      insuranceUsed: true
+    });
+    expect(res.status, res.text).toBe(400);
+    expect(res.text).toContain('membership number');
+  });
+
+  it('refuses a membership number that already belongs to another patient', async () => {
+    const policyNumber = `NHIS-${randomUUID().slice(0, 8).toUpperCase()}`;
+    const first = await post('/reception/check-in', 'reception', {
+      patientId: 'PAT-0002',
+      insuranceUsed: true,
+      insurance: { provider: 'NHIS', policyNumber, verified: true }
+    });
+    expect(first.status, first.text).toBe(201);
+
+    const second = await post('/reception/check-in', 'reception', {
+      patientId: 'PAT-0003',
+      insuranceUsed: true,
+      insurance: { provider: 'NHIS', policyNumber, verified: true }
+    });
+    expect(second.status, second.text).toBe(409);
+    expect(second.text).toContain('another patient');
+  });
+
+  it('a visit paid for directly is recorded as such, with no membership touched', async () => {
+    const res = await post('/reception/check-in', 'reception', { patientId: 'PAT-0001', visitType: 'Emergency' });
+    expect(res.status, res.text).toBe(201);
+    const visit = res.json.data.visit ?? res.json.data;
+    expect(visit.insuranceUsed).toBe(false);
+  });
+});

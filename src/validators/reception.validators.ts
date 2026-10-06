@@ -8,13 +8,36 @@ export const confirmOrderSchema = z.object({
   notes: optionalNotesSchema
 });
 
+/*
+  Membership details captured at the desk.
+
+  Records staff see the member's card in front of them, which is the moment the
+  details are worth correcting - so a check-in may update the membership on its
+  way past, rather than requiring a separate trip to the patient's record.
+*/
+const checkInInsuranceSchema = z.object({
+  provider: z.string().trim().min(1, 'The scheme or provider is required').max(100),
+  policyNumber: z.string().trim().min(1, 'The membership number is required').max(60),
+  expiresAt: z.coerce.date().optional(),
+  /// Whether the details were checked against the member's own card.
+  verified: z.boolean().default(false)
+});
+
 export const checkInSchema = z.object({
   patientId: z.string().min(1, 'Patient ID is required'),
   orderId: z.string().min(1, 'Order ID is required').optional(),
   appointmentId: z.string().min(1, 'Appointment ID is required').optional(),
   identityVerified: z.boolean().default(true),
   visitType: z.string().trim().max(80).optional(),
-  notes: optionalNotesSchema
+  notes: optionalNotesSchema,
+  /// Whether this visit goes on the scheme or is paid for directly.
+  insuranceUsed: z.boolean().default(false),
+  insurance: checkInInsuranceSchema.optional()
+}).refine((value) => !value.insuranceUsed || Boolean(value.insurance?.policyNumber), {
+  // Checking a patient in on a scheme without recording which membership is
+  // what produces a claim nobody can match to a member later.
+  message: 'A membership number is required to check in on insurance',
+  path: ['insurance']
 });
 
 export const createWalkInSchema = z.object({

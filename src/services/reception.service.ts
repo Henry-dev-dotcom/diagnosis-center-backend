@@ -92,6 +92,15 @@ type CheckInPayload = {
   notes?: string | null;
   identityVerified?: boolean;
   visitType?: string | null;
+  /** Whether this visit is billed to the scheme rather than paid for directly. */
+  insuranceUsed?: boolean;
+  /** Membership details as read off the card, recorded on the way past. */
+  insurance?: {
+    provider: string;
+    policyNumber: string;
+    expiresAt?: Date | string | null;
+    verified?: boolean;
+  } | null;
 };
 
 type WalkInPayload = {
@@ -265,9 +274,37 @@ export async function checkInPatient(body: CheckInPayload, req: Request) {
         status: VisitStatus.CHECKED_IN,
         visitType: (clean(body.visitType) as string | null) ?? (appointment ? 'Appointment' : order ? 'Order' : 'Walk-in'),
         identityVerified: body.identityVerified ?? true,
+        insuranceUsed: body.insuranceUsed ?? false,
         notes: clean(body.notes) as string | null
       }
     });
+
+    /*
+      The membership, where it was read off the card at the desk.
+
+      One membership number belongs to one person. Letting the same number
+      attach to a second patient is how two people's claims end up under one
+      member, so it is refused rather than quietly moved.
+    */
+    if (body.insurance?.policyNumber) {
+      const policyNumber = String(body.insurance.policyNumber).trim();
+      const heldByAnother = await tx.patientInsurance.findFirst({
+        where: { policyNumber, patientId: { not: patient.id } },
+        select: { id: true }
+      });
+      if (heldByAnother) {
+        throw new AppError('That membership number is already recorded against another patient', 409, 'INSURANCE_POLICY_TAKEN');
+      }
+      const existing = await tx.patientInsurance.findFirst({ where: { patientId: patient.id, policyNumber } });
+      const data = {
+        provider: String(body.insurance.provider).trim(),
+        policyNumber,
+        expiresAt: body.insurance.expiresAt ? new Date(body.insurance.expiresAt) : null,
+        status: body.insurance.verified ? 'Active' : 'Unverified'
+      };
+      if (existing) await tx.patientInsurance.update({ where: { id: existing.id }, data });
+      else await tx.patientInsurance.create({ data: { ...data, patientId: patient.id } });
+    }
 
     if (appointment) {
       await tx.appointment.update({ where: { id: appointment.id }, data: { status: AppointmentStatus.CHECKED_IN } });

@@ -14,6 +14,8 @@ const patientBaseSchema = z.object({
   nationalId: z.string().trim().max(80, 'National ID cannot exceed 80 characters').optional(),
   insuranceProvider: z.string().trim().max(120, 'Insurance provider cannot exceed 120 characters').optional(),
   policyNumber: z.string().trim().max(120, 'Policy number cannot exceed 120 characters').optional(),
+  /// The expiry on the member's card, captured while it is in front of the clerk.
+  insuranceExpiresAt: z.coerce.date().optional(),
   emergencyContact: z.string().trim().max(160, 'Emergency contact cannot exceed 160 characters').optional(),
   allergiesAndConditions: z.string().trim().max(1000, 'Allergies and conditions cannot exceed 1000 characters').optional(),
   hospitalId: z.string().min(1, 'Hospital ID is required').optional(),
