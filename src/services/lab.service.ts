@@ -97,7 +97,10 @@ type LabResultPayload = {
   sampleId?: string;
   orderItemId?: string;
   resultId?: string;
+  /** The result itself when the test is reported in words rather than numbers. */
   overallComment?: string | null;
+  /** The laboratory's own comment on the result. */
+  comment?: string | null;
   parameters: Array<{
     parameterId?: string;
     name: string;
@@ -354,7 +357,7 @@ export async function saveLabResultDraft(body: LabResultPayload, req: Request) {
           data: {
             status: LabResultStatus.DRAFT,
             interpretation: cleanString(body.overallComment) as string | null,
-            technicianNotes: cleanString(body.overallComment) as string | null ?? existingResult.technicianNotes,
+            technicianNotes: (cleanString(body.comment) as string | null) ?? existingResult.technicianNotes,
             enteredById: req.user?.id ?? null
           }
         })
@@ -366,7 +369,7 @@ export async function saveLabResultDraft(body: LabResultPayload, req: Request) {
             patientId: sample.patientId,
             status: LabResultStatus.DRAFT,
             interpretation: cleanString(body.overallComment) as string | null,
-            technicianNotes: cleanString(body.overallComment) as string | null,
+            technicianNotes: cleanString(body.comment) as string | null,
             enteredById: req.user?.id ?? null
           }
         });

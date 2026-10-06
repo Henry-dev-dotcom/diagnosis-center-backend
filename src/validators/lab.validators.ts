@@ -34,10 +34,21 @@ export const labResultSchema = z.object({
   orderItemId: z.string().min(1, 'Order item ID is required').optional(),
   resultId: z.string().min(1, 'Result ID is required').optional(),
   overallComment: z.string().trim().max(2000, 'Overall comment cannot exceed 2000 characters').optional(),
-  parameters: z.array(labResultParameterSchema).min(1, 'At least one result parameter is required')
+  /// The laboratory's own comment on the result, kept apart from the result itself.
+  comment: z.string().trim().max(2000, 'Comment cannot exceed 2000 characters').optional(),
+  /*
+    Not every test reports numbers. A culture, a film, a histology report and
+    every imaging study are narrative, and insisting on at least one named
+    parameter forced a fake one to be invented. So either a narrative or at
+    least one parameter is required - but not nothing at all.
+  */
+  parameters: z.array(labResultParameterSchema).default([])
 }).refine((value) => Boolean(value.sampleId || value.orderItemId || value.resultId), {
   message: 'Provide sampleId, orderItemId, or resultId',
   path: ['sampleId']
+}).refine((value) => value.parameters.length > 0 || Boolean(value.overallComment), {
+  message: 'Enter the result: either the measured parameters or a written report',
+  path: ['parameters']
 });
 
 export const submitLabResultReviewSchema = z.object({
