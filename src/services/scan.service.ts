@@ -133,7 +133,8 @@ type ScanResultPayload = {
   orderItemId?: string;
   resultId?: string;
   findings: string;
-  impression: string;
+  /** Optional: a long report separates findings from an impression, a short one does not. */
+  impression?: string | null;
   recommendation?: string | null;
   comparison?: string | null;
   technicianNotes?: string | null;
@@ -342,7 +343,14 @@ export async function acceptScans(body: AcceptScanPayload, req: Request, routeOr
 export async function listAcceptedScans(query: Request['query']) {
   const { page, limit, skip, take, search, sortBy, sortOrder } = getPagination(query);
   const where: Prisma.ScanAcceptanceWhereInput = {
-    status: { in: [ScanStatus.ACCEPTED, ScanStatus.DRAFT, ScanStatus.PENDING_REVIEW] },
+    /*
+      Signed off belongs here too, as it does for accepted lab samples. A study
+      does not stop existing once it has been reported: its images are reached
+      through its acceptance, so leaving it out made every reported study's
+      images unreachable the moment the report was sent. The workspace decides
+      for itself which of these still owe a report.
+    */
+    status: { in: [ScanStatus.ACCEPTED, ScanStatus.DRAFT, ScanStatus.PENDING_REVIEW, ScanStatus.SIGNED_OFF] },
     ...(query.from || query.to ? { acceptedAt: { ...(query.from ? { gte: new Date(String(query.from)) } : {}), ...(query.to ? { lte: new Date(String(query.to)) } : {}) } } : {}),
     ...(search
       ? {

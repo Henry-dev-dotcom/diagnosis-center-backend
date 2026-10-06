@@ -43,8 +43,14 @@ export const scanResultSchema = z.object({
   scanAcceptanceId: z.string().min(1, 'Scan acceptance ID is required').optional(),
   orderItemId: z.string().min(1, 'Order item ID is required').optional(),
   resultId: z.string().min(1, 'Result ID is required').optional(),
-  findings: z.string().trim().min(5, 'Findings are required').max(5000, 'Findings cannot exceed 5000 characters'),
-  impression: z.string().trim().min(5, 'Impression is required').max(2000, 'Impression cannot exceed 2000 characters'),
+  findings: z.string().trim().min(5, 'The report is required').max(5000, 'The report cannot exceed 5000 characters'),
+  /*
+    Separating findings from an impression is how a radiologist writes a long
+    report, and it is worth keeping for the facilities that work that way. But
+    requiring it meant a single-paragraph ultrasound report had to be split in
+    two before it could be saved at all, so it is optional.
+  */
+  impression: z.string().trim().max(2000, 'Impression cannot exceed 2000 characters').optional(),
   recommendation: z.string().trim().max(2000, 'Recommendation cannot exceed 2000 characters').optional(),
   comparison: z.string().trim().max(2000, 'Comparison cannot exceed 2000 characters').optional(),
   technicianNotes: z.string().trim().max(2000, 'Technician notes cannot exceed 2000 characters').optional(),
