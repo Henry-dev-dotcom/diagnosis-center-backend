@@ -59,6 +59,7 @@ model Facility {
   createdAt               DateTime       @default(now())
   updatedAt               DateTime       @updatedAt
 
+  staffMessages             StaffMessage[]
   modules                   FacilityModule[]
   sequences                 FacilitySequence[]
   facilityRoles             FacilityRole[]
@@ -534,6 +535,7 @@ model User {
   recordRequestsLogged   RecordRequest[]            @relation("RecordRequestLoggedBy")
   recordRequestsDecided  RecordRequest[]            @relation("RecordRequestDecidedBy")
   recordRequestsReleased RecordRequest[]            @relation("RecordRequestReleasedBy")
+  staffMessages          StaffMessage[]             @relation("StaffMessageSender")
 
   @@unique([facilityId, username])
   @@unique([facilityId, email])
@@ -4019,4 +4021,41 @@ model DemoRequest {
   updatedAt    DateTime          @updatedAt
 
   @@index([status])
+}
+
+/// A staff channel: all departments together, or one department's own.
+enum MessageChannel {
+  ALL
+  CLINICAL
+  LABORATORY
+  IMAGING
+  PHARMACY
+  FRONT_OFFICE
+  FINANCE
+}
+
+// A message between departments, kept for 24 hours.
+//
+// Deliberately temporary. This is the shout across the corridor - "theatre is
+// running late", "the centrifuge is down" - and not a clinical record. Anything
+// that has to be kept belongs on the patient's chart, where it can be found
+// again, audited, and read by whoever sees that patient next.
+//
+// Expiry is enforced by every query rather than by a cleaner running on time, so
+// a message is never visible past its 24 hours even if nothing has swept up yet.
+model StaffMessage {
+  id         String         @id @default(cuid())
+  facilityId String         @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  channel    MessageChannel
+  senderId   String
+  body       String
+  createdAt  DateTime       @default(now())
+  /// 24 hours after it was sent. Past this the message is gone, not hidden.
+  expiresAt  DateTime
+
+  sender   User     @relation("StaffMessageSender", fields: [senderId], references: [id])
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId, channel, expiresAt])
+  @@index([facilityId])
 }

@@ -107,6 +107,9 @@ export const PERMISSIONS = {
   REPORTS_FINANCE_READ: 'reports:finance:read',
   REPORTS_EXPORT: 'reports:export',
 
+  /// Staff messaging. Every department talks to every other, so every staff role holds it.
+  MESSAGES_READ: 'messages:read',
+  MESSAGES_SEND: 'messages:send',
   NOTIFICATIONS_READ: 'notifications:read',
   NOTIFICATIONS_MANAGE: 'notifications:manage',
   NOTIFICATIONS_SETTINGS_MANAGE: 'notifications:settings:manage',
@@ -207,6 +210,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly
   [UserRole.ADMIN]: ['*'],
   [UserRole.DOCTOR]: [
     PERMISSIONS.SYSTEM_READ,
+    PERMISSIONS.MESSAGES_READ,
+    PERMISSIONS.MESSAGES_SEND,
     PERMISSIONS.DOCTOR_PROFILE_READ,
     PERMISSIONS.DOCTOR_PROFILE_UPDATE,
     PERMISSIONS.DOCTOR_PATIENTS_READ_OWN,
@@ -262,6 +267,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly
   ],
   [UserRole.NURSE]: [
     PERMISSIONS.SYSTEM_READ,
+    PERMISSIONS.MESSAGES_READ,
+    PERMISSIONS.MESSAGES_SEND,
     PERMISSIONS.PATIENTS_READ,
     PERMISSIONS.ENCOUNTERS_READ,
     // Emergency triage nurses register arrivals themselves.
@@ -300,6 +307,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly
   ],
   [UserRole.PHARMACIST]: [
     PERMISSIONS.SYSTEM_READ,
+    PERMISSIONS.MESSAGES_READ,
+    PERMISSIONS.MESSAGES_SEND,
     PERMISSIONS.PATIENTS_READ,
     PERMISSIONS.PHARMACY_FORMULARY_READ,
     PERMISSIONS.PHARMACY_DRUGS_MANAGE,
@@ -315,6 +324,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly
   ],
   [UserRole.RECEPTIONIST]: [
     PERMISSIONS.SYSTEM_READ,
+    PERMISSIONS.MESSAGES_READ,
+    PERMISSIONS.MESSAGES_SEND,
     PERMISSIONS.PATIENTS_READ,
     PERMISSIONS.PATIENTS_CREATE,
     PERMISSIONS.PATIENTS_UPDATE,
@@ -348,6 +359,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly
   ],
   [UserRole.LAB_STAFF]: [
     PERMISSIONS.SYSTEM_READ,
+    PERMISSIONS.MESSAGES_READ,
+    PERMISSIONS.MESSAGES_SEND,
     PERMISSIONS.PATIENTS_READ,
     PERMISSIONS.PATIENTS_TRENDS_READ,
     PERMISSIONS.ORDERS_READ,
@@ -382,6 +395,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly
   ],
   [UserRole.SCAN_STAFF]: [
     PERMISSIONS.SYSTEM_READ,
+    PERMISSIONS.MESSAGES_READ,
+    PERMISSIONS.MESSAGES_SEND,
     PERMISSIONS.PATIENTS_READ,
     PERMISSIONS.ORDERS_READ,
     PERMISSIONS.SCAN_QUEUE_READ,
@@ -408,6 +423,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly
   ],
   [UserRole.BILLING_STAFF]: [
     PERMISSIONS.SYSTEM_READ,
+    PERMISSIONS.MESSAGES_READ,
+    PERMISSIONS.MESSAGES_SEND,
     PERMISSIONS.PATIENTS_READ,
     PERMISSIONS.ORDERS_READ,
     PERMISSIONS.BILLING_INVOICES_READ,
