@@ -20,11 +20,11 @@ export type RequestContext = {
   userAgent?: string | null;
 };
 
-type FacilitySummary = { id: string; code: string; name: string; logoDataUrl?: string | null; onboardingCompletedAt?: Date | null };
+type FacilitySummary = { id: string; code: string; name: string; logoDataUrl?: string | null; onboardingCompletedAt?: Date | null; receptionConfirmsOrders?: boolean };
 
 function toFacilitySummary(facility: FacilitySummary | null | undefined): FacilitySummary | null {
   return facility
-    ? { id: facility.id, code: facility.code, name: facility.name, logoDataUrl: facility.logoDataUrl ?? null, onboardingCompletedAt: facility.onboardingCompletedAt ?? null }
+    ? { id: facility.id, code: facility.code, name: facility.name, logoDataUrl: facility.logoDataUrl ?? null, onboardingCompletedAt: facility.onboardingCompletedAt ?? null, receptionConfirmsOrders: facility.receptionConfirmsOrders ?? false }
     : null;
 }
 

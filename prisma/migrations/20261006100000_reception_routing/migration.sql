@@ -1,0 +1,12 @@
+-- Whether a clinician's order waits for reception before the laboratory or scan
+-- unit can see it.
+--
+-- A diagnostic centre receives work from clinicians elsewhere, so somebody has
+-- to take it in, confirm it and route it. A hospital or clinic does not: the
+-- clinician who asked and the lab that answers are in the same building, and a
+-- receptionist in between only leaves the sample waiting. So this defaults to
+-- false, and the facilities that need the step turn it on.
+--
+-- Existing facilities are all demonstration or hospital installations, which is
+-- why false is the right default for them too.
+ALTER TABLE "Facility" ADD COLUMN "receptionConfirmsOrders" BOOLEAN NOT NULL DEFAULT false;

@@ -1,5 +1,5 @@
 import type { Request } from 'express';
-import { BillingInterval, CatalogItemType, DemoRequestStatus, DepartmentType, Prisma, UserRole, UserStatus } from '@prisma/client';
+import { BillingInterval, CatalogItemType, DemoRequestStatus, DepartmentType, FacilityKind, Prisma, UserRole, UserStatus } from '@prisma/client';
 import { prisma } from './prisma.service.js';
 import { currentFacilityId, runAsSystem, runWithFacility } from './tenantContext.js';
 import { createAuditLog, getRequestAuditContext } from './audit.service.js';
@@ -60,7 +60,11 @@ export async function signup(input: SignupInput, context: RequestContext) {
           phone: input.facility.phone,
           email: input.facility.email,
           address: input.facility.address || null,
-          signupSource: 'SELF_SERVICE'
+          signupSource: 'SELF_SERVICE',
+          // A diagnostic centre takes its work in from clinicians elsewhere, so
+          // reception receives and routes it. Everyone else sends a clinician's
+          // order straight to the bench.
+          receptionConfirmsOrders: plan.facilityKind === FacilityKind.DIAGNOSTIC_CENTRE
         },
         select: { id: true, code: true, name: true }
       });
@@ -111,7 +115,7 @@ function facilityId() {
   return id;
 }
 
-const profileSelect = { id: true, code: true, name: true, phone: true, email: true, address: true, logoDataUrl: true, allowSupportAccess: true, onboardingCompletedAt: true, signupSource: true } as const;
+const profileSelect = { id: true, code: true, name: true, phone: true, email: true, address: true, logoDataUrl: true, allowSupportAccess: true, receptionConfirmsOrders: true, onboardingCompletedAt: true, signupSource: true } as const;
 
 export async function onboardingStatus() {
   const facility = await prisma.facility.findUniqueOrThrow({ where: { id: facilityId() }, select: profileSelect });
@@ -134,7 +138,7 @@ export async function onboardingStatus() {
 const LOGO_PATTERN = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
 export const MAX_LOGO_LENGTH = 280_000; // about 200 KB of image
 
-export async function updateProfile(body: { name?: string; phone?: string; email?: string; address?: string; logoDataUrl?: string | null; allowSupportAccess?: boolean }, req: Request) {
+export async function updateProfile(body: { name?: string; phone?: string; email?: string; address?: string; logoDataUrl?: string | null; allowSupportAccess?: boolean; receptionConfirmsOrders?: boolean }, req: Request) {
   if (body.logoDataUrl && (!LOGO_PATTERN.test(body.logoDataUrl) || body.logoDataUrl.length > MAX_LOGO_LENGTH)) {
     throw new AppError('The logo must be a PNG, JPEG or WebP image of at most 200 KB', 400, 'INVALID_LOGO');
   }
@@ -147,7 +151,8 @@ export async function updateProfile(body: { name?: string; phone?: string; email
       email: body.email === undefined ? undefined : body.email || null,
       address: body.address === undefined ? undefined : body.address || null,
       logoDataUrl: body.logoDataUrl === undefined ? undefined : body.logoDataUrl,
-      allowSupportAccess: body.allowSupportAccess
+      allowSupportAccess: body.allowSupportAccess,
+      receptionConfirmsOrders: body.receptionConfirmsOrders
     },
     select: profileSelect
   });

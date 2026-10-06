@@ -68,8 +68,13 @@ async function acceptedSample(catalogItemId: string, patientCode: string, facili
   expect(created.status, created.text).toBe(201);
   const orderId = created.json.data.id as string;
 
-  const confirmed = await post(`/reception/orders/${orderId}/confirm`, receptionToken, { invoiceNow: true });
-  expect(confirmed.status, confirmed.text).toBeLessThan(300);
+  // Reception only has something to do where the facility routes orders through
+  // it. Where it does not, the order arrives already confirmed and the endpoint
+  // rightly refuses - this helper only needs an accepted sample either way.
+  if (facility.receptionConfirmsOrders) {
+    const confirmed = await post(`/reception/orders/${orderId}/confirm`, receptionToken, { invoiceNow: true });
+    expect(confirmed.status, confirmed.text).toBeLessThan(300);
+  }
 
   const accepted = await post('/lab/samples/accept', labToken, { orderId });
   expect(accepted.status, accepted.text).toBe(201);

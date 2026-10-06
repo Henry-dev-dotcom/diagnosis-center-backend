@@ -3,8 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   // Migrations cannot run through a connection pooler: they take advisory locks
   // and issue DDL that pgbouncer in transaction mode will not carry. A hosted
   // Postgres such as Neon gives two addresses - a pooled one for the running app
@@ -33,25 +33,31 @@ enum FacilityStatus {
 /// Every tenant-owned row carries facilityId; see src/services/tenantContext.ts.
 /// Not to be confused with Hospital, which models referring hospitals.
 model Facility {
-  id                    String         @id @default(cuid())
-  code                  String         @unique
-  name                  String
-  status                FacilityStatus @default(ACTIVE)
-  phone                 String?
-  email                 String?
-  address               String?
-  timezone              String         @default("Africa/Accra")
-  currency              String         @default("GHS")
+  id                      String         @id @default(cuid())
+  code                    String         @unique
+  name                    String
+  status                  FacilityStatus @default(ACTIVE)
+  phone                   String?
+  email                   String?
+  address                 String?
+  timezone                String         @default("Africa/Accra")
+  currency                String         @default("GHS")
   /// Small logo shown in the app header (a PNG/JPEG/WebP data URL, at most ~200 KB).
-  logoDataUrl           String?
+  logoDataUrl             String?
   /// SELF_SERVICE (signed up on the website) or PLATFORM (created by the operator).
-  signupSource          String         @default("PLATFORM")
+  signupSource            String         @default("PLATFORM")
   /// Set when the administrator finishes (or skips) the setup checklist.
-  onboardingCompletedAt DateTime?
+  onboardingCompletedAt   DateTime?
   /// Whether LHIMS support may open a read-only support session in this facility.
-  allowSupportAccess    Boolean        @default(true)
-  createdAt             DateTime       @default(now())
-  updatedAt             DateTime       @updatedAt
+  allowSupportAccess      Boolean        @default(true)
+  /// Whether a clinician's order waits for reception to confirm and route it
+  /// before the laboratory or scan unit can see it. True for a diagnostic
+  /// centre, whose work arrives from clinicians elsewhere and has to be received;
+  /// false in a hospital or clinic, where the clinician and the lab are the same
+  /// building and a receptionist in between only delays the sample.
+  receptionConfirmsOrders Boolean        @default(false)
+  createdAt               DateTime       @default(now())
+  updatedAt               DateTime       @updatedAt
 
   modules                   FacilityModule[]
   sequences                 FacilitySequence[]

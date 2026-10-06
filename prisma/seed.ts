@@ -1371,7 +1371,14 @@ async function seedAuditAndSystemEvents() {
   });
 }
 
-export type DemoFacility = { id: string; code: string; name: string; idPrefix: string };
+export type DemoFacility = {
+  id: string;
+  code: string;
+  name: string;
+  idPrefix: string;
+  /** Whether reception receives and routes a clinician's order. Defaults to false, as a hospital does. */
+  receptionConfirmsOrders?: boolean;
+};
 
 export const DEMO_FACILITY: DemoFacility = { id: 'fac_default', code: 'DEMO', name: 'LHIMS Demo Hospital', idPrefix: '' };
 
@@ -1379,8 +1386,8 @@ export const DEMO_FACILITY: DemoFacility = { id: 'fac_default', code: 'DEMO', na
 export async function seedFacility(facility: DemoFacility) {
   await prisma.facility.upsert({
     where: { id: facility.id },
-    update: { code: facility.code, name: facility.name, onboardingCompletedAt: new Date() },
-    create: { id: facility.id, code: facility.code, name: facility.name, onboardingCompletedAt: new Date() }
+    update: { code: facility.code, name: facility.name, onboardingCompletedAt: new Date(), receptionConfirmsOrders: facility.receptionConfirmsOrders ?? false },
+    create: { id: facility.id, code: facility.code, name: facility.name, onboardingCompletedAt: new Date(), receptionConfirmsOrders: facility.receptionConfirmsOrders ?? false }
   });
 
   idPrefix = facility.idPrefix;

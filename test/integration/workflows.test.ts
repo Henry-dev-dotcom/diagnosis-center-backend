@@ -142,3 +142,70 @@ describe('doctor order through reception confirmation and payment', () => {
     expect(payments.every((p) => p.facilityId === FACILITY_A.id)).toBe(true);
   });
 });
+
+/*
+  A clinician's order reaching the bench without a receptionist.
+
+  In a hospital the clinician who asks and the laboratory that answers are in the
+  same building, so an order that waits for reception to confirm it is a sample
+  sitting on a desk. Bravo does not route through reception, so the order has to
+  arrive at the laboratory ready to accept - and reception must not be able to
+  "confirm" something that is already confirmed.
+*/
+describe('a doctor order that goes straight to the bench', () => {
+  it('arrives confirmed, is acceptable by the lab, and needs no receptionist', async () => {
+    const [doctorToken, labToken, receptionToken] = await Promise.all([
+      token(FACILITY_B.code, 'doctor'),
+      token(FACILITY_B.code, 'lab'),
+      token(FACILITY_B.code, 'reception')
+    ]);
+
+    const created = await post('/doctor/orders', doctorToken, {
+      patientId: `${FACILITY_B.idPrefix}PAT-0002`,
+      urgency: 'ROUTINE',
+      items: [{ catalogItemId: `${FACILITY_B.idPrefix}t1` }]
+    });
+    expect(created.status, created.text).toBe(201);
+    const orderId = created.json.data.id ?? created.json.data.order?.id;
+
+    // Confirmed on submission, not left waiting to be received.
+    const order = await runWithFacility(FACILITY_B.id, () => prisma.order.findUniqueOrThrow({ where: { id: orderId } }));
+    expect(order.status).toBe('CONFIRMED');
+    expect(order.confirmedAt).not.toBeNull();
+
+    // The trail still says where it came from and why it was confirmed.
+    const history = await runWithFacility(FACILITY_B.id, () =>
+      prisma.orderStatusHistory.findMany({ where: { orderId }, orderBy: { createdAt: 'asc' } })
+    );
+    expect(history.map((entry) => entry.toStatus)).toEqual(['SUBMITTED', 'CONFIRMED']);
+
+    // It does not appear in reception's incoming queue, and cannot be confirmed again.
+    const again = await post(`/reception/orders/${orderId}/confirm`, receptionToken, { invoiceNow: true });
+    expect(again.status).toBe(409);
+
+    // The laboratory can accept the sample with nobody else having touched it.
+    const accepted = await post('/lab/samples/accept', labToken, { orderId });
+    expect(accepted.status, accepted.text).toBe(201);
+    expect(accepted.json.data.samples.length).toBeGreaterThan(0);
+  });
+
+  it('still waits for reception where the facility routes orders that way', async () => {
+    const doctorToken = await token(FACILITY_A.code, 'doctor');
+    const created = await post('/doctor/orders', doctorToken, {
+      patientId: 'PAT-0003',
+      urgency: 'ROUTINE',
+      items: [{ catalogItemId: 't1' }]
+    });
+    expect(created.status, created.text).toBe(201);
+    const orderId = created.json.data.id ?? created.json.data.order?.id;
+
+    const order = await runWithFacility(FACILITY_A.id, () => prisma.order.findUniqueOrThrow({ where: { id: orderId } }));
+    expect(order.status).toBe('SUBMITTED');
+    expect(order.confirmedAt).toBeNull();
+
+    // And the lab cannot reach past reception to take it.
+    const labToken = await token(FACILITY_A.code, 'lab');
+    const premature = await post('/lab/samples/accept', labToken, { orderId });
+    expect(premature.status).toBeGreaterThanOrEqual(400);
+  });
+});

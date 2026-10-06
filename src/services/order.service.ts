@@ -13,6 +13,7 @@ import type { Request } from 'express';
 import { prisma } from './prisma.service.js';
 import { nextCode as issueCode } from './codeSequence.service.js';
 import { assertItemTypesAvailable, isModuleEnabled } from './facilityAccess.service.js';
+import { currentFacilityId } from './tenantContext.js';
 import { createAuditLog, getRequestAuditContext } from './audit.service.js';
 import { getPagination, paginationMeta, safeOrderBy } from './query.service.js';
 import { AppError } from '../utils/appError.js';
@@ -226,6 +227,29 @@ function buildClinicalNotes(body: CreateOrderPayload) {
   return notes;
 }
 
+/*
+  Does a clinician's order have to be received before the lab can see it?
+
+  In a diagnostic centre it does: the request comes from a clinician somewhere
+  else, and reception takes it in, checks it against what was paid for and routes
+  it. In a hospital or clinic the clinician and the laboratory are the same
+  building, so the order goes straight to the bench — a receptionist in between
+  only leaves the sample sitting on a desk.
+
+  The order is therefore created already CONFIRMED where reception is not used,
+  which is what every downstream queue and acceptance gate already looks for.
+  Nothing else in the lab or scan flow needs to know about this.
+*/
+async function receptionConfirmsOrders() {
+  const facilityId = currentFacilityId();
+  if (!facilityId) return false;
+  const facility = await prisma.facility.findUnique({
+    where: { id: facilityId },
+    select: { receptionConfirmsOrders: true }
+  });
+  return facility?.receptionConfirmsOrders ?? false;
+}
+
 export async function createDoctorOrder(body: CreateOrderPayload, req: Request) {
   if (!req.user) throw new AppError('Authentication is required', 401, 'AUTH_REQUIRED');
 
@@ -238,6 +262,7 @@ export async function createDoctorOrder(body: CreateOrderPayload, req: Request) 
   const now = new Date();
   const maxCompletionHours = Math.max(...catalogItems.map((item) => item.expectedCompletionHours ?? 24), 24);
   const hospitalId = body.hospitalId ?? doctorProfile?.hospitalId ?? patient.hospitalId ?? null;
+  const viaReception = await receptionConfirmsOrders();
 
   const created = await prisma.$transaction(async (tx) => {
     const orderCode = await nextOrderCode(tx);
@@ -250,7 +275,9 @@ export async function createDoctorOrder(body: CreateOrderPayload, req: Request) 
         urgency: body.urgency ?? OrderUrgency.ROUTINE,
         clinicalNotes: buildClinicalNotes(body),
         expectedCompletionAt: addHours(now, maxCompletionHours),
+        status: viaReception ? OrderStatus.SUBMITTED : OrderStatus.CONFIRMED,
         submittedAt: now,
+        confirmedAt: viaReception ? null : now,
         createdById: req.user?.id ?? null,
         items: {
           create: body.items.map((input) => {
@@ -266,11 +293,12 @@ export async function createDoctorOrder(body: CreateOrderPayload, req: Request) 
           })
         },
         statusHistory: {
-          create: {
-            toStatus: OrderStatus.SUBMITTED,
-            actorId: req.user?.id ?? null,
-            note: 'Order submitted by doctor workflow'
-          }
+          create: viaReception
+            ? [{ toStatus: OrderStatus.SUBMITTED, actorId: req.user?.id ?? null, note: 'Order submitted by doctor workflow' }]
+            : [
+                { toStatus: OrderStatus.SUBMITTED, actorId: req.user?.id ?? null, note: 'Order submitted by doctor workflow' },
+                { toStatus: OrderStatus.CONFIRMED, actorId: req.user?.id ?? null, note: 'Confirmed on submission: this facility does not route orders through reception' }
+              ]
         }
       }
     });
@@ -279,18 +307,42 @@ export async function createDoctorOrder(body: CreateOrderPayload, req: Request) 
       await tx.patient.update({ where: { id: patient.id }, data: { referringDoctorId: doctorProfile.id, updatedById: req.user?.id ?? null } });
     }
 
-    const receptionist = await tx.user.findFirst({ where: { role: UserRole.RECEPTIONIST, status: UserStatus.ACTIVE }, orderBy: { createdAt: 'asc' } });
-    await tx.notification.create({
-      data: {
-        orderId: order.id,
-        createdById: req.user?.id ?? null,
-        recipientUserId: receptionist?.id ?? null,
-        type: NotificationType.ORDER_UPDATE,
-        title: 'Incoming doctor order',
-        body: `${order.orderCode} is awaiting reception confirmation.`,
-        isRead: false
+    // Tell whoever actually has to act next. With reception in the loop that is
+    // the receptionist; without it, the bench that the work has just landed on.
+    if (viaReception) {
+      const receptionist = await tx.user.findFirst({ where: { role: UserRole.RECEPTIONIST, status: UserStatus.ACTIVE }, orderBy: { createdAt: 'asc' } });
+      await tx.notification.create({
+        data: {
+          orderId: order.id,
+          createdById: req.user?.id ?? null,
+          recipientUserId: receptionist?.id ?? null,
+          type: NotificationType.ORDER_UPDATE,
+          title: 'Incoming doctor order',
+          body: `${order.orderCode} is awaiting reception confirmation.`,
+          isRead: false
+        }
+      });
+    } else {
+      const types = new Set(catalogItems.map((item) => item.type));
+      const roles = [
+        types.has(CatalogItemType.LAB) ? UserRole.LAB_STAFF : null,
+        types.has(CatalogItemType.SCAN) ? UserRole.SCAN_STAFF : null
+      ].filter(Boolean) as UserRole[];
+      for (const role of roles) {
+        const recipient = await tx.user.findFirst({ where: { role, status: UserStatus.ACTIVE }, orderBy: { createdAt: 'asc' } });
+        await tx.notification.create({
+          data: {
+            orderId: order.id,
+            createdById: req.user?.id ?? null,
+            recipientUserId: recipient?.id ?? null,
+            type: NotificationType.ORDER_UPDATE,
+            title: role === UserRole.LAB_STAFF ? 'Incoming laboratory request' : 'Incoming scan request',
+            body: `${order.orderCode} is waiting to be accepted.`,
+            isRead: false
+          }
+        });
       }
-    });
+    }
 
     return order;
   });
