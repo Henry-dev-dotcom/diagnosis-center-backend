@@ -2,7 +2,7 @@ import { AnaesthesiaType, SurgeryStatus, SurgeryUrgency } from '@prisma/client';
 import { z } from 'zod';
 
 const optionalText = (max: number) => z.string().trim().max(max).optional().transform((v) => (v ? v : undefined));
-const confirmed = (message: string) => z.literal(true, { errorMap: () => ({ message }) });
+const confirmed = (message: string) => z.literal(true, { error: message });
 
 export const createTheatreSchema = z.object({
   code: z.string().trim().min(2).max(20).transform((v) => v.toUpperCase()),

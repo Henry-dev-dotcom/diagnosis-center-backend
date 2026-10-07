@@ -20,7 +20,7 @@ const itemSchema = z.object({
   quantity: z.union([z.number(), z.string()]).optional(),
   referenceRange: z.string().optional().nullable(),
   unit: z.string().optional().nullable(),
-  metadata: z.record(z.any()).optional(),
+  metadata: z.record(z.string(), z.any()).optional(),
 }).passthrough();
 
 export const createWalkInPatientSchema = z.object({
