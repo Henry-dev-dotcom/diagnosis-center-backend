@@ -436,13 +436,16 @@ model User {
   customRoleId String?
   status       UserStatus @default(ACTIVE)
   lastLoginAt  DateTime?
+  /// Set when the user proves ownership of the email address on the account.
+  emailVerifiedAt DateTime?
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
-  customRole          FacilityRole?        @relation(fields: [customRoleId], references: [id])
-  doctorProfile       DoctorProfile?
-  sessions            UserSession[]
-  passwordResetTokens PasswordResetToken[]
+  customRole              FacilityRole?            @relation(fields: [customRoleId], references: [id])
+  doctorProfile           DoctorProfile?
+  sessions                UserSession[]
+  passwordResetTokens     PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
 
   createdPatients    Patient[]            @relation("PatientCreatedBy")
   updatedPatients    Patient[]            @relation("PatientUpdatedBy")
@@ -564,6 +567,22 @@ model UserSession {
 }
 
 model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+/// Single-use token proving a user owns the email address on their account.
+/// Mirrors PasswordResetToken: only the SHA-256 hash of the token is stored.
+model EmailVerificationToken {
   id        String    @id @default(cuid())
   userId    String
   tokenHash String    @unique
@@ -2306,7 +2325,7 @@ model PatientAllergy {
   updatedAt    DateTime        @updatedAt
 
   facility   Facility @relation(fields: [facilityId], references: [id])
-  patient    Patient  @relation(fields: [patientId], references: [id])
+  patient   Patient  @relation(fields: [patientId], references: [id])
   recordedBy User?    @relation("AllergyRecordedBy", fields: [recordedById], references: [id])
 
   @@index([facilityId])

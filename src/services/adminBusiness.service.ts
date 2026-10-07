@@ -124,7 +124,22 @@ export async function updateUser(userId: string, body: { name?: string; email?: 
   const before = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: userSelect });
   const data: Prisma.UserUncheckedUpdateInput = {};
   if (body.name !== undefined) data.name = body.name.trim();
-  if (body.email !== undefined) data.email = clean(body.email) as string | null;
+  if (body.email !== undefined) {
+    const next = clean(body.email) as string | null;
+    data.email = next;
+    /*
+      A verified address that has been replaced is not verified.
+
+      Verification proves that somebody with access to a particular mailbox
+      followed a link. Change the address and nobody has shown anything about the
+      new one, so the account must not go on vouching for it - and a link sent to
+      the old address must stop working too.
+    */
+    if ((next ?? '').toLowerCase() !== (before.email ?? '').toLowerCase()) {
+      data.emailVerifiedAt = null;
+      await prisma.emailVerificationToken.updateMany({ where: { userId, usedAt: null }, data: { usedAt: new Date() } });
+    }
+  }
   const assignment = await resolveUserRoleAssignment(body);
   if (assignment.role !== undefined) data.role = assignment.role;
   if (assignment.customRoleId !== undefined) data.customRoleId = assignment.customRoleId;

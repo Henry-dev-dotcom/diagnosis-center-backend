@@ -46,6 +46,7 @@ async function sanitizeUser(user: {
   role: import('@prisma/client').UserRole;
   status: import('@prisma/client').UserStatus;
   lastLoginAt: Date | null;
+  emailVerifiedAt: Date | null;
   facility?: FacilitySummary | null;
   customRole?: CustomRoleLike | null;
   doctorProfile?: { id: string } | null;
@@ -63,6 +64,7 @@ async function sanitizeUser(user: {
     customRole: customRole ? { id: customRole.id, name: customRole.name } : null,
     status: user.status,
     lastLoginAt: user.lastLoginAt,
+    emailVerified: Boolean(user.emailVerifiedAt),
     permissions: effectivePermissions(user.role, customRole),
     // The clinician's own profile id, so their workspace finds their own orders
     // without needing the admin-only doctor list.

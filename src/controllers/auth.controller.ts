@@ -9,7 +9,8 @@ import {
   logoutSession,
   refreshTokenPair
 } from '../services/auth.service.js';
-import type { changePasswordSchema, loginSchema, logoutSchema, refreshTokenSchema } from '../validators/auth.validators.js';
+import { requestEmailVerification, verifyEmailToken } from '../services/emailVerification.service.js';
+import type { changePasswordSchema, loginSchema, logoutSchema, refreshTokenSchema, verifyEmailSchema } from '../validators/auth.validators.js';
 import type { z } from 'zod';
 import { AppError } from '../utils/appError.js';
 import { clearAuthCookies, getRefreshTokenFromCookie, setAuthCookies } from '../utils/authCookies.js';
@@ -67,4 +68,35 @@ export const updatePassword = asyncHandler(async (req: Request, res: Response) =
   const body = req.body as z.infer<typeof changePasswordSchema>;
   await changePassword(req.user.id, body.currentPassword, body.newPassword, requestContext(req));
   return sendSuccess(res, 'Password changed successfully. Please log in again.', { passwordChanged: true });
+});
+
+export const requestEmailVerificationController = asyncHandler(async (req: Request, res: Response) => {
+  if (!req.user) throw new AppError('Authentication is required', 401, 'AUTH_REQUIRED');
+  const result = await requestEmailVerification(req.user.id, requestContext(req));
+
+  if (result.alreadyVerified) {
+    return sendSuccess(res, 'This email address is already verified.', { emailVerified: true });
+  }
+  const message =
+    result.delivered === 'sent'
+      ? 'Verification email sent. The link expires in 24 hours.'
+      : result.delivered === 'logged'
+        ? 'Verification link written to the server log (development mail driver).'
+        : 'Email sending is not configured on this server; ask the administrator to set MAIL_DRIVER.';
+  return sendSuccess(res, message, { emailVerified: false, delivered: result.delivered });
+});
+
+/*
+  Confirming an address is a POST, and only a POST.
+
+  It used to answer GET as well, so that the emailed link could do the work
+  itself. A GET that changes state is spent by anything that merely fetches the
+  link - mail gateways do, to scan it - so the person who actually clicked would
+  be told it had expired. The link now opens a page in the app, and that page
+  makes this request when they press the button.
+*/
+export const verifyEmail = asyncHandler(async (req: Request, res: Response) => {
+  const body = req.body as z.infer<typeof verifyEmailSchema>;
+  await verifyEmailToken(body.token, requestContext(req));
+  return sendSuccess(res, 'Email address verified.', { emailVerified: true });
 });

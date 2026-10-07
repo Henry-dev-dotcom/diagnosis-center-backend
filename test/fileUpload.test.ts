@@ -1,0 +1,109 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { afterAll, describe, expect, it } from 'vitest';
+import { contentMatchesType, normalizeAndStoreFile, resolveUploadPath, sniffBufferType } from '../src/services/fileStorage.service.js';
+
+/*
+  What may be stored, and what may not.
+
+  The upload filter exists so that a file served back from this origin can never
+  be an executable or an active web page. The ways round it are all of the same
+  kind - a label that says one thing while the bytes say another - so each is
+  tried here, together with the legitimate files the filter must not turn away.
+  A filter that blocks attackers and also the radiographer's own scans has
+  protected nothing, because the first thing people do then is turn it off.
+*/
+
+const b64 = (data: string | Buffer) => Buffer.from(data).toString('base64');
+// A Windows executable: the DOS header is mostly zero bytes and the PE header
+// follows. Any real one has NULs in its first bytes, which is what tells it apart
+// from text.
+const exe = Buffer.concat([Buffer.from('MZ'), Buffer.alloc(58, 0), Buffer.from([0x80, 0, 0, 0]), Buffer.alloc(60, 0), Buffer.from('PE\0\0')]);
+const html = '<html><script>alert(document.domain)</script></html>';
+const jpeg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(64)]);
+const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(32)]);
+const pdf = Buffer.from('%PDF-1.7\n%%EOF');
+const zip = Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04]), Buffer.alloc(40)]);
+const dicom = Buffer.concat([Buffer.alloc(128), Buffer.from('DICM'), Buffer.alloc(64)]);
+
+const stored: string[] = [];
+let counter = 0;
+async function store(file: Record<string, unknown>) {
+  counter += 1;
+  const result = await normalizeAndStoreFile(file as never, { module: 'SCAN', entityType: 'ScanResult', entityId: `upload-test-${process.pid}-${counter}` });
+  stored.push(result.storageKey);
+  return result;
+}
+
+afterAll(async () => {
+  await Promise.all(stored.map((key) => fs.rm(path.dirname(resolveUploadPath(key)), { recursive: true, force: true })));
+});
+
+describe('a label cannot make a file something it is not', () => {
+  it.each([
+    ['an executable labelled as a scan.bin', { fileName: 'scan.bin', fileType: 'application/octet-stream', contentBase64: b64(exe) }],
+    ['an executable named scan.dcm', { fileName: 'scan.dcm', fileType: 'application/octet-stream', contentBase64: b64(exe) }],
+    ['a web page flagged isDicom', { fileName: 'x.html', fileType: 'text/html', isDicom: true, contentBase64: b64(html) }],
+    ['a web page named x.dcm', { fileName: 'x.dcm', fileType: 'text/html', contentBase64: b64(html) }],
+    ['a web page claiming to be a PDF', { fileName: 'report.pdf', fileType: 'application/pdf', contentBase64: b64(html) }],
+    ['an executable claiming to be a JPEG', { fileName: 'photo.jpg', fileType: 'image/jpeg', contentBase64: b64(exe) }],
+    ['an executable claiming to be a CSV', { fileName: 'data.csv', fileType: 'text/csv', contentBase64: b64(exe) }]
+  ])('refuses %s', async (_label, file) => {
+    await expect(store(file)).rejects.toMatchObject({ statusCode: 415 });
+  });
+
+  it.each([
+    ['an HTML page', { fileName: 'x.html', fileType: 'text/html', contentBase64: b64(html) }],
+    ['an SVG, which can carry script', { fileName: 'x.svg', fileType: 'image/svg+xml', contentBase64: b64('<svg onload=alert(1)/>') }],
+    ['JavaScript', { fileName: 'x.js', fileType: 'application/javascript', contentBase64: b64('alert(1)') }]
+  ])('refuses %s outright', async (_label, file) => {
+    await expect(store(file)).rejects.toMatchObject({ code: 'FILE_TYPE_NOT_ALLOWED' });
+  });
+});
+
+describe('the files people actually upload still get in', () => {
+  it('accepts a real DICOM study, however it is labelled', async () => {
+    await expect(store({ fileName: 'ct.dcm', fileType: 'application/dicom', isDicom: true, contentBase64: b64(dicom) })).resolves.toBeTruthy();
+    // Scanners often send no type at all, and browsers give a .dcm file none.
+    await expect(store({ fileName: 'mr.dcm', fileType: '', contentBase64: b64(dicom) })).resolves.toBeTruthy();
+    await expect(store({ fileName: 'us', fileType: 'application/octet-stream', isDicom: true, contentBase64: b64(dicom) })).resolves.toBeTruthy();
+  });
+
+  it('accepts images, a PDF and Office files with the right bytes', async () => {
+    await expect(store({ fileName: 'a.jpg', fileType: 'image/jpeg', contentBase64: b64(jpeg) })).resolves.toBeTruthy();
+    await expect(store({ fileName: 'a.png', fileType: 'image/png', contentBase64: b64(png) })).resolves.toBeTruthy();
+    await expect(store({ fileName: 'a.pdf', fileType: 'application/pdf', contentBase64: b64(pdf) })).resolves.toBeTruthy();
+    await expect(store({ fileName: 'a.xlsx', fileType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', contentBase64: b64(zip) })).resolves.toBeTruthy();
+  });
+
+  it('accepts a real image that arrives with no useful label', async () => {
+    // The filter used to turn this away, which is a false alarm: the bytes say
+    // exactly what it is.
+    await expect(store({ fileName: 'photo.jpg', fileType: 'application/octet-stream', contentBase64: b64(jpeg) })).resolves.toBeTruthy();
+  });
+
+  it('accepts plain text and CSV, which have no signature but are not binary', async () => {
+    await expect(store({ fileName: 'a.csv', fileType: 'text/csv; charset=utf-8', contentBase64: b64('sample,test,value\nS1,GLU,5.2\n') })).resolves.toBeTruthy();
+    await expect(store({ fileName: 'a.txt', fileType: 'text/plain', contentBase64: b64('notes') })).resolves.toBeTruthy();
+    // Windows browsers label a .csv "application/vnd.ms-excel".
+    await expect(store({ fileName: 'b.csv', fileType: 'application/vnd.ms-excel', contentBase64: b64('a,b\n1,2\n') })).resolves.toBeTruthy();
+  });
+});
+
+describe('the signature check itself', () => {
+  it('recognises each accepted binary type', () => {
+    expect(sniffBufferType(jpeg)).toBe('jpeg');
+    expect(sniffBufferType(png)).toBe('png');
+    expect(sniffBufferType(pdf)).toBe('pdf');
+    expect(sniffBufferType(zip)).toBe('zip');
+    expect(sniffBufferType(dicom)).toBe('dicom');
+    expect(sniffBufferType(exe)).toBeNull();
+    expect(sniffBufferType(Buffer.alloc(0))).toBeNull();
+  });
+
+  it('does not let a short or empty buffer through as something real', () => {
+    expect(contentMatchesType('image/jpeg', Buffer.alloc(0))).toBe(false);
+    expect(contentMatchesType('application/dicom', Buffer.alloc(100))).toBe(false);
+    expect(contentMatchesType('application/octet-stream', Buffer.from('anything'))).toBe(false);
+  });
+});

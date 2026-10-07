@@ -1,6 +1,6 @@
 import express from 'express';
 import swaggerUi from 'swagger-ui-express';
-import { env } from './config/env.js';
+import { apiDocsEnabled, env } from './config/env.js';
 import { buildOpenApiDocument } from './config/openapi.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { apiRequestLogger } from './middleware/audit.js';
@@ -16,12 +16,12 @@ export function createApp() {
     res.json({
       name: 'LHIMS API',
       status: 'running',
-      docs: env.ENABLE_API_DOCS ? `${env.API_PREFIX}/docs` : null,
+      docs: apiDocsEnabled ? `${env.API_PREFIX}/docs` : null,
       health: `${env.API_PREFIX}/health`
     });
   });
 
-  if (env.ENABLE_API_DOCS) {
+  if (apiDocsEnabled) {
     app.use(`${env.API_PREFIX}/docs`, swaggerUi.serve, swaggerUi.setup(buildOpenApiDocument(apiRouter)));
   }
 
