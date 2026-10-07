@@ -90,15 +90,30 @@ export const publicFormRateLimit = createRateLimiter({
   message: 'Too many submissions from this network. Please try again in an hour.'
 });
 
+/*
+  What may be cached.
+
+  Only the public website's catalogue, which is the same for everybody. Everything
+  behind a sign-in is no-store.
+
+  Authenticated reads used to carry "private, max-age=10, stale-while-revalidate=20".
+  That does two harmful things in a clinical system. First, the app re-reads the same
+  URL straight after every write - register a patient, place an order, take a payment -
+  and the browser answered from its copy, so the screen showed the world as it was up
+  to thirty seconds ago: the new patient missing, the balance unchanged. Second, a
+  browser's cache is keyed on the URL, not on who is signed in, and these responses
+  varied on nothing but encoding. On a shared hospital workstation, the next person to
+  sign in - at another facility, even - could be handed the previous person's cached
+  patient list. "private" only keeps a shared proxy out of it; it does nothing for two
+  people at one keyboard.
+
+  Nothing about a patient's record is worth saving ten seconds of latency for.
+*/
 function applyResponseCaching(req: Request, res: Response, next: NextFunction) {
   if (req.method !== 'GET') return next();
   res.vary('Accept-Encoding');
-  // Public catalogue/marketing reads can be reused by a CDN briefly. All
-  // authenticated reads remain private because they are facility-scoped.
-  if (req.path.includes('/public/')) {
+  if (req.path.startsWith(`${env.API_PREFIX}/public/`)) {
     res.setHeader('Cache-Control', 'public, max-age=30, stale-while-revalidate=60');
-  } else if (!req.path.includes('/auth/') && !req.path.includes('/files/')) {
-    res.setHeader('Cache-Control', 'private, max-age=10, stale-while-revalidate=20');
   } else {
     res.setHeader('Cache-Control', 'no-store');
   }
