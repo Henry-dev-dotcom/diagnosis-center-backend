@@ -38,12 +38,20 @@ async function main() {
   await import('./seed.production.js');
   await runAsSystem('seed.plans', () => seedPlans());
 
+  const existing = await plain.facility.findUnique({ where: { code: DEMO_FACILITY.code }, select: { id: true } });
+
   if (!wantsDemoData()) {
-    console.log('Deploy seed: plans and the platform operator. No demo data (set SEED_DEMO_DATA=true for a demonstration instance).');
+    // The flag decides whether demo data is created, not whether an existing demo
+    // is kept working: its image lives on an ephemeral disk and must come back
+    // after every redeploy even when the flag is off.
+    if (existing) {
+      const restored = await ensureDemoScanFileBytes();
+      if (restored > 0) console.log('Deploy seed: the demonstration scan image is in place.');
+    }
+    console.log('Deploy seed: plans and the platform operator. No demo data created (set SEED_DEMO_DATA=true for a demonstration instance).');
     return;
   }
 
-  const existing = await plain.facility.findUnique({ where: { code: DEMO_FACILITY.code }, select: { id: true } });
   if (existing) {
     /*
       The demonstration study's bytes are restored even though nothing else is.
