@@ -29,3 +29,8 @@ export const changePasswordSchema = z.object({
     .regex(/[a-z]/, 'New password must include a lowercase letter')
     .regex(/[0-9]/, 'New password must include a number')
 });
+
+// The raw verification token from the emailed link (base64url, 43 characters).
+export const verifyEmailSchema = z.object({
+  token: z.string().min(20, 'Verification token is required')
+});

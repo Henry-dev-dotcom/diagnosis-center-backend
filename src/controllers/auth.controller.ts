@@ -9,10 +9,12 @@ import {
   logoutSession,
   refreshTokenPair
 } from '../services/auth.service.js';
-import type { changePasswordSchema, loginSchema, logoutSchema, refreshTokenSchema } from '../validators/auth.validators.js';
+import { requestEmailVerification, verifyEmailToken } from '../services/emailVerification.service.js';
+import type { changePasswordSchema, loginSchema, logoutSchema, refreshTokenSchema, verifyEmailSchema } from '../validators/auth.validators.js';
 import type { z } from 'zod';
 import { AppError } from '../utils/appError.js';
 import { clearAuthCookies, getRefreshTokenFromCookie, setAuthCookies } from '../utils/authCookies.js';
+import { env } from '../config/env.js';
 
 function requestContext(req: Request) {
   return {
@@ -67,4 +69,39 @@ export const updatePassword = asyncHandler(async (req: Request, res: Response) =
   const body = req.body as z.infer<typeof changePasswordSchema>;
   await changePassword(req.user.id, body.currentPassword, body.newPassword, requestContext(req));
   return sendSuccess(res, 'Password changed successfully. Please log in again.', { passwordChanged: true });
+});
+
+export const requestEmailVerificationController = asyncHandler(async (req: Request, res: Response) => {
+  if (!req.user) throw new AppError('Authentication is required', 401, 'AUTH_REQUIRED');
+  // The emailed link must point at the public API address, not an internal host.
+  const linkBaseUrl = env.API_PUBLIC_URL ?? `${req.protocol}://${req.get('host')}${env.API_PREFIX}`;
+  const result = await requestEmailVerification(req.user.id, linkBaseUrl, requestContext(req));
+
+  if (result.alreadyVerified) {
+    return sendSuccess(res, 'This email address is already verified.', { emailVerified: true });
+  }
+  const message =
+    result.delivered === 'sent'
+      ? 'Verification email sent. The link expires in 24 hours.'
+      : result.delivered === 'logged'
+        ? 'Verification link written to the server log (development mail driver).'
+        : 'Email sending is not configured on this server; ask the administrator to set MAIL_DRIVER.';
+  return sendSuccess(res, message, { emailVerified: false, delivered: result.delivered });
+});
+
+export const verifyEmail = asyncHandler(async (req: Request, res: Response) => {
+  // GET is the link clicked from the email; POST (validated body) is for API clients.
+  if (req.method === 'GET') {
+    try {
+      await verifyEmailToken(String(req.query.token ?? ''), requestContext(req));
+      // Back to the app with a flag the frontend can turn into a notification.
+      return res.redirect(303, `${env.FRONTEND_URL}/?emailVerified=1`);
+    } catch {
+      return res.redirect(303, `${env.FRONTEND_URL}/?emailVerified=0`);
+    }
+  }
+
+  const body = req.body as z.infer<typeof verifyEmailSchema>;
+  await verifyEmailToken(body.token, requestContext(req));
+  return sendSuccess(res, 'Email address verified.', { emailVerified: true });
 });
