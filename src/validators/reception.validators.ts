@@ -61,7 +61,7 @@ export const appointmentSchema = z.object({
   orderId: z.string().min(1, 'Order ID is required').optional(),
   doctorProfileId: z.string().min(1, 'Doctor profile ID is required').optional(),
   hospitalId: z.string().min(1, 'Hospital ID is required').optional(),
-  scheduledAt: z.coerce.date({ required_error: 'Scheduled date/time is required' }),
+  scheduledAt: z.coerce.date({ error: 'Scheduled date/time is required' }),
   reason: z.string().trim().max(500).optional(),
   type: z.string().trim().max(80).optional(),
   roomOrArea: z.string().trim().max(120).optional(),

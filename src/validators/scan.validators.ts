@@ -34,7 +34,7 @@ export const scanBookingSchema = z.object({
   patientId: z.string().min(1, 'Patient ID is required'),
   orderItemId: z.string().min(1, 'Order item ID is required').optional(),
   equipmentId: z.string().min(1, 'Equipment ID is required'),
-  scheduledAt: z.coerce.date({ required_error: 'Scheduled date/time is required' }),
+  scheduledAt: z.coerce.date({ error: 'Scheduled date/time is required' }),
   durationMinutes: z.coerce.number().int().positive().max(480).default(30),
   notes: optionalNotesSchema
 });

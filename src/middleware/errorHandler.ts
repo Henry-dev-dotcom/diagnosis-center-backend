@@ -7,7 +7,7 @@ import type { ApiError } from '../types/api.js';
 import { auditAccessFailure } from './audit.js';
 import { sendAlert } from '../services/alerts.service.js';
 
-function formatPath(path: Array<string | number>) {
+function formatPath(path: ReadonlyArray<PropertyKey>) {
   return path.map((part) => String(part)).join('.');
 }
 

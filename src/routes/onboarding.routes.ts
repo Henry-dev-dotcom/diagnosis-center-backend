@@ -40,7 +40,7 @@ const signupSchema = z.object({
   planId: z.string().min(1, 'Choose a plan'),
   interval: z.nativeEnum(BillingInterval).default(BillingInterval.MONTHLY),
   addOns: z.array(z.enum(MODULE_KEYS)).max(MODULE_KEYS.length).default([]),
-  acceptTerms: z.literal(true, { errorMap: () => ({ message: 'Accept the terms to continue' }) }),
+  acceptTerms: z.literal(true, { error: 'Accept the terms to continue' }),
   website: honeypot
 });
 
@@ -67,8 +67,8 @@ const profileSchema = z.object({
 const priceRowSchema = z.object({
   code: z.string().trim().min(2, 'Code is required').max(30).regex(/^[A-Za-z0-9._-]+$/, 'Codes use letters, digits, dots and dashes'),
   name: z.string().trim().min(2, 'Name is required').max(160),
-  type: z.preprocess((v) => (typeof v === 'string' ? v.trim().toUpperCase() : v), z.nativeEnum(CatalogItemType, { errorMap: () => ({ message: 'Type must be LAB, SCAN or SERVICE' }) })),
-  price: z.coerce.number({ invalid_type_error: 'Price must be a number' }).min(0, 'Price cannot be negative').max(10_000_000),
+  type: z.preprocess((v) => (typeof v === 'string' ? v.trim().toUpperCase() : v), z.nativeEnum(CatalogItemType, { error: 'Type must be LAB, SCAN or SERVICE' })),
+  price: z.coerce.number({ error: 'Price must be a number' }).min(0, 'Price cannot be negative').max(10_000_000),
   sampleType: text(60).optional(),
   modality: text(60).optional(),
   tariffCode: text(40).optional()

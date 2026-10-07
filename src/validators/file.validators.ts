@@ -17,7 +17,7 @@ const uploadFileRecordSchema = z.object({
   seriesUid: z.string().trim().max(160).optional(),
   instanceUid: z.string().trim().max(160).optional(),
   modality: z.string().trim().max(40).optional(),
-  metadata: z.record(z.unknown()).optional()
+  metadata: z.record(z.string(), z.unknown()).optional()
 }).refine((value) => Boolean(value.fileName || value.name), {
   message: 'fileName or name is required',
   path: ['fileName']
@@ -36,7 +36,7 @@ export const fileUploadSchema = z.object({
   entityId: z.string().trim().max(120).optional(),
   resultId: z.string().trim().max(120).optional(),
   isDicom: z.boolean().default(false),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
   files: z.array(uploadFileRecordSchema).max(30, 'A single upload request cannot exceed 30 files').optional()
 }).refine((value) => Boolean(value.files?.length || value.fileName), {
   message: 'Provide files[] or a single fileName upload record',

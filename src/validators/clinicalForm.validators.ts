@@ -188,7 +188,7 @@ export const FORM_SCHEMAS: Record<ClinicalFormType, z.ZodTypeAny> = {
 // The envelope; the data itself is checked against FORM_SCHEMAS[type] in the service.
 export const clinicalFormSchema = z.object({
   type: z.nativeEnum(ClinicalFormType),
-  data: z.record(z.unknown()),
+  data: z.record(z.string(), z.unknown()),
   amendsId: z.string().min(1).optional(),
   // Required for antenatal and postnatal forms.
   pregnancyId: z.string().min(1).optional()
