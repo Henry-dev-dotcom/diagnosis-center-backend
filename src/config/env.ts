@@ -4,7 +4,8 @@ import { z } from 'zod';
 // Tests that validate env parsing set SKIP_DOTENV so a developer's local .env
 // cannot leak values into the process under test.
 if (process.env.SKIP_DOTENV !== '1') {
-  dotenv.config();
+  // dotenv 18 prints a banner on every load; keep it out of the logs.
+  dotenv.config({ quiet: true });
 }
 
 /**
