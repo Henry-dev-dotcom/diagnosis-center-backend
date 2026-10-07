@@ -1,0 +1,49 @@
+# Backend CI: type-check, lint, unit tests, integration tests on a real
+# PostgreSQL, and a production-dependency audit.
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: lhims
+          POSTGRES_PASSWORD: lhims
+          POSTGRES_DB: lhims_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U lhims" --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql://lhims:lhims@localhost:5432/lhims_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx tsc --noEmit -p .
+      - run: npm run lint
+      - run: npm test
+      - run: npm run test:integration
+
+  dependency-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm audit --omit=dev --audit-level=high
