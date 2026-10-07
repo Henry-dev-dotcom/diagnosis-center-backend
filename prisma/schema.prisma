@@ -595,3 +595,3494 @@ model EmailVerificationToken {
   @@index([userId])
   @@index([expiresAt])
 }
+
+model Hospital {
+  id             String   @id @default(cuid())
+  facilityId     String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  name           String
+  code           String
+  phone          String?
+  email          String?
+  address        String?
+  billingContact String?
+  accountStatus  String   @default("Active")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  doctors      DoctorProfile[]
+  patients     Patient[]
+  orders       Order[]
+  invoices     Invoice[]
+  appointments Appointment[]
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@unique([facilityId, code])
+  @@index([facilityId])
+  @@index([name])
+  @@index([accountStatus])
+}
+
+model DoctorProfile {
+  id                String   @id @default(cuid())
+  facilityId        String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  userId            String   @unique
+  hospitalId        String?
+  title             String   @default("Dr.")
+  specialty         String
+  licenseNumber     String
+  council           String?  @default("Medical and Dental Council")
+  phone             String?
+  email             String?
+  status            String   @default("Active")
+  notificationEmail Boolean  @default(true)
+  notificationSms   Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user             User          @relation(fields: [userId], references: [id])
+  hospital         Hospital?     @relation(fields: [hospitalId], references: [id])
+  orders           Order[]
+  referredPatients Patient[]
+  appointments     Appointment[]
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@unique([facilityId, licenseNumber])
+  @@index([facilityId])
+  @@index([hospitalId])
+  @@index([specialty])
+}
+
+model Patient {
+  id                     String    @id @default(cuid())
+  facilityId             String    @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  patientCode            String
+  firstName              String
+  lastName               String
+  dateOfBirth            DateTime?
+  gender                 String?
+  phone                  String?
+  email                  String?
+  address                String?
+  nationalId             String?
+  insuranceProvider      String?
+  policyNumber           String?
+  emergencyContact       String?
+  allergiesAndConditions String?
+  hospitalId             String?
+  referringDoctorId      String?
+  createdById            String?
+  updatedById            String?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  hospital        Hospital?      @relation(fields: [hospitalId], references: [id])
+  referringDoctor DoctorProfile? @relation(fields: [referringDoctorId], references: [id])
+  createdBy       User?          @relation("PatientCreatedBy", fields: [createdById], references: [id])
+  updatedBy       User?          @relation("PatientUpdatedBy", fields: [updatedById], references: [id])
+
+  contacts              PatientContact[]
+  insuranceRecords      PatientInsurance[]
+  primaryDuplicateFlags PatientDuplicateFlag[] @relation("DuplicatePrimaryPatient")
+  duplicateFlags        PatientDuplicateFlag[] @relation("DuplicateDuplicatePatient")
+  orders                Order[]
+  labSamples            LabSample[]
+  labResults            LabResult[]
+  scanBookings          ScanBooking[]
+  invoices              Invoice[]
+  appointments          Appointment[]
+  visits                PatientVisit[]
+  secureLinks           SecureResultLink[]
+
+  facility       Facility         @relation(fields: [facilityId], references: [id])
+  encounters     Encounter[]
+  vitalSigns     VitalSigns[]
+  clinicalNotes  ClinicalNote[]
+  diagnoses      Diagnosis[]
+  allergies      PatientAllergy[]
+  prescriptions  Prescription[]
+  admissions     Admission[]
+  surgeries      Surgery[]
+  clinicalForms  ClinicalForm[]
+  pregnancies    Pregnancy[]
+  /// Set when this patient was born here and registered at delivery.
+  birthRecord    Newborn?         @relation("NewbornPatient")
+  immunizations  Immunization[]
+  claims         Claim[]
+  bloodRequests  BloodRequest[]
+  deceasedRecord DeceasedRecord?
+  chartAccesses  ChartAccess[]
+  recordRequests RecordRequest[]
+
+  @@unique([facilityId, patientCode])
+  @@index([facilityId])
+  @@index([facilityId, createdAt])
+  @@index([firstName, lastName])
+  @@index([phone])
+  @@index([nationalId])
+  @@index([policyNumber])
+  @@index([referringDoctorId])
+}
+
+model PatientContact {
+  id         String   @id @default(cuid())
+  facilityId String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  patientId  String
+  type       String
+  value      String
+  isPrimary  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
+  @@index([patientId])
+  @@index([type])
+}
+
+model PatientInsurance {
+  id           String    @id @default(cuid())
+  facilityId   String    @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  patientId    String
+  provider     String
+  policyNumber String
+  status       String    @default("Active")
+  /// Set for memberships of a configured scheme (claims module).
+  schemeId     String?
+  expiresAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  patient Patient          @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  scheme  InsuranceScheme? @relation(fields: [schemeId], references: [id])
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
+  @@index([patientId])
+  @@index([provider])
+  @@index([policyNumber])
+}
+
+model PatientDuplicateFlag {
+  id                 String    @id @default(cuid())
+  facilityId         String    @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  primaryPatientId   String
+  duplicatePatientId String
+  reason             String
+  status             String    @default("Open")
+  createdAt          DateTime  @default(now())
+  resolvedAt         DateTime?
+
+  primaryPatient   Patient @relation("DuplicatePrimaryPatient", fields: [primaryPatientId], references: [id])
+  duplicatePatient Patient @relation("DuplicateDuplicatePatient", fields: [duplicatePatientId], references: [id])
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
+  @@index([primaryPatientId])
+  @@index([duplicatePatientId])
+  @@index([status])
+}
+
+model Department {
+  id         String         @id @default(cuid())
+  facilityId String         @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  name       String
+  code       String
+  type       DepartmentType
+  leadName   String?
+  isActive   Boolean        @default(true)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  equipment    Equipment[]
+  catalogItems CatalogItem[]
+
+  facility       Facility         @relation(fields: [facilityId], references: [id])
+  AnalyzerDevice AnalyzerDevice[]
+
+  @@unique([facilityId, code])
+  @@index([facilityId])
+  @@index([type])
+}
+
+model Equipment {
+  id             String          @id @default(cuid())
+  facilityId     String          @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  departmentId   String
+  name           String
+  room           String?
+  modality       String?
+  serialNumber   String?
+  status         EquipmentStatus @default(AVAILABLE)
+  serviceDueDate DateTime?
+  notes          String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  department   Department    @relation(fields: [departmentId], references: [id])
+  scanBookings ScanBooking[]
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@unique([facilityId, serialNumber])
+  @@index([facilityId])
+  @@index([departmentId])
+  @@index([status])
+  @@index([modality])
+}
+
+model CatalogItem {
+  id                      String          @id @default(cuid())
+  facilityId              String          @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  catalogCode             String
+  name                    String
+  type                    CatalogItemType
+  departmentId            String?
+  price                   Decimal         @db.Decimal(10, 2)
+  expectedCompletionHours Int             @default(24)
+  sampleType              String?
+  modality                String?
+  aliases                 String[]        @default([])
+  /// Insurance tariff code (e.g. the NHIS G-DRG or medicine code), copied onto claim lines.
+  tariffCode              String?
+  isActive                Boolean         @default(true)
+  createdAt               DateTime        @default(now())
+  updatedAt               DateTime        @updatedAt
+
+  department   Department?          @relation(fields: [departmentId], references: [id])
+  parameters   ReferenceParameter[]
+  analyzerMaps AnalyzerTestMap[]
+  orderItems   OrderItem[]
+  invoiceItems InvoiceItem[]
+  surgeries    Surgery[]
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@unique([facilityId, catalogCode])
+  @@index([facilityId])
+  @@index([type])
+  @@index([name])
+  @@index([isActive])
+}
+
+model ReferenceParameter {
+  id            String   @id @default(cuid())
+  facilityId    String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  catalogItemId String
+  name          String
+  unit          String?
+  methodNote    String?
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  catalogItem      CatalogItem          @relation(fields: [catalogItemId], references: [id])
+  ranges           ReferenceRange[]
+  resultParameters LabResultParameter[]
+  analyzerMaps     AnalyzerTestMap[]
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@unique([catalogItemId, name])
+  @@index([facilityId])
+  @@index([catalogItemId])
+}
+
+model ReferenceRange {
+  id           String     @id @default(cuid())
+  facilityId   String     @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  parameterId  String
+  gender       GenderRule @default(ALL)
+  ageMin       Int        @default(0)
+  ageMax       Int        @default(200)
+  low          Decimal?   @db.Decimal(12, 4)
+  high         Decimal?   @db.Decimal(12, 4)
+  criticalLow  Decimal?   @db.Decimal(12, 4)
+  criticalHigh Decimal?   @db.Decimal(12, 4)
+  displayRange String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  parameter ReferenceParameter @relation(fields: [parameterId], references: [id])
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
+  @@index([parameterId])
+  @@index([gender])
+}
+
+model Order {
+  id                   String       @id @default(cuid())
+  facilityId           String       @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  orderCode            String
+  patientId            String
+  doctorId             String?
+  hospitalId           String?
+  status               OrderStatus  @default(SUBMITTED)
+  urgency              OrderUrgency @default(ROUTINE)
+  clinicalNotes        String?
+  expectedCompletionAt DateTime?
+  submittedAt          DateTime     @default(now())
+  confirmedAt          DateTime?
+  releasedAt           DateTime?
+  createdById          String?
+  confirmedById        String?
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  patient     Patient        @relation(fields: [patientId], references: [id])
+  doctor      DoctorProfile? @relation(fields: [doctorId], references: [id])
+  hospital    Hospital?      @relation(fields: [hospitalId], references: [id])
+  createdBy   User?          @relation("OrderCreatedBy", fields: [createdById], references: [id])
+  confirmedBy User?          @relation("OrderConfirmedBy", fields: [confirmedById], references: [id])
+
+  items         OrderItem[]
+  statusHistory OrderStatusHistory[]
+  cancellations OrderCancellation[]
+  invoice       Invoice?
+  appointments  Appointment[]
+  visits        PatientVisit[]
+  reports       Report[]
+  notifications Notification[]
+
+  facility    Facility   @relation(fields: [facilityId], references: [id])
+  /// Set when the order was placed during a clinical encounter.
+  encounterId String?
+  encounter   Encounter? @relation(fields: [encounterId], references: [id])
+
+  @@unique([facilityId, orderCode])
+  @@index([facilityId])
+  @@index([facilityId, status, submittedAt])
+  @@index([patientId])
+  @@index([doctorId])
+  @@index([hospitalId])
+  @@index([status])
+  @@index([urgency])
+  @@index([submittedAt])
+  @@index([encounterId])
+}
+
+model OrderItem {
+  id                   String          @id @default(cuid())
+  facilityId           String          @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  orderId              String
+  catalogItemId        String
+  type                 CatalogItemType
+  status               OrderItemStatus @default(REQUESTED)
+  notes                String?
+  expectedCompletionAt DateTime?
+  acceptedAt           DateTime?
+  completedAt          DateTime?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  order          Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  catalogItem    CatalogItem     @relation(fields: [catalogItemId], references: [id])
+  labSample      LabSample?
+  labResults     LabResult[]
+  scanAcceptance ScanAcceptance?
+  scanBookings   ScanBooking[]
+  scanResults    ScanResult[]
+  invoiceItems   InvoiceItem[]
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@unique([orderId, catalogItemId])
+  @@index([facilityId])
+  @@index([orderId])
+  @@index([catalogItemId])
+  @@index([type])
+  @@index([status])
+}
+
+model OrderStatusHistory {
+  id         String       @id @default(cuid())
+  facilityId String       @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  orderId    String
+  fromStatus OrderStatus?
+  toStatus   OrderStatus
+  actorId    String?
+  note       String?
+  createdAt  DateTime     @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  actor User? @relation("OrderStatusActor", fields: [actorId], references: [id])
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
+  @@index([orderId])
+  @@index([toStatus])
+  @@index([createdAt])
+}
+
+model OrderCancellation {
+  id            String   @id @default(cuid())
+  facilityId    String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  orderId       String
+  cancelledById String?
+  reason        String
+  createdAt     DateTime @default(now())
+
+  order       Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  cancelledBy User? @relation("OrderCancellationBy", fields: [cancelledById], references: [id])
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
+  @@index([orderId])
+  @@index([createdAt])
+}
+
+model Appointment {
+  id              String            @id @default(cuid())
+  facilityId      String            @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  appointmentCode String
+  patientId       String
+  orderId         String?
+  doctorId        String?
+  hospitalId      String?
+  scheduledDate   DateTime
+  type            String            @default("Scheduled")
+  roomOrArea      String?
+  status          AppointmentStatus @default(SCHEDULED)
+  notes           String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  patient  Patient        @relation(fields: [patientId], references: [id])
+  order    Order?         @relation(fields: [orderId], references: [id])
+  doctor   DoctorProfile? @relation(fields: [doctorId], references: [id])
+  hospital Hospital?      @relation(fields: [hospitalId], references: [id])
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@unique([facilityId, appointmentCode])
+  @@index([facilityId])
+  @@index([facilityId, status, scheduledDate])
+  @@index([patientId])
+  @@index([orderId])
+  @@index([scheduledDate])
+  @@index([status])
+}
+
+model PatientVisit {
+  id               String      @id @default(cuid())
+  facilityId       String      @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  visitCode        String
+  patientId        String
+  orderId          String?
+  checkedInById    String?
+  status           VisitStatus @default(CHECKED_IN)
+  visitType        String      @default("Walk-in")
+  identityVerified Boolean     @default(false)
+  /// Whether this visit is being billed to the patient's insurance (NHIS)
+  /// rather than paid for directly. A per-visit fact, not a property of the
+  /// membership: an insured patient may still pay cash for what their scheme
+  /// excludes, and Finance has to know which it was.
+  insuranceUsed    Boolean     @default(false)
+  checkedInAt      DateTime    @default(now())
+  completedAt      DateTime?
+  notes            String?
+
+  patient     Patient @relation(fields: [patientId], references: [id])
+  order       Order?  @relation(fields: [orderId], references: [id])
+  checkedInBy User?   @relation("VisitCheckedInBy", fields: [checkedInById], references: [id])
+
+  facility   Facility    @relation(fields: [facilityId], references: [id])
+  encounters Encounter[]
+
+  @@unique([facilityId, visitCode])
+  @@index([facilityId])
+  @@index([facilityId, status, checkedInAt])
+  @@index([patientId])
+  @@index([orderId])
+  @@index([status])
+  @@index([checkedInAt])
+}
+
+model LabSample {
+  id           String          @id @default(cuid())
+  facilityId   String          @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  sampleCode   String
+  orderItemId  String          @unique
+  patientId    String
+  status       LabSampleStatus @default(NOT_ACCEPTED)
+  sampleType   String?
+  collectedAt  DateTime?
+  acceptedAt   DateTime?
+  acceptedById String?
+  barcodeValue String?
+  notes        String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  orderItem        OrderItem         @relation(fields: [orderItemId], references: [id])
+  patient          Patient           @relation(fields: [patientId], references: [id])
+  acceptedBy       User?             @relation("LabSampleAcceptedBy", fields: [acceptedById], references: [id])
+  results          LabResult[]
+  rejections       SampleRejection[]
+  analyzerMessages AnalyzerMessage[]
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@unique([facilityId, sampleCode])
+  @@index([facilityId])
+  @@index([facilityId, status, acceptedAt])
+  @@index([patientId])
+  @@index([status])
+  @@index([acceptedAt])
+}
+
+model LabResult {
+  id               String          @id @default(cuid())
+  facilityId       String          @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  resultCode       String
+  orderItemId      String
+  sampleId         String
+  patientId        String
+  status           LabResultStatus @default(DRAFT)
+  interpretation   String?
+  technicianNotes  String?
+  analyzerUsed     String?
+  analyzerDeviceId String?
+  enteredById      String?
+  submittedAt      DateTime?
+  signedOffAt      DateTime?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  orderItem      OrderItem       @relation(fields: [orderItemId], references: [id])
+  sample         LabSample       @relation(fields: [sampleId], references: [id])
+  patient        Patient         @relation(fields: [patientId], references: [id])
+  enteredBy      User?           @relation("LabResultEnteredBy", fields: [enteredById], references: [id])
+  analyzerDevice AnalyzerDevice? @relation(fields: [analyzerDeviceId], references: [id])
+
+  analyzerMessages AnalyzerMessage[]
+  parameters       LabResultParameter[]
+  reviews          LabResultReview[]
+  amendments       LabResultAmendment[]
+  reports          Report[]
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@unique([facilityId, resultCode])
+  @@index([facilityId])
+  @@index([facilityId, status, submittedAt])
+  @@index([orderItemId])
+  @@index([sampleId])
+  @@index([patientId])
+  @@index([status])
+}
+
+model LabResultParameter {
+  id                   String       @id @default(cuid())
+  facilityId           String       @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  labResultId          String
+  referenceParameterId String?
+  name                 String
+  value                String?
+  numericValue         Decimal?     @db.Decimal(12, 4)
+  unit                 String?
+  referenceRange       String?
+  low                  Decimal?     @db.Decimal(12, 4)
+  high                 Decimal?     @db.Decimal(12, 4)
+  criticalLow          Decimal?     @db.Decimal(12, 4)
+  criticalHigh         Decimal?     @db.Decimal(12, 4)
+  flag                 ResultFlag   @default(PENDING)
+  /// Typed by the bench, or read off an analyzer.
+  source               ResultSource @default(MANUAL)
+  /// The analyzer's own code and untouched value, kept so a value can be traced
+  /// back to the instrument even after a unit conversion or an amendment.
+  analyzerCode         String?
+  analyzerRawValue     String?
+  measuredAt           DateTime?
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  labResult          LabResult           @relation(fields: [labResultId], references: [id], onDelete: Cascade)
+  referenceParameter ReferenceParameter? @relation(fields: [referenceParameterId], references: [id])
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
+  @@index([labResultId])
+  @@index([referenceParameterId])
+  @@index([flag])
+  @@index([source])
+}
+
+model LabResultReview {
+  id          String   @id @default(cuid())
+  facilityId  String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  labResultId String
+  reviewerId  String?
+  decision    String
+  note        String?
+  createdAt   DateTime @default(now())
+
+  labResult LabResult @relation(fields: [labResultId], references: [id], onDelete: Cascade)
+  reviewer  User?     @relation("LabResultReviewedBy", fields: [reviewerId], references: [id])
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
+  @@index([labResultId])
+  @@index([createdAt])
+}
+
+model LabResultAmendment {
+  id          String   @id @default(cuid())
+  facilityId  String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  labResultId String
+  amendedById String?
+  reason      String
+  beforeData  Json?
+  afterData   Json?
+  createdAt   DateTime @default(now())
+
+  labResult LabResult @relation(fields: [labResultId], references: [id], onDelete: Cascade)
+  amendedBy User?     @relation("LabAmendmentBy", fields: [amendedById], references: [id])
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
+  @@index([labResultId])
+  @@index([createdAt])
+}
+
+// An analyzer that sends its own results in, so the bench does not retype them.
+// The device authenticates with its own API key, never a staff login, and the
+// key is only ever stored hashed.
+model AnalyzerDevice {
+  id                  String               @id @default(cuid())
+  facilityId          String               @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  deviceCode          String
+  name                String
+  make                String?
+  model               String?
+  serialNumber        String?
+  protocol            AnalyzerProtocol
+  departmentId        String?
+  status              AnalyzerDeviceStatus @default(ACTIVE)
+  /// Hash of the key the analyzer or its bridge sends. The key itself is shown
+  /// once, when it is issued, and cannot be read back.
+  apiKeyHash          String
+  /// The opening characters of the key, so staff can tell two keys apart.
+  apiKeyPrefix        String
+  apiKeyIssuedAt      DateTime             @default(now())
+  apiKeyLastUsedAt    DateTime?
+  /// Send straight to the review queue instead of leaving a draft on the bench.
+  /// Sign-off always stays with a person, whatever this says.
+  autoSubmitForReview Boolean              @default(false)
+  /// Store observations this facility has not mapped, under the analyzer's own
+  /// name and units, instead of setting them aside.
+  acceptUnmappedTests Boolean              @default(false)
+  lastMessageAt       DateTime?
+  notes               String?
+  createdById         String?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  department Department?       @relation(fields: [departmentId], references: [id])
+  createdBy  User?             @relation("AnalyzerDeviceCreatedBy", fields: [createdById], references: [id])
+  testMaps   AnalyzerTestMap[]
+  messages   AnalyzerMessage[]
+  results    LabResult[]
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@unique([facilityId, deviceCode])
+  @@unique([apiKeyPrefix])
+  @@index([facilityId])
+  @@index([departmentId])
+  @@index([status])
+}
+
+// The analyzer's code for a test against ours. Without this the numbers cannot
+// be put in the right field, so an unmapped code is parked rather than guessed.
+// A row with no deviceId applies to every analyzer in the facility.
+model AnalyzerTestMap {
+  id                   String   @id @default(cuid())
+  facilityId           String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  deviceId             String?
+  /// The code as the analyzer sends it, e.g. "GLU" or "WBC". Matched case-insensitively.
+  analyzerCode         String
+  catalogItemId        String
+  referenceParameterId String?
+  /// Multiply the analyzer's number by this before storing, for a unit mismatch.
+  factor               Decimal? @db.Decimal(12, 6)
+  unitOverride         String?
+  isActive             Boolean  @default(true)
+  createdById          String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  device             AnalyzerDevice?     @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  catalogItem        CatalogItem         @relation(fields: [catalogItemId], references: [id])
+  referenceParameter ReferenceParameter? @relation(fields: [referenceParameterId], references: [id])
+  createdBy          User?               @relation("AnalyzerTestMapCreatedBy", fields: [createdById], references: [id])
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@unique([facilityId, deviceId, analyzerCode])
+  @@index([facilityId])
+  @@index([analyzerCode])
+  @@index([catalogItemId])
+  @@index([deviceId])
+}
+
+// Every payload an analyzer sent, kept verbatim. Nothing is ever dropped: a
+// message we could not parse, match or map stays here for someone to look at,
+// and can be replayed once the mapping is fixed.
+model AnalyzerMessage {
+  id               String                @id @default(cuid())
+  facilityId       String                @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  deviceId         String
+  /// The payload exactly as it arrived.
+  rawPayload       String
+  contentType      String?
+  status           AnalyzerMessageStatus @default(RECEIVED)
+  /// What the parser made of the payload, before any matching.
+  parsed           Json?
+  /// The specimen id the analyzer put in the message, which we match on.
+  analyzerSampleId String?
+  sampleId         String?
+  labResultId      String?
+  appliedCount     Int                   @default(0)
+  skippedCount     Int                   @default(0)
+  /// Why it could not be applied, in words the bench can act on.
+  error            String?
+  resolvedById     String?
+  resolvedAt       DateTime?
+  resolutionNote   String?
+  receivedAt       DateTime              @default(now())
+  processedAt      DateTime?
+
+  device     AnalyzerDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  sample     LabSample?     @relation(fields: [sampleId], references: [id])
+  labResult  LabResult?     @relation(fields: [labResultId], references: [id])
+  resolvedBy User?          @relation("AnalyzerMessageResolvedBy", fields: [resolvedById], references: [id])
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
+  @@index([deviceId])
+  @@index([status])
+  @@index([receivedAt])
+  @@index([analyzerSampleId])
+  @@index([sampleId])
+}
+
+model SampleRejection {
+  id           String   @id @default(cuid())
+  facilityId   String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  sampleId     String
+  rejectedById String?
+  reason       String
+  action       String   @default("RECOLLECTION_REQUESTED")
+  createdAt    DateTime @default(now())
+
+  sample     LabSample @relation(fields: [sampleId], references: [id], onDelete: Cascade)
+  rejectedBy User?     @relation("SampleRejectedBy", fields: [rejectedById], references: [id])
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
+  @@index([sampleId])
+  @@index([createdAt])
+}
+
+model QualityControlRun {
+  id                String   @id @default(cuid())
+  facilityId        String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  catalogItemId     String?
+  parameterName     String
+  controlLevel      String?
+  value             Decimal? @db.Decimal(12, 4)
+  expectedMean      Decimal? @db.Decimal(12, 4)
+  standardDeviation Decimal? @db.Decimal(12, 4)
+  result            String
+  notes             String?
+  performedById     String?
+  createdAt         DateTime @default(now())
+
+  performedBy User? @relation("QCPerformedBy", fields: [performedById], references: [id])
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
+  @@index([catalogItemId])
+  @@index([createdAt])
+}
+
+model InventoryItem {
+  id           String    @id @default(cuid())
+  facilityId   String    @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  itemCode     String
+  name         String
+  category     String
+  currentStock Decimal   @default(0) @db.Decimal(12, 2)
+  minLevel     Decimal   @default(0) @db.Decimal(12, 2)
+  maxLevel     Decimal?  @db.Decimal(12, 2)
+  unit         String?
+  expiryDate   DateTime?
+  supplier     String?
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  transactions InventoryTransaction[]
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@unique([facilityId, itemCode])
+  @@index([facilityId])
+  @@index([category])
+  @@index([isActive])
+}
+
+model InventoryTransaction {
+  id              String   @id @default(cuid())
+  facilityId      String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  inventoryItemId String
+  type            String
+  quantity        Decimal  @db.Decimal(12, 2)
+  reason          String?
+  performedById   String?
+  createdAt       DateTime @default(now())
+
+  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id])
+  performedBy   User?         @relation("InventoryPerformedBy", fields: [performedById], references: [id])
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
+  @@index([inventoryItemId])
+  @@index([createdAt])
+}
+
+model ScanAcceptance {
+  id           String     @id @default(cuid())
+  facilityId   String     @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  orderItemId  String     @unique
+  status       ScanStatus @default(NOT_ACCEPTED)
+  acceptedById String?
+  acceptedAt   DateTime?
+  notes        String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  orderItem   OrderItem    @relation(fields: [orderItemId], references: [id])
+  acceptedBy  User?        @relation("ScanAcceptedBy", fields: [acceptedById], references: [id])
+  scanResults ScanResult[]
+  retakes     ScanRetake[]
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
+  @@index([status])
+  @@index([acceptedAt])
+}
+
+model ScanBooking {
+  id          String    @id @default(cuid())
+  facilityId  String    @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  bookingCode String
+  patientId   String
+  orderItemId String?
+  equipmentId String?
+  startAt     DateTime
+  endAt       DateTime?
+  status      String    @default("Booked")
+  notes       String?
+  createdById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  patient   Patient    @relation(fields: [patientId], references: [id])
+  orderItem OrderItem? @relation(fields: [orderItemId], references: [id])
+  equipment Equipment? @relation(fields: [equipmentId], references: [id])
+  createdBy User?      @relation("ScanBookingCreatedBy", fields: [createdById], references: [id])
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@unique([facilityId, bookingCode])
+  @@index([facilityId])
+  @@index([patientId])
+  @@index([orderItemId])
+  @@index([equipmentId])
+  @@index([startAt])
+}
+
+model ScanResult {
+  id              String     @id @default(cuid())
+  facilityId      String     @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  resultCode      String
+  orderItemId     String
+  acceptanceId    String?
+  status          ScanStatus @default(DRAFT)
+  findings        String?
+  impression      String?
+  comparison      String?
+  recommendations String?
+  technicianNotes String?
+  reportedById    String?
+  submittedAt     DateTime?
+  signedOffAt     DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  orderItem  OrderItem             @relation(fields: [orderItemId], references: [id])
+  acceptance ScanAcceptance?       @relation(fields: [acceptanceId], references: [id])
+  reportedBy User?                 @relation("ScanResultReportedBy", fields: [reportedById], references: [id])
+  files      ScanResultFile[]
+  reviews    ScanReview[]
+  amendments ScanResultAmendment[]
+  reports    Report[]
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@unique([facilityId, resultCode])
+  @@index([facilityId])
+  @@index([orderItemId])
+  @@index([acceptanceId])
+  @@index([status])
+}
+
+model ScanResultFile {
+  id           String   @id @default(cuid())
+  facilityId   String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  scanResultId String
+  fileName     String
+  fileType     String?
+  fileSize     Int?
+  storageKey   String
+  isDicom      Boolean  @default(false)
+  studyUid     String?
+  seriesUid    String?
+  instanceUid  String?
+  modality     String?
+  uploadedAt   DateTime @default(now())
+
+  scanResult ScanResult @relation(fields: [scanResultId], references: [id], onDelete: Cascade)
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
+  @@index([scanResultId])
+  @@index([isDicom])
+  @@index([studyUid])
+}
+
+model ScanReview {
+  id           String   @id @default(cuid())
+  facilityId   String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  scanResultId String
+  reviewerId   String?
+  decision     String
+  note         String?
+  createdAt    DateTime @default(now())
+
+  scanResult ScanResult @relation(fields: [scanResultId], references: [id], onDelete: Cascade)
+  reviewer   User?      @relation("ScanReviewedBy", fields: [reviewerId], references: [id])
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
+  @@index([scanResultId])
+  @@index([createdAt])
+}
+
+model ScanResultAmendment {
+  id           String   @id @default(cuid())
+  facilityId   String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  scanResultId String
+  amendedById  String?
+  reason       String
+  beforeData   Json?
+  afterData    Json?
+  createdAt    DateTime @default(now())
+
+  scanResult ScanResult @relation(fields: [scanResultId], references: [id], onDelete: Cascade)
+  amendedBy  User?      @relation("ScanAmendmentBy", fields: [amendedById], references: [id])
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
+  @@index([scanResultId])
+  @@index([createdAt])
+}
+
+model ScanRetake {
+  id            String    @id @default(cuid())
+  facilityId    String    @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  acceptanceId  String?
+  requestedById String?
+  reason        String
+  status        String    @default("Open")
+  createdAt     DateTime  @default(now())
+  resolvedAt    DateTime?
+
+  acceptance  ScanAcceptance? @relation(fields: [acceptanceId], references: [id])
+  requestedBy User?           @relation("ScanRetakeRequestedBy", fields: [requestedById], references: [id])
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
+  @@index([acceptanceId])
+  @@index([status])
+}
+
+model Invoice {
+  id                String        @id @default(cuid())
+  facilityId        String        @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  invoiceCode       String
+  orderId           String?       @unique
+  patientId         String
+  hospitalId        String?
+  status            InvoiceStatus @default(UNPAID)
+  subtotal          Decimal       @default(0) @db.Decimal(12, 2)
+  discount          Decimal       @default(0) @db.Decimal(12, 2)
+  tax               Decimal       @default(0) @db.Decimal(12, 2)
+  total             Decimal       @default(0) @db.Decimal(12, 2)
+  amountPaid        Decimal       @default(0) @db.Decimal(12, 2)
+  balance           Decimal       @default(0) @db.Decimal(12, 2)
+  insuranceClaimRef String?
+  createdById       String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  order     Order?        @relation(fields: [orderId], references: [id])
+  patient   Patient       @relation(fields: [patientId], references: [id])
+  hospital  Hospital?     @relation(fields: [hospitalId], references: [id])
+  createdBy User?         @relation("InvoiceCreatedBy", fields: [createdById], references: [id])
+  items     InvoiceItem[]
+  payments  Payment[]
+
+  facility     Facility      @relation(fields: [facilityId], references: [id])
+  /// Set for encounter charges (e.g. consultation fee) that are not tied to an order.
+  encounterId  String?
+  encounter    Encounter?    @relation(fields: [encounterId], references: [id])
+  dispensation Dispensation?
+  claimLines   ClaimLine[]
+
+  @@unique([facilityId, invoiceCode])
+  @@index([facilityId])
+  @@index([facilityId, status, createdAt])
+  @@index([patientId])
+  @@index([hospitalId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([encounterId])
+}
+
+model InvoiceItem {
+  id            String  @id @default(cuid())
+  facilityId    String  @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  invoiceId     String
+  catalogItemId String?
+  orderItemId   String?
+  description   String
+  quantity      Int     @default(1)
+  unitPrice     Decimal @db.Decimal(12, 2)
+  total         Decimal @db.Decimal(12, 2)
+
+  invoice     Invoice      @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  claimLines  ClaimLine[]
+  catalogItem CatalogItem? @relation(fields: [catalogItemId], references: [id])
+  orderItem   OrderItem?   @relation(fields: [orderItemId], references: [id])
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
+  @@index([invoiceId])
+  @@index([catalogItemId])
+  @@index([orderItemId])
+}
+
+model Payment {
+  id           String        @id @default(cuid())
+  facilityId   String        @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  paymentCode  String
+  invoiceId    String
+  shiftId      String?
+  receivedById String?
+  method       PaymentMethod
+  status       PaymentStatus @default(COMPLETED)
+  amount       Decimal       @db.Decimal(12, 2)
+  reference    String?
+  note         String?
+  createdAt    DateTime      @default(now())
+
+  invoice           Invoice            @relation(fields: [invoiceId], references: [id])
+  shift             CashierShift?      @relation(fields: [shiftId], references: [id])
+  receivedBy        User?              @relation("PaymentReceivedBy", fields: [receivedById], references: [id])
+  floatTransactions FloatTransaction[]
+  ledgerEntries     LedgerEntry[]
+  receipt           Receipt?
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@unique([facilityId, paymentCode])
+  @@index([facilityId])
+  @@index([invoiceId])
+  @@index([shiftId])
+  @@index([method])
+  @@index([createdAt])
+}
+
+model CashierShift {
+  id           String      @id @default(cuid())
+  facilityId   String      @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  shiftCode    String
+  userId       String
+  type         String
+  status       ShiftStatus @default(OPEN)
+  openingFloat Decimal     @default(0) @db.Decimal(12, 2)
+  expectedCash Decimal     @default(0) @db.Decimal(12, 2)
+  countedCash  Decimal?    @db.Decimal(12, 2)
+  variance     Decimal?    @db.Decimal(12, 2)
+  startNotes   String?
+  closeNotes   String?
+  startedAt    DateTime    @default(now())
+  closedAt     DateTime?
+
+  user              User               @relation("CashierShiftUser", fields: [userId], references: [id])
+  payments          Payment[]
+  floatTransactions FloatTransaction[]
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@unique([facilityId, shiftCode])
+  @@index([facilityId])
+  @@index([userId])
+  @@index([status])
+  @@index([startedAt])
+}
+
+model FloatTransaction {
+  id          String               @id @default(cuid())
+  facilityId  String               @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  shiftId     String?
+  userId      String?
+  paymentId   String?
+  type        FloatTransactionType
+  method      PaymentMethod
+  amount      Decimal              @db.Decimal(12, 2)
+  description String?
+  reference   String?
+  createdAt   DateTime             @default(now())
+
+  shift         CashierShift? @relation(fields: [shiftId], references: [id])
+  user          User?         @relation("FloatTransactionUser", fields: [userId], references: [id])
+  payment       Payment?      @relation(fields: [paymentId], references: [id])
+  ledgerEntries LedgerEntry[]
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
+  @@index([shiftId])
+  @@index([userId])
+  @@index([paymentId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+model Expense {
+  id                     String        @id @default(cuid())
+  facilityId             String        @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  expenseCode            String
+  description            String
+  category               String
+  vendor                 String?
+  status                 ExpenseStatus @default(UNPAID)
+  totalAmount            Decimal       @db.Decimal(12, 2)
+  amountPaid             Decimal       @default(0) @db.Decimal(12, 2)
+  balance                Decimal       @default(0) @db.Decimal(12, 2)
+  writtenOffReason       String?
+  supervisorApprovalNote String?
+  createdById            String?
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+
+  createdBy     User?            @relation("ExpenseCreatedBy", fields: [createdById], references: [id])
+  payments      ExpensePayment[]
+  ledgerEntries LedgerEntry[]
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@unique([facilityId, expenseCode])
+  @@index([facilityId])
+  @@index([status])
+  @@index([category])
+  @@index([createdAt])
+}
+
+model ExpensePayment {
+  id         String        @id @default(cuid())
+  facilityId String        @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  expenseId  String
+  paidById   String?
+  method     PaymentMethod
+  amount     Decimal       @db.Decimal(12, 2)
+  reference  String?
+  createdAt  DateTime      @default(now())
+
+  expense       Expense       @relation(fields: [expenseId], references: [id])
+  paidBy        User?         @relation("ExpensePaymentBy", fields: [paidById], references: [id])
+  ledgerEntries LedgerEntry[]
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
+  @@index([expenseId])
+  @@index([createdAt])
+}
+
+model LedgerEntry {
+  id                 String          @id @default(cuid())
+  facilityId         String          @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  entryCode          String
+  type               LedgerEntryType
+  description        String
+  amount             Decimal         @db.Decimal(12, 2)
+  runningBalance     Decimal?        @db.Decimal(12, 2)
+  paymentId          String?
+  expenseId          String?
+  expensePaymentId   String?
+  floatTransactionId String?
+  userId             String?
+  createdAt          DateTime        @default(now())
+
+  payment          Payment?          @relation(fields: [paymentId], references: [id])
+  expense          Expense?          @relation(fields: [expenseId], references: [id])
+  expensePayment   ExpensePayment?   @relation(fields: [expensePaymentId], references: [id])
+  floatTransaction FloatTransaction? @relation(fields: [floatTransactionId], references: [id])
+  user             User?             @relation("LedgerEntryUser", fields: [userId], references: [id])
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@unique([facilityId, entryCode])
+  @@index([facilityId])
+  @@index([type])
+  @@index([paymentId])
+  @@index([expenseId])
+  @@index([createdAt])
+}
+
+model Receipt {
+  id          String   @id @default(cuid())
+  facilityId  String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  receiptCode String
+  paymentId   String   @unique
+  issuedAt    DateTime @default(now())
+  printCount  Int      @default(0)
+
+  payment  Payment  @relation(fields: [paymentId], references: [id])
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@unique([facilityId, receiptCode])
+  @@index([facilityId])
+}
+
+model Report {
+  id            String       @id @default(cuid())
+  facilityId    String       @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  reportCode    String
+  orderId       String
+  labResultId   String?
+  scanResultId  String?
+  status        ReportStatus @default(GENERATED)
+  generatedById String?
+  secureToken   String?      @unique
+  generatedAt   DateTime     @default(now())
+  downloadedAt  DateTime?
+  /// Set when a lab/scan department reverses a result already sent out (VOIDED).
+  voidedAt      DateTime?
+  voidedById    String?
+  voidReason    String?
+
+  order        Order              @relation(fields: [orderId], references: [id])
+  labResult    LabResult?         @relation(fields: [labResultId], references: [id])
+  scanResult   ScanResult?        @relation(fields: [scanResultId], references: [id])
+  generatedBy  User?              @relation("ReportGeneratedBy", fields: [generatedById], references: [id])
+  voidedBy     User?              @relation("ReportVoidedBy", fields: [voidedById], references: [id])
+  deliveryLogs DeliveryLog[]
+  secureLinks  SecureResultLink[]
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@unique([facilityId, reportCode])
+  @@index([facilityId])
+  @@index([orderId])
+  @@index([labResultId])
+  @@index([scanResultId])
+  @@index([status])
+}
+
+model Notification {
+  id              String           @id @default(cuid())
+  facilityId      String           @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  orderId         String?
+  createdById     String?
+  recipientUserId String?
+  recipientEmail  String?
+  recipientPhone  String?
+  type            NotificationType
+  title           String
+  body            String
+  isRead          Boolean          @default(false)
+  createdAt       DateTime         @default(now())
+  readAt          DateTime?
+
+  order        Order?        @relation(fields: [orderId], references: [id])
+  createdBy    User?         @relation("NotificationCreatedBy", fields: [createdById], references: [id])
+  deliveryLogs DeliveryLog[]
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
+  @@index([facilityId, isRead, createdAt])
+  @@index([orderId])
+  @@index([type])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+model DeliveryLog {
+  id             String          @id @default(cuid())
+  facilityId     String          @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  reportId       String?
+  notificationId String?
+  performedById  String?
+  channel        DeliveryChannel
+  status         DeliveryStatus  @default(QUEUED)
+  target         String?
+  safeMessage    Boolean         @default(true)
+  error          String?
+  retryCount     Int             @default(0)
+  createdAt      DateTime        @default(now())
+  deliveredAt    DateTime?
+
+  report       Report?       @relation(fields: [reportId], references: [id])
+  notification Notification? @relation(fields: [notificationId], references: [id])
+  performedBy  User?         @relation("DeliveryPerformedBy", fields: [performedById], references: [id])
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
+  @@index([reportId])
+  @@index([notificationId])
+  @@index([channel])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model SecureResultLink {
+  id           String    @id @default(cuid())
+  facilityId   String    @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  reportId     String
+  patientId    String?
+  createdById  String?
+  tokenHash    String    @unique
+  passwordHash String?
+  expiresAt    DateTime
+  usedAt       DateTime?
+  createdAt    DateTime  @default(now())
+
+  report    Report   @relation(fields: [reportId], references: [id])
+  patient   Patient? @relation(fields: [patientId], references: [id])
+  createdBy User?    @relation("SecureLinkCreatedBy", fields: [createdById], references: [id])
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
+  @@index([reportId])
+  @@index([expiresAt])
+}
+
+model AuditLog {
+  id         String    @id @default(cuid())
+  facilityId String?
+  actorId    String?
+  actorRole  UserRole?
+  action     String
+  module     String
+  entityType String?
+  entityId   String?
+  beforeData Json?
+  afterData  Json?
+  details    Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime  @default(now())
+
+  actor User? @relation("AuditActor", fields: [actorId], references: [id])
+
+  facility Facility? @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+
+  @@index([facilityId])
+  @@index([module])
+  @@index([action])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
+
+model SystemEvent {
+  id         String   @id @default(cuid())
+  facilityId String?
+  actorId    String?
+  level      String   @default("info")
+  source     String
+  message    String
+  details    Json?
+  createdAt  DateTime @default(now())
+
+  actor User? @relation("SystemEventActor", fields: [actorId], references: [id])
+
+  facility Facility? @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+
+  @@index([facilityId])
+  @@index([source])
+  @@index([level])
+  @@index([createdAt])
+}
+
+model ApiRequestLog {
+  id         String   @id @default(cuid())
+  facilityId String?
+  userId     String?
+  requestId  String?
+  method     String
+  path       String
+  statusCode Int?
+  durationMs Int?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  user User? @relation("ApiRequestUser", fields: [userId], references: [id])
+
+  facility Facility? @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+
+  @@index([facilityId])
+  @@index([userId])
+  @@index([path])
+  @@index([statusCode])
+  @@index([createdAt])
+}
+
+/// A department module a facility has switched on (see src/config/modules.ts).
+/// A missing row means the module is off.
+model FacilityModule {
+  id         String   @id @default(cuid())
+  facilityId String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  moduleKey  String
+  enabled    Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@unique([facilityId, moduleKey])
+  @@index([facilityId])
+}
+
+/// A staff role a facility defines on top of a base workspace role.
+model FacilityRole {
+  id          String   @id @default(cuid())
+  facilityId  String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  name        String
+  description String?
+  /// Fixed at creation; users assigned this role take it as their User.role.
+  baseRole    UserRole
+  permissions String[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+  users    User[]
+
+  @@unique([facilityId, name])
+  @@index([facilityId])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 3: clinical backbone. An Encounter is one visit; everything clinical
+// (vitals, notes, diagnoses, prescriptions, orders, charges) hangs off it.
+// ---------------------------------------------------------------------------
+
+enum EncounterType {
+  OPD
+  EMERGENCY
+  INPATIENT
+}
+
+enum EncounterStatus {
+  WAITING_TRIAGE
+  WAITING_DOCTOR
+  IN_CONSULTATION
+  COMPLETED
+  CANCELLED
+}
+
+/// South African Triage Scale colours, as used in Ghanaian emergency care.
+enum TriageLevel {
+  RED
+  ORANGE
+  YELLOW
+  GREEN
+}
+
+enum ClinicalNoteType {
+  TRIAGE
+  CONSULTATION
+  PROGRESS
+  DISCHARGE
+  NURSING
+  OPERATION
+  DELIVERY
+}
+
+enum DiagnosisType {
+  PRIMARY
+  SECONDARY
+  PROVISIONAL
+}
+
+enum DiagnosisStatus {
+  ACTIVE
+  RESOLVED
+}
+
+enum AllergySeverity {
+  MILD
+  MODERATE
+  SEVERE
+}
+
+enum PrescriptionStatus {
+  ACTIVE
+  PARTIALLY_DISPENSED
+  DISPENSED
+  CANCELLED
+}
+
+model Encounter {
+  id                    String          @id @default(cuid())
+  facilityId            String          @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  encounterCode         String
+  patientId             String
+  visitId               String?
+  type                  EncounterType   @default(OPD)
+  /// The clinic an outpatient visit is held in; each specialty clinic belongs to a module.
+  clinic                Clinic          @default(GENERAL)
+  status                EncounterStatus @default(WAITING_TRIAGE)
+  triageLevel           TriageLevel?
+  chiefComplaint        String?
+  attendingId           String?
+  createdById           String?
+  startedAt             DateTime        @default(now())
+  triagedAt             DateTime?
+  consultationStartedAt DateTime?
+  completedAt           DateTime?
+  /// DISCHARGED, REFERRED, ADMITTED, LEFT_WITHOUT_BEING_SEEN, ... (free text for now)
+  outcome               String?
+  cancelReason          String?
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+
+  facility          Facility         @relation(fields: [facilityId], references: [id])
+  patient           Patient          @relation(fields: [patientId], references: [id])
+  visit             PatientVisit?    @relation(fields: [visitId], references: [id])
+  attending         User?            @relation("EncounterAttending", fields: [attendingId], references: [id])
+  createdBy         User?            @relation("EncounterCreatedBy", fields: [createdById], references: [id])
+  vitalSigns        VitalSigns[]
+  notes             ClinicalNote[]
+  diagnoses         Diagnosis[]
+  prescriptions     Prescription[]
+  orders            Order[]
+  invoices          Invoice[]
+  /// The admission this inpatient encounter belongs to.
+  admission         Admission?       @relation("AdmissionEncounter")
+  /// Admissions that started from this (OPD/emergency) visit.
+  admissionsStarted Admission[]      @relation("AdmissionSource")
+  surgeries         Surgery[]
+  forms             ClinicalForm[]
+  deliveries        Delivery[]
+  immunizations     Immunization[]
+  claims            Claim[]
+  bloodRequests     BloodRequest[]
+  deathRecords      DeceasedRecord[]
+
+  @@unique([facilityId, encounterCode])
+  @@index([facilityId])
+  @@index([patientId])
+  @@index([status])
+  @@index([startedAt])
+  @@index([clinic])
+}
+
+model VitalSigns {
+  id              String   @id @default(cuid())
+  facilityId      String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  encounterId     String
+  patientId       String
+  recordedById    String?
+  temperatureC    Decimal? @db.Decimal(4, 1)
+  pulseBpm        Int?
+  respiratoryRate Int?
+  systolicBp      Int?
+  diastolicBp     Int?
+  spo2            Int?
+  weightKg        Decimal? @db.Decimal(5, 1)
+  heightCm        Decimal? @db.Decimal(5, 1)
+  painScore       Int?
+  /// mmol/L
+  bloodGlucose    Decimal? @db.Decimal(5, 1)
+  notes           String?
+  recordedAt      DateTime @default(now())
+
+  facility   Facility  @relation(fields: [facilityId], references: [id])
+  encounter  Encounter @relation(fields: [encounterId], references: [id])
+  patient    Patient   @relation(fields: [patientId], references: [id])
+  recordedBy User?     @relation("VitalsRecordedBy", fields: [recordedById], references: [id])
+
+  @@index([facilityId])
+  @@index([encounterId])
+  @@index([patientId, recordedAt])
+}
+
+/// Append-only: a correction is a new note that points at the one it amends.
+model ClinicalNote {
+  id          String           @id @default(cuid())
+  facilityId  String           @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  encounterId String
+  patientId   String
+  authorId    String?
+  type        ClinicalNoteType
+  subjective  String?
+  objective   String?
+  assessment  String?
+  plan        String?
+  amendsId    String?
+  createdAt   DateTime         @default(now())
+
+  facility  Facility       @relation(fields: [facilityId], references: [id])
+  encounter Encounter      @relation(fields: [encounterId], references: [id])
+  patient   Patient        @relation(fields: [patientId], references: [id])
+  author    User?          @relation("NoteAuthor", fields: [authorId], references: [id])
+  amends    ClinicalNote?  @relation("NoteAmendment", fields: [amendsId], references: [id])
+  amendedBy ClinicalNote[] @relation("NoteAmendment")
+
+  @@index([facilityId])
+  @@index([encounterId])
+}
+
+model Diagnosis {
+  id           String          @id @default(cuid())
+  facilityId   String          @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  encounterId  String
+  patientId    String
+  recordedById String?
+  /// ICD-10 code when known; description is always required.
+  code         String?
+  description  String
+  type         DiagnosisType   @default(PRIMARY)
+  status       DiagnosisStatus @default(ACTIVE)
+  /// Chronic, active diagnoses form the patient's problem list.
+  isChronic    Boolean         @default(false)
+  createdAt    DateTime        @default(now())
+  resolvedAt   DateTime?
+
+  facility   Facility  @relation(fields: [facilityId], references: [id])
+  encounter  Encounter @relation(fields: [encounterId], references: [id])
+  patient    Patient   @relation(fields: [patientId], references: [id])
+  recordedBy User?     @relation("DiagnosisRecordedBy", fields: [recordedById], references: [id])
+
+  @@index([facilityId])
+  @@index([encounterId])
+  @@index([patientId, status])
+}
+
+model PatientAllergy {
+  id           String          @id @default(cuid())
+  facilityId   String          @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  patientId    String
+  recordedById String?
+  substance    String
+  reaction     String?
+  severity     AllergySeverity @default(MODERATE)
+  active       Boolean         @default(true)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  facility   Facility @relation(fields: [facilityId], references: [id])
+  patient   Patient  @relation(fields: [patientId], references: [id])
+  recordedBy User?    @relation("AllergyRecordedBy", fields: [recordedById], references: [id])
+
+  @@index([facilityId])
+  @@index([patientId])
+}
+
+model Prescription {
+  id               String             @id @default(cuid())
+  facilityId       String             @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  prescriptionCode String
+  encounterId      String
+  patientId        String
+  prescriberId     String?
+  status           PrescriptionStatus @default(ACTIVE)
+  notes            String?
+  cancelReason     String?
+  /// Why the prescriber went ahead despite a recorded allergy.
+  allergyOverride  String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  facility      Facility           @relation(fields: [facilityId], references: [id])
+  encounter     Encounter          @relation(fields: [encounterId], references: [id])
+  patient       Patient            @relation(fields: [patientId], references: [id])
+  prescriber    User?              @relation("Prescriber", fields: [prescriberId], references: [id])
+  items         PrescriptionItem[]
+  dispensations Dispensation[]
+
+  @@unique([facilityId, prescriptionCode])
+  @@index([facilityId])
+  @@index([encounterId])
+  @@index([patientId])
+}
+
+/// Free-text drug lines until the Phase 4 pharmacy adds a drug catalogue.
+model PrescriptionItem {
+  id             String  @id @default(cuid())
+  facilityId     String  @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  prescriptionId String
+  drugName       String
+  strength       String?
+  dosageForm     String?
+  dose           String
+  route          String
+  frequency      String
+  durationDays   Int?
+  quantity       Int?
+  instructions   String?
+
+  facility          Facility                   @relation(fields: [facilityId], references: [id])
+  prescription      Prescription               @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  /// The formulary drug, when the prescriber picked one; free-text lines are matched at dispensing.
+  drugId            String?
+  quantityDispensed Int                        @default(0)
+  drug              Drug?                      @relation(fields: [drugId], references: [id])
+  dispensedLines    DispensationItem[]
+  administrations   MedicationAdministration[]
+
+  @@index([facilityId])
+  @@index([prescriptionId])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4A: pharmacy. Stock is held in batches; every change is a StockMovement.
+// Dispensing takes from the batches that expire first (FEFO).
+// ---------------------------------------------------------------------------
+
+enum StockMovementType {
+  RECEIPT
+  DISPENSE
+  ADJUSTMENT
+  EXPIRY_WRITE_OFF
+}
+
+model Drug {
+  id           String   @id @default(cuid())
+  facilityId   String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  drugCode     String
+  genericName  String
+  brandName    String?
+  strength     String?
+  dosageForm   String?
+  /// The unit stock is counted and sold in (tablet, capsule, bottle, vial...).
+  unit         String   @default("unit")
+  unitPrice    Decimal  @default(0) @db.Decimal(10, 2)
+  reorderLevel Int      @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  facility          Facility           @relation(fields: [facilityId], references: [id])
+  batches           DrugBatch[]
+  movements         StockMovement[]
+  prescriptionItems PrescriptionItem[]
+  dispensedLines    DispensationItem[]
+
+  @@unique([facilityId, drugCode])
+  @@index([facilityId])
+  @@index([genericName])
+}
+
+model DrugBatch {
+  id               String   @id @default(cuid())
+  facilityId       String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  drugId           String
+  batchNumber      String
+  expiryDate       DateTime
+  quantityReceived Int
+  quantityOnHand   Int
+  costPrice        Decimal? @db.Decimal(10, 2)
+  supplier         String?
+  receivedById     String?
+  receivedAt       DateTime @default(now())
+
+  facility   Facility        @relation(fields: [facilityId], references: [id])
+  drug       Drug            @relation(fields: [drugId], references: [id])
+  receivedBy User?           @relation("BatchReceivedBy", fields: [receivedById], references: [id])
+  movements  StockMovement[]
+
+  @@unique([facilityId, drugId, batchNumber])
+  @@index([facilityId])
+  @@index([drugId, expiryDate])
+}
+
+/// Append-only stock ledger. quantity is positive for stock in, negative for stock out.
+model StockMovement {
+  id                 String            @id @default(cuid())
+  facilityId         String            @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  drugId             String
+  batchId            String?
+  type               StockMovementType
+  quantity           Int
+  reason             String?
+  dispensationItemId String?
+  actorId            String?
+  createdAt          DateTime          @default(now())
+
+  facility         Facility          @relation(fields: [facilityId], references: [id])
+  drug             Drug              @relation(fields: [drugId], references: [id])
+  batch            DrugBatch?        @relation(fields: [batchId], references: [id])
+  dispensationItem DispensationItem? @relation(fields: [dispensationItemId], references: [id])
+  actor            User?             @relation("StockMovedBy", fields: [actorId], references: [id])
+
+  @@index([facilityId])
+  @@index([drugId, createdAt])
+}
+
+model Dispensation {
+  id               String   @id @default(cuid())
+  facilityId       String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  dispensationCode String
+  prescriptionId   String
+  dispensedById    String?
+  invoiceId        String?  @unique
+  notes            String?
+  /// Set when the pharmacist dispensed despite a recorded allergy.
+  allergyOverride  String?
+  dispensedAt      DateTime @default(now())
+
+  facility     Facility           @relation(fields: [facilityId], references: [id])
+  prescription Prescription       @relation(fields: [prescriptionId], references: [id])
+  dispensedBy  User?              @relation("DispensedBy", fields: [dispensedById], references: [id])
+  invoice      Invoice?           @relation(fields: [invoiceId], references: [id])
+  items        DispensationItem[]
+
+  @@unique([facilityId, dispensationCode])
+  @@index([facilityId])
+  @@index([prescriptionId])
+}
+
+model DispensationItem {
+  id                 String  @id @default(cuid())
+  facilityId         String  @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  dispensationId     String
+  prescriptionItemId String
+  drugId             String
+  quantity           Int
+  unitPrice          Decimal @db.Decimal(10, 2)
+
+  facility         Facility         @relation(fields: [facilityId], references: [id])
+  dispensation     Dispensation     @relation(fields: [dispensationId], references: [id], onDelete: Cascade)
+  prescriptionItem PrescriptionItem @relation(fields: [prescriptionItemId], references: [id])
+  drug             Drug             @relation(fields: [drugId], references: [id])
+  movements        StockMovement[]
+
+  @@index([facilityId])
+  @@index([dispensationId])
+}
+
+/// Per-facility counters for human-readable codes (PAT-0001, ORD-2026-0001, ...).
+/// Incremented with a row lock (src/services/codeSequence.service.ts) so
+/// simultaneous requests never receive the same code.
+model FacilitySequence {
+  facilityId String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  /// The code prefix this counter serves, e.g. "PAT-" or "ORD-2026-".
+  name       String
+  value      Int
+  updatedAt  DateTime @updatedAt
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@id([facilityId, name])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4B: inpatient care. An Admission owns an INPATIENT encounter, so the
+// usual notes, vitals, diagnoses, orders and prescriptions apply to it.
+// ---------------------------------------------------------------------------
+
+enum WardType {
+  GENERAL
+  MEDICAL
+  SURGICAL
+  MATERNITY
+  PAEDIATRIC
+  ICU
+  PRIVATE
+}
+
+enum WardGender {
+  MALE
+  FEMALE
+  MIXED
+}
+
+enum BedStatus {
+  AVAILABLE
+  OCCUPIED
+  CLEANING
+  OUT_OF_SERVICE
+}
+
+enum AdmissionStatus {
+  ADMITTED
+  DISCHARGED
+  CANCELLED
+}
+
+enum AdministrationStatus {
+  GIVEN
+  HELD
+  REFUSED
+  MISSED
+}
+
+model Ward {
+  id         String     @id @default(cuid())
+  facilityId String     @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  code       String
+  name       String
+  type       WardType   @default(GENERAL)
+  gender     WardGender @default(MIXED)
+  /// Charged per night at discharge when Billing is on.
+  dailyRate  Decimal    @default(0) @db.Decimal(10, 2)
+  isActive   Boolean    @default(true)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  facility       Facility        @relation(fields: [facilityId], references: [id])
+  beds           Bed[]
+  admissions     Admission[]
+  bedAssignments BedAssignment[]
+
+  @@unique([facilityId, code])
+  @@index([facilityId])
+}
+
+model Bed {
+  id         String    @id @default(cuid())
+  facilityId String    @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  wardId     String
+  label      String
+  status     BedStatus @default(AVAILABLE)
+  isActive   Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  facility       Facility        @relation(fields: [facilityId], references: [id])
+  ward           Ward            @relation(fields: [wardId], references: [id])
+  admissions     Admission[]
+  bedAssignments BedAssignment[]
+
+  @@unique([facilityId, wardId, label])
+  @@index([facilityId])
+  @@index([wardId])
+}
+
+model Admission {
+  id                  String          @id @default(cuid())
+  facilityId          String          @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  admissionCode       String
+  patientId           String
+  /// The inpatient encounter holding this stay's clinical record.
+  encounterId         String          @unique
+  /// The OPD or emergency visit the patient was admitted from, if any.
+  sourceEncounterId   String?
+  wardId              String
+  bedId               String
+  status              AdmissionStatus @default(ADMITTED)
+  reason              String
+  admittedById        String?
+  attendingId         String?
+  admittedAt          DateTime        @default(now())
+  expectedDischargeAt DateTime?
+  dischargedAt        DateTime?
+  dischargedById      String?
+  dischargeOutcome    String?
+  dischargeSummary    String?
+  cancelReason        String?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  facility        Facility                   @relation(fields: [facilityId], references: [id])
+  patient         Patient                    @relation(fields: [patientId], references: [id])
+  encounter       Encounter                  @relation("AdmissionEncounter", fields: [encounterId], references: [id])
+  sourceEncounter Encounter?                 @relation("AdmissionSource", fields: [sourceEncounterId], references: [id])
+  ward            Ward                       @relation(fields: [wardId], references: [id])
+  bed             Bed                        @relation(fields: [bedId], references: [id])
+  admittedBy      User?                      @relation("AdmittedBy", fields: [admittedById], references: [id])
+  attending       User?                      @relation("AdmissionAttending", fields: [attendingId], references: [id])
+  dischargedBy    User?                      @relation("DischargedBy", fields: [dischargedById], references: [id])
+  bedAssignments  BedAssignment[]
+  administrations MedicationAdministration[]
+
+  @@unique([facilityId, admissionCode])
+  @@index([facilityId])
+  @@index([status])
+  @@index([wardId, status])
+}
+
+/// Where the patient was, and when: one row per bed occupied during the stay.
+model BedAssignment {
+  id           String    @id @default(cuid())
+  facilityId   String    @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  admissionId  String
+  wardId       String
+  bedId        String
+  assignedById String?
+  startedAt    DateTime  @default(now())
+  endedAt      DateTime?
+  reason       String?
+
+  facility   Facility  @relation(fields: [facilityId], references: [id])
+  admission  Admission @relation(fields: [admissionId], references: [id])
+  ward       Ward      @relation(fields: [wardId], references: [id])
+  bed        Bed       @relation(fields: [bedId], references: [id])
+  assignedBy User?     @relation("BedAssignedBy", fields: [assignedById], references: [id])
+
+  @@index([facilityId])
+  @@index([admissionId])
+}
+
+/// The medication administration record (MAR): each dose given, held, refused or missed.
+model MedicationAdministration {
+  id                 String               @id @default(cuid())
+  facilityId         String               @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  admissionId        String
+  prescriptionItemId String
+  status             AdministrationStatus
+  doseGiven          String?
+  notes              String?
+  administeredById   String?
+  administeredAt     DateTime             @default(now())
+
+  facility         Facility         @relation(fields: [facilityId], references: [id])
+  admission        Admission        @relation(fields: [admissionId], references: [id])
+  prescriptionItem PrescriptionItem @relation(fields: [prescriptionItemId], references: [id])
+  administeredBy   User?            @relation("AdministeredBy", fields: [administeredById], references: [id])
+
+  @@index([facilityId])
+  @@index([admissionId, administeredAt])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4B: operating theatre. A Surgery belongs to an open visit or inpatient
+// stay; the WHO Surgical Safety Checklist (sign in, time out, sign out) gates
+// each step, and the operation note is written to that encounter.
+// ---------------------------------------------------------------------------
+
+enum SurgeryStatus {
+  SCHEDULED
+  IN_THEATRE
+  COMPLETED
+  CANCELLED
+}
+
+enum SurgeryUrgency {
+  ELECTIVE
+  URGENT
+  EMERGENCY
+}
+
+enum AnaesthesiaType {
+  GENERAL
+  SPINAL
+  EPIDURAL
+  REGIONAL_BLOCK
+  LOCAL
+  SEDATION
+}
+
+model Theatre {
+  id         String   @id @default(cuid())
+  facilityId String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  code       String
+  name       String
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  facility  Facility  @relation(fields: [facilityId], references: [id])
+  surgeries Surgery[]
+
+  @@unique([facilityId, code])
+  @@index([facilityId])
+}
+
+model Surgery {
+  id                 String           @id @default(cuid())
+  facilityId         String           @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  surgeryCode        String
+  patientId          String
+  /// The open visit or inpatient stay the operation is part of.
+  encounterId        String
+  theatreId          String
+  /// The SERVICE catalog item charged when the operation is completed.
+  procedureItemId    String?
+  procedureName      String
+  urgency            SurgeryUrgency   @default(ELECTIVE)
+  anaesthesia        AnaesthesiaType?
+  status             SurgeryStatus    @default(SCHEDULED)
+  scheduledStart     DateTime
+  scheduledEnd       DateTime
+  surgeonId          String?
+  anaesthetistName   String?
+  assistants         String?
+  preopDiagnosis     String?
+  bookedById         String?
+  /// WHO checklist answers, keyed by phase (signIn, timeOut, signOut), with who and when.
+  checklist          Json             @default("{}")
+  signInAt           DateTime?
+  timeOutAt          DateTime?
+  signOutAt          DateTime?
+  startedAt          DateTime?
+  endedAt            DateTime?
+  procedurePerformed String?
+  findings           String?
+  complications      String?
+  bloodLossMl        Int?
+  specimens          String?
+  postOpPlan         String?
+  cancelReason       String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  facility      Facility     @relation(fields: [facilityId], references: [id])
+  patient       Patient      @relation(fields: [patientId], references: [id])
+  encounter     Encounter    @relation(fields: [encounterId], references: [id])
+  theatre       Theatre      @relation(fields: [theatreId], references: [id])
+  procedureItem CatalogItem? @relation(fields: [procedureItemId], references: [id])
+  surgeon       User?        @relation("SurgerySurgeon", fields: [surgeonId], references: [id])
+  bookedBy      User?        @relation("SurgeryBookedBy", fields: [bookedById], references: [id])
+
+  @@unique([facilityId, surgeryCode])
+  @@index([facilityId])
+  @@index([theatreId, scheduledStart])
+  @@index([encounterId])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4C: specialty clinics. A visit is held in a clinic; structured,
+// append-only clinical forms (dental chart, eye exam, ...) record specialty
+// findings. Each form type's data is validated by its own schema on the server.
+// ---------------------------------------------------------------------------
+
+enum Clinic {
+  GENERAL
+  DENTAL
+  EYE
+  PHYSIOTHERAPY
+  DIETETICS
+  ANTENATAL
+  POSTNATAL
+  CHILD_WELFARE
+}
+
+enum ClinicalFormType {
+  DENTAL_CHART
+  EYE_EXAM
+  PHYSIO_ASSESSMENT
+  PHYSIO_SESSION
+  NUTRITION_ASSESSMENT
+  ANC_VISIT
+  POSTNATAL_CHECK
+  GROWTH
+}
+
+model ClinicalForm {
+  id          String           @id @default(cuid())
+  facilityId  String           @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  encounterId String
+  patientId   String
+  type        ClinicalFormType
+  data        Json
+  authorId    String?
+  /// A correction of an earlier form of the same type on the same visit.
+  amendsId    String?
+  /// Antenatal and postnatal forms belong to a pregnancy.
+  pregnancyId String?
+  createdAt   DateTime         @default(now())
+
+  facility   Facility       @relation(fields: [facilityId], references: [id])
+  encounter  Encounter      @relation(fields: [encounterId], references: [id])
+  patient    Patient        @relation(fields: [patientId], references: [id])
+  author     User?          @relation("FormAuthor", fields: [authorId], references: [id])
+  amends     ClinicalForm?  @relation("FormAmendment", fields: [amendsId], references: [id])
+  amendments ClinicalForm[] @relation("FormAmendment")
+  pregnancy  Pregnancy?     @relation(fields: [pregnancyId], references: [id])
+
+  @@index([facilityId])
+  @@index([encounterId])
+  @@index([patientId, type, createdAt])
+  @@index([pregnancyId])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4C: maternity. A Pregnancy is followed through antenatal visits
+// (ClinicalForm ANC_VISIT), ends in a Delivery (or another outcome), and is
+// followed up with postnatal checks. Live-born babies become patients.
+// ---------------------------------------------------------------------------
+
+enum PregnancyStatus {
+  ACTIVE
+  DELIVERED
+  ENDED
+}
+
+enum PregnancyEndReason {
+  MISCARRIAGE
+  ECTOPIC
+  MOLAR
+  TERMINATION
+  TRANSFERRED_OUT
+  LOST_TO_FOLLOW_UP
+}
+
+enum DeliveryMode {
+  SVD
+  VACUUM
+  FORCEPS
+  ASSISTED_BREECH
+  CAESAREAN
+}
+
+enum BirthOutcome {
+  LIVE_BIRTH
+  FRESH_STILLBIRTH
+  MACERATED_STILLBIRTH
+}
+
+enum PerinealOutcome {
+  INTACT
+  FIRST_DEGREE
+  SECOND_DEGREE
+  THIRD_DEGREE
+  FOURTH_DEGREE
+  EPISIOTOMY
+}
+
+model Pregnancy {
+  id             String              @id @default(cuid())
+  facilityId     String              @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  pregnancyCode  String
+  patientId      String
+  status         PregnancyStatus     @default(ACTIVE)
+  lmp            DateTime?
+  eddByLmp       DateTime?
+  /// An early ultrasound date replaces the LMP date when they disagree.
+  eddByScan      DateTime?
+  gravida        Int
+  parity         Int
+  livingChildren Int?
+  bloodGroup     String?
+  riskFactors    String[]            @default([])
+  /// Booking screening results (HIV, syphilis, hepatitis B, sickling, ...): { test: result }.
+  screening      Json                @default("{}")
+  bookedAt       DateTime            @default(now())
+  bookedById     String?
+  endedAt        DateTime?
+  endReason      PregnancyEndReason?
+  endNote        String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  facility Facility       @relation(fields: [facilityId], references: [id])
+  patient  Patient        @relation(fields: [patientId], references: [id])
+  bookedBy User?          @relation("PregnancyBookedBy", fields: [bookedById], references: [id])
+  forms    ClinicalForm[]
+  delivery Delivery?
+
+  @@unique([facilityId, pregnancyCode])
+  @@index([facilityId])
+  @@index([patientId])
+  @@index([status])
+}
+
+model Delivery {
+  id               String           @id @default(cuid())
+  facilityId       String           @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  pregnancyId      String           @unique
+  /// The visit or labour-ward stay the delivery was recorded in.
+  encounterId      String
+  deliveredAt      DateTime
+  mode             DeliveryMode
+  gestationWeeks   Int?
+  placentaComplete Boolean          @default(true)
+  bloodLossMl      Int?
+  perineum         PerinealOutcome?
+  oxytocinGiven    Boolean          @default(false)
+  complications    String?
+  notes            String?
+  attendantId      String?
+  createdAt        DateTime         @default(now())
+
+  facility  Facility  @relation(fields: [facilityId], references: [id])
+  pregnancy Pregnancy @relation(fields: [pregnancyId], references: [id])
+  encounter Encounter @relation(fields: [encounterId], references: [id])
+  attendant User?     @relation("DeliveryAttendant", fields: [attendantId], references: [id])
+  babies    Newborn[]
+
+  @@index([facilityId])
+  @@index([deliveredAt])
+}
+
+model Newborn {
+  id           String       @id @default(cuid())
+  facilityId   String       @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  deliveryId   String
+  /// The baby's own patient record (live births only).
+  patientId    String?      @unique
+  birthOrder   Int
+  sex          String
+  outcome      BirthOutcome
+  birthWeightG Int?
+  apgar1       Int?
+  apgar5       Int?
+  resuscitated Boolean      @default(false)
+  notes        String?
+  createdAt    DateTime     @default(now())
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+  delivery Delivery @relation(fields: [deliveryId], references: [id])
+  patient  Patient? @relation("NewbornPatient", fields: [patientId], references: [id])
+
+  @@unique([deliveryId, birthOrder])
+  @@index([facilityId])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4C: child health. Immunizations are recorded per vaccine dose (the
+// vaccine code carries the dose, e.g. PENTA2) against the schedule in
+// src/config/immunizationSchedule.ts. A record entered in error is voided,
+// never deleted; the database allows one live record per child per dose.
+// ---------------------------------------------------------------------------
+
+model Immunization {
+  id             String    @id @default(cuid())
+  facilityId     String    @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  patientId      String
+  /// Schedule code including the dose, e.g. BCG, OPV0, PENTA1, MR2.
+  vaccine        String
+  givenAt        DateTime
+  batchNumber    String?
+  expiryDate     DateTime?
+  site           String?
+  /// Copied from a child health card: given at another facility or before this system.
+  givenElsewhere Boolean   @default(false)
+  givenById      String?
+  encounterId    String?
+  notes          String?
+  voidedAt       DateTime?
+  voidedById     String?
+  voidReason     String?
+  createdAt      DateTime  @default(now())
+
+  facility  Facility   @relation(fields: [facilityId], references: [id])
+  patient   Patient    @relation(fields: [patientId], references: [id])
+  encounter Encounter? @relation(fields: [encounterId], references: [id])
+  givenBy   User?      @relation("ImmunizationGivenBy", fields: [givenById], references: [id])
+  voidedBy  User?      @relation("ImmunizationVoidedBy", fields: [voidedById], references: [id])
+
+  @@index([facilityId])
+  @@index([patientId])
+  @@index([givenAt])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4D: insurance claims (NHIS and private schemes). A completed visit's
+// unpaid invoices are claimed from the patient's scheme; the claim snapshots
+// diagnoses and lines, moves through submission and adjudication, and the
+// scheme's payment is applied to the invoices. Shortfalls return to the
+// invoice balance for the patient or a write-off.
+// ---------------------------------------------------------------------------
+
+enum SchemeType {
+  NHIS
+  PRIVATE
+  CORPORATE
+}
+
+enum ClaimStatus {
+  DRAFT
+  SUBMITTED
+  QUERIED
+  APPROVED
+  REJECTED
+  PAID
+  CANCELLED
+}
+
+enum ClaimBatchStatus {
+  OPEN
+  SUBMITTED
+}
+
+model InsuranceScheme {
+  id         String     @id @default(cuid())
+  facilityId String     @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  code       String
+  name       String
+  type       SchemeType
+  isActive   Boolean    @default(true)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  facility    Facility           @relation(fields: [facilityId], references: [id])
+  memberships PatientInsurance[]
+  claims      Claim[]
+  batches     ClaimBatch[]
+
+  @@unique([facilityId, code])
+  @@index([facilityId])
+}
+
+model ClaimBatch {
+  id          String           @id @default(cuid())
+  facilityId  String           @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  batchCode   String
+  schemeId    String
+  /// Claim month, YYYY-MM.
+  period      String
+  status      ClaimBatchStatus @default(OPEN)
+  submittedAt DateTime?
+  createdAt   DateTime         @default(now())
+
+  facility Facility        @relation(fields: [facilityId], references: [id])
+  scheme   InsuranceScheme @relation(fields: [schemeId], references: [id])
+  claims   Claim[]
+
+  @@unique([facilityId, batchCode])
+  @@unique([facilityId, schemeId, period])
+  @@index([facilityId])
+}
+
+model Claim {
+  id               String      @id @default(cuid())
+  facilityId       String      @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  claimCode        String
+  schemeId         String
+  patientId        String
+  encounterId      String
+  batchId          String?
+  membershipNumber String
+  status           ClaimStatus @default(DRAFT)
+  attendanceDate   DateTime
+  /// ICD-10 diagnoses at the time the claim was made: [{ code, description, type }].
+  diagnoses        Json
+  claimedAmount    Decimal     @db.Decimal(12, 2)
+  approvedAmount   Decimal?    @db.Decimal(12, 2)
+  paidAmount       Decimal     @default(0) @db.Decimal(12, 2)
+  paymentReference String?
+  queryNote        String?
+  rejectionReason  String?
+  submittedAt      DateTime?
+  decidedAt        DateTime?
+  paidAt           DateTime?
+  createdById      String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  facility  Facility        @relation(fields: [facilityId], references: [id])
+  scheme    InsuranceScheme @relation(fields: [schemeId], references: [id])
+  patient   Patient         @relation(fields: [patientId], references: [id])
+  encounter Encounter       @relation(fields: [encounterId], references: [id])
+  batch     ClaimBatch?     @relation(fields: [batchId], references: [id])
+  createdBy User?           @relation("ClaimCreatedBy", fields: [createdById], references: [id])
+  lines     ClaimLine[]
+
+  @@unique([facilityId, claimCode])
+  @@index([facilityId])
+  @@index([status])
+  @@index([schemeId, status])
+  @@index([encounterId])
+}
+
+model ClaimLine {
+  id             String   @id @default(cuid())
+  facilityId     String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  claimId        String
+  invoiceId      String
+  invoiceItemId  String?
+  description    String
+  tariffCode     String?
+  quantity       Int
+  unitPrice      Decimal  @db.Decimal(12, 2)
+  amount         Decimal  @db.Decimal(12, 2)
+  approvedAmount Decimal? @db.Decimal(12, 2)
+  rejectedReason String?
+
+  facility    Facility     @relation(fields: [facilityId], references: [id])
+  claim       Claim        @relation(fields: [claimId], references: [id])
+  invoice     Invoice      @relation(fields: [invoiceId], references: [id])
+  invoiceItem InvoiceItem? @relation(fields: [invoiceItemId], references: [id])
+
+  @@index([facilityId])
+  @@index([claimId])
+  @@index([invoiceId])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4D: general stores and procurement. Purchase orders are approved by
+// someone other than the person who raised them, received against goods
+// received notes (never more than ordered), and stock is issued to wards and
+// departments on requisition. Every change is a StoreMovement; stock never
+// goes below zero (database CHECK).
+// ---------------------------------------------------------------------------
+
+enum StoreCategory {
+  CONSUMABLE
+  LINEN
+  STATIONERY
+  CLEANING
+  EQUIPMENT
+  FOOD
+  OTHER
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  APPROVED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
+enum RequisitionStatus {
+  PENDING
+  ISSUED
+  PARTIALLY_ISSUED
+  REJECTED
+}
+
+enum StoreMovementType {
+  RECEIPT
+  ISSUE
+  ADJUSTMENT
+}
+
+model Supplier {
+  id         String   @id @default(cuid())
+  facilityId String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  code       String
+  name       String
+  phone      String?
+  email      String?
+  address    String?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  facility       Facility        @relation(fields: [facilityId], references: [id])
+  purchaseOrders PurchaseOrder[]
+
+  @@unique([facilityId, code])
+  @@index([facilityId])
+}
+
+model StoreItem {
+  id             String        @id @default(cuid())
+  facilityId     String        @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  code           String
+  name           String
+  unit           String
+  category       StoreCategory @default(CONSUMABLE)
+  reorderLevel   Int           @default(0)
+  quantityOnHand Int           @default(0)
+  lastUnitCost   Decimal?      @db.Decimal(12, 2)
+  isActive       Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  facility         Facility            @relation(fields: [facilityId], references: [id])
+  purchaseLines    PurchaseOrderLine[]
+  receiptLines     GoodsReceiptLine[]
+  requisitionLines RequisitionLine[]
+  movements        StoreMovement[]
+
+  @@unique([facilityId, code])
+  @@index([facilityId])
+}
+
+model PurchaseOrder {
+  id           String              @id @default(cuid())
+  facilityId   String              @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  poCode       String
+  supplierId   String
+  status       PurchaseOrderStatus @default(DRAFT)
+  notes        String?
+  raisedById   String?
+  approvedById String?
+  approvedAt   DateTime?
+  cancelReason String?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  facility   Facility            @relation(fields: [facilityId], references: [id])
+  supplier   Supplier            @relation(fields: [supplierId], references: [id])
+  raisedBy   User?               @relation("PoRaisedBy", fields: [raisedById], references: [id])
+  approvedBy User?               @relation("PoApprovedBy", fields: [approvedById], references: [id])
+  lines      PurchaseOrderLine[]
+  receipts   GoodsReceipt[]
+
+  @@unique([facilityId, poCode])
+  @@index([facilityId])
+  @@index([status])
+}
+
+model PurchaseOrderLine {
+  id               String  @id @default(cuid())
+  facilityId       String  @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  purchaseOrderId  String
+  storeItemId      String
+  quantityOrdered  Int
+  quantityReceived Int     @default(0)
+  unitCost         Decimal @db.Decimal(12, 2)
+
+  facility      Facility           @relation(fields: [facilityId], references: [id])
+  purchaseOrder PurchaseOrder      @relation(fields: [purchaseOrderId], references: [id])
+  storeItem     StoreItem          @relation(fields: [storeItemId], references: [id])
+  receiptLines  GoodsReceiptLine[]
+
+  @@unique([purchaseOrderId, storeItemId])
+  @@index([facilityId])
+}
+
+model GoodsReceipt {
+  id              String   @id @default(cuid())
+  facilityId      String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  grnCode         String
+  purchaseOrderId String
+  deliveryNote    String?
+  receivedById    String?
+  receivedAt      DateTime @default(now())
+
+  facility      Facility           @relation(fields: [facilityId], references: [id])
+  purchaseOrder PurchaseOrder      @relation(fields: [purchaseOrderId], references: [id])
+  receivedBy    User?              @relation("GoodsReceivedBy", fields: [receivedById], references: [id])
+  lines         GoodsReceiptLine[]
+
+  @@unique([facilityId, grnCode])
+  @@index([facilityId])
+}
+
+model GoodsReceiptLine {
+  id             String    @id @default(cuid())
+  facilityId     String    @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  goodsReceiptId String
+  poLineId       String
+  storeItemId    String
+  quantity       Int
+  batchNumber    String?
+  expiryDate     DateTime?
+
+  facility     Facility          @relation(fields: [facilityId], references: [id])
+  goodsReceipt GoodsReceipt      @relation(fields: [goodsReceiptId], references: [id])
+  poLine       PurchaseOrderLine @relation(fields: [poLineId], references: [id])
+  storeItem    StoreItem         @relation(fields: [storeItemId], references: [id])
+
+  @@index([facilityId])
+}
+
+model Requisition {
+  id             String            @id @default(cuid())
+  facilityId     String            @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  reqCode        String
+  /// The ward, unit or department asking for stock.
+  requestingUnit String
+  status         RequisitionStatus @default(PENDING)
+  notes          String?
+  requestedById  String?
+  issuedById     String?
+  issuedAt       DateTime?
+  rejectReason   String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  facility    Facility          @relation(fields: [facilityId], references: [id])
+  requestedBy User?             @relation("RequisitionBy", fields: [requestedById], references: [id])
+  issuedBy    User?             @relation("RequisitionIssuedBy", fields: [issuedById], references: [id])
+  lines       RequisitionLine[]
+
+  @@unique([facilityId, reqCode])
+  @@index([facilityId])
+  @@index([status])
+}
+
+model RequisitionLine {
+  id                String @id @default(cuid())
+  facilityId        String @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  requisitionId     String
+  storeItemId       String
+  quantityRequested Int
+  quantityIssued    Int    @default(0)
+
+  facility    Facility    @relation(fields: [facilityId], references: [id])
+  requisition Requisition @relation(fields: [requisitionId], references: [id])
+  storeItem   StoreItem   @relation(fields: [storeItemId], references: [id])
+
+  @@unique([requisitionId, storeItemId])
+  @@index([facilityId])
+}
+
+model StoreMovement {
+  id           String            @id @default(cuid())
+  facilityId   String            @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  storeItemId  String
+  type         StoreMovementType
+  /// Signed: positive for stock in, negative for stock out.
+  quantity     Int
+  balanceAfter Int
+  /// GRN, requisition code or adjustment reason.
+  reference    String
+  actorId      String?
+  createdAt    DateTime          @default(now())
+
+  facility  Facility  @relation(fields: [facilityId], references: [id])
+  storeItem StoreItem @relation(fields: [storeItemId], references: [id])
+  actor     User?     @relation("StoreMovementBy", fields: [actorId], references: [id])
+
+  @@index([facilityId])
+  @@index([storeItemId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4D: blood bank. Donations become units that stay in quarantine until
+// every screening test is negative. Units are crossmatched and reserved for a
+// request, issued, and transfused; ABO/Rh compatibility is enforced in
+// src/services/bloodCompatibility.ts. Expired units are never issued.
+// ---------------------------------------------------------------------------
+
+enum BloodComponent {
+  WHOLE_BLOOD
+  PACKED_RED_CELLS
+  PLATELETS
+  FRESH_FROZEN_PLASMA
+  CRYOPRECIPITATE
+}
+
+enum BloodUnitStatus {
+  QUARANTINE
+  AVAILABLE
+  RESERVED
+  ISSUED
+  TRANSFUSED
+  DISCARDED
+  EXPIRED
+}
+
+enum BloodRequestStatus {
+  PENDING
+  CROSSMATCHED
+  ISSUED
+  COMPLETED
+  CANCELLED
+}
+
+enum BloodRequestUrgency {
+  ROUTINE
+  URGENT
+  EMERGENCY
+}
+
+enum TransfusionReaction {
+  NONE
+  MILD
+  SEVERE
+}
+
+model BloodDonor {
+  id             String    @id @default(cuid())
+  facilityId     String    @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  donorCode      String
+  firstName      String
+  lastName       String
+  dateOfBirth    DateTime
+  gender         String
+  phone          String?
+  bloodGroup     String?
+  lastDonationAt DateTime?
+  deferredUntil  DateTime?
+  deferralReason String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  facility  Facility        @relation(fields: [facilityId], references: [id])
+  donations BloodDonation[]
+
+  @@unique([facilityId, donorCode])
+  @@index([facilityId])
+}
+
+model BloodDonation {
+  id           String   @id @default(cuid())
+  facilityId   String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  donationCode String
+  donorId      String
+  bloodGroup   String
+  volumeMl     Int
+  haemoglobin  Decimal  @db.Decimal(4, 1)
+  weightKg     Decimal  @db.Decimal(5, 1)
+  takenById    String?
+  collectedAt  DateTime @default(now())
+
+  facility Facility    @relation(fields: [facilityId], references: [id])
+  donor    BloodDonor  @relation(fields: [donorId], references: [id])
+  takenBy  User?       @relation("DonationTakenBy", fields: [takenById], references: [id])
+  units    BloodUnit[]
+
+  @@unique([facilityId, donationCode])
+  @@index([facilityId])
+}
+
+model BloodUnit {
+  id                   String          @id @default(cuid())
+  facilityId           String          @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  unitCode             String
+  donationId           String?
+  bloodGroup           String
+  component            BloodComponent
+  volumeMl             Int
+  collectedAt          DateTime
+  expiresAt            DateTime
+  status               BloodUnitStatus @default(QUARANTINE)
+  /// Screening results { hiv, hepatitisB, hepatitisC, syphilis }: POSITIVE | NEGATIVE.
+  screening            Json            @default("{}")
+  discardReason        String?
+  reservedForRequestId String?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  facility     Facility       @relation(fields: [facilityId], references: [id])
+  donation     BloodDonation? @relation(fields: [donationId], references: [id])
+  reservedFor  BloodRequest?  @relation("UnitReservedFor", fields: [reservedForRequestId], references: [id])
+  crossmatches Crossmatch[]
+  transfusion  Transfusion?
+
+  @@unique([facilityId, unitCode])
+  @@index([facilityId])
+  @@index([status, bloodGroup, component])
+}
+
+model BloodRequest {
+  id             String              @id @default(cuid())
+  facilityId     String              @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  requestCode    String
+  patientId      String
+  encounterId    String?
+  patientGroup   String
+  component      BloodComponent
+  unitsRequested Int
+  urgency        BloodRequestUrgency @default(ROUTINE)
+  indication     String
+  haemoglobin    Decimal?            @db.Decimal(4, 1)
+  status         BloodRequestStatus  @default(PENDING)
+  requestedById  String?
+  cancelReason   String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  facility      Facility      @relation(fields: [facilityId], references: [id])
+  patient       Patient       @relation(fields: [patientId], references: [id])
+  encounter     Encounter?    @relation(fields: [encounterId], references: [id])
+  requestedBy   User?         @relation("BloodRequestedBy", fields: [requestedById], references: [id])
+  reservedUnits BloodUnit[]   @relation("UnitReservedFor")
+  crossmatches  Crossmatch[]
+  transfusions  Transfusion[]
+
+  @@unique([facilityId, requestCode])
+  @@index([facilityId])
+  @@index([status])
+}
+
+model Crossmatch {
+  id            String   @id @default(cuid())
+  facilityId    String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  requestId     String
+  unitId        String
+  compatible    Boolean
+  notes         String?
+  performedById String?
+  performedAt   DateTime @default(now())
+
+  facility    Facility     @relation(fields: [facilityId], references: [id])
+  request     BloodRequest @relation(fields: [requestId], references: [id])
+  unit        BloodUnit    @relation(fields: [unitId], references: [id])
+  performedBy User?        @relation("CrossmatchBy", fields: [performedById], references: [id])
+
+  @@index([facilityId])
+  @@index([requestId])
+}
+
+model Transfusion {
+  id               String               @id @default(cuid())
+  facilityId       String               @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  requestId        String
+  unitId           String               @unique
+  /// Issued without a crossmatch under emergency release (O-negative only).
+  emergencyRelease Boolean              @default(false)
+  emergencyReason  String?
+  issuedById       String?
+  issuedAt         DateTime             @default(now())
+  givenById        String?
+  startedAt        DateTime?
+  endedAt          DateTime?
+  reaction         TransfusionReaction?
+  reactionNotes    String?
+
+  facility Facility     @relation(fields: [facilityId], references: [id])
+  request  BloodRequest @relation(fields: [requestId], references: [id])
+  unit     BloodUnit    @relation(fields: [unitId], references: [id])
+  issuedBy User?        @relation("TransfusionIssuedBy", fields: [issuedById], references: [id])
+  givenBy  User?        @relation("TransfusionGivenBy", fields: [givenById], references: [id])
+
+  @@index([facilityId])
+  @@index([requestId])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4D: mortuary. A DeceasedRecord is a body in the facility's care: a
+// patient who died here, or a person brought in dead (possibly unidentified).
+// One body per slot while in storage; release needs a certified cause of death
+// (or police clearance for a police case) and the collector's identity.
+// ---------------------------------------------------------------------------
+
+enum PlaceOfDeath {
+  WARD
+  EMERGENCY
+  THEATRE
+  OUTPATIENT
+  BROUGHT_IN_DEAD
+}
+
+enum DeceasedStatus {
+  IN_STORAGE
+  RELEASED
+}
+
+model MortuarySlot {
+  id         String   @id @default(cuid())
+  facilityId String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  code       String
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  facility Facility         @relation(fields: [facilityId], references: [id])
+  bodies   DeceasedRecord[]
+
+  @@unique([facilityId, code])
+  @@index([facilityId])
+}
+
+model DeceasedRecord {
+  id                 String         @id @default(cuid())
+  facilityId         String         @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  caseCode           String
+  /// The deceased's patient record, when known.
+  patientId          String?        @unique
+  /// For people without a patient record (e.g. unidentified brought-in-dead).
+  fullName           String
+  sex                String
+  estimatedAgeYears  Int?
+  dateOfDeath        DateTime
+  placeOfDeath       PlaceOfDeath
+  encounterId        String?
+  causeOfDeath       String?
+  causeIcd10         String?
+  certifiedById      String?
+  certifiedAt        DateTime?
+  policeCase         Boolean        @default(false)
+  policeReference    String?
+  policeClearanceRef String?
+  slotId             String?
+  bodyTag            String
+  admittedAt         DateTime       @default(now())
+  registeredById     String?
+  status             DeceasedStatus @default(IN_STORAGE)
+  releasedAt         DateTime?
+  releasedTo         String?
+  releasedToRelation String?
+  releasedToIdNumber String?
+  releasedById       String?
+  storageDays        Int?
+  notes              String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  facility     Facility      @relation(fields: [facilityId], references: [id])
+  patient      Patient?      @relation(fields: [patientId], references: [id])
+  encounter    Encounter?    @relation(fields: [encounterId], references: [id])
+  slot         MortuarySlot? @relation(fields: [slotId], references: [id])
+  certifiedBy  User?         @relation("DeathCertifiedBy", fields: [certifiedById], references: [id])
+  registeredBy User?         @relation("DeathRegisteredBy", fields: [registeredById], references: [id])
+  releasedBy   User?         @relation("BodyReleasedBy", fields: [releasedById], references: [id])
+
+  @@unique([facilityId, caseCode])
+  @@unique([facilityId, bodyTag])
+  @@index([facilityId])
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4D: HR and the duty rota. Staff profiles extend user accounts; rota
+// entries put a person on a shift on a day (no overlaps, 11 hours' rest,
+// nobody on shift while on approved leave); leave is requested and approved
+// by someone else, with annual leave counted in working days.
+// ---------------------------------------------------------------------------
+
+enum EmploymentType {
+  PERMANENT
+  CONTRACT
+  NATIONAL_SERVICE
+  LOCUM
+  VOLUNTEER
+}
+
+enum LeaveType {
+  ANNUAL
+  SICK
+  MATERNITY
+  PATERNITY
+  STUDY
+  COMPASSIONATE
+  UNPAID
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+model StaffProfile {
+  id                    String         @id @default(cuid())
+  facilityId            String         @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  userId                String         @unique
+  staffNumber           String
+  jobTitle              String
+  unit                  String?
+  employmentType        EmploymentType @default(PERMANENT)
+  dateJoined            DateTime?      @db.Date
+  phone                 String?
+  emergencyContact      String?
+  /// e.g. Medical and Dental Council or Nursing and Midwifery Council PIN.
+  registrationBody      String?
+  registrationNumber    String?
+  registrationExpiresAt DateTime?      @db.Date
+  annualLeaveDays       Int            @default(21)
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+  user     User     @relation(fields: [userId], references: [id])
+
+  @@unique([facilityId, staffNumber])
+  @@index([facilityId])
+}
+
+model ShiftType {
+  id         String   @id @default(cuid())
+  facilityId String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  code       String
+  name       String
+  /// "HH:MM" local time; a shift ending at or before its start runs past midnight.
+  startTime  String
+  endTime    String
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  facility Facility    @relation(fields: [facilityId], references: [id])
+  entries  RotaEntry[]
+
+  @@unique([facilityId, code])
+  @@index([facilityId])
+}
+
+model RotaEntry {
+  id           String   @id @default(cuid())
+  facilityId   String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  userId       String
+  date         DateTime @db.Date
+  shiftTypeId  String
+  unit         String
+  notes        String?
+  assignedById String?
+  createdAt    DateTime @default(now())
+
+  facility   Facility  @relation(fields: [facilityId], references: [id])
+  user       User      @relation("RotaStaff", fields: [userId], references: [id])
+  shiftType  ShiftType @relation(fields: [shiftTypeId], references: [id])
+  assignedBy User?     @relation("RotaAssignedBy", fields: [assignedById], references: [id])
+
+  @@unique([facilityId, userId, date, shiftTypeId])
+  @@index([facilityId, date])
+}
+
+model LeaveRequest {
+  id           String      @id @default(cuid())
+  facilityId   String      @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  userId       String
+  type         LeaveType
+  startDate    DateTime    @db.Date
+  endDate      DateTime    @db.Date
+  /// Working days (Monday to Friday) in the period.
+  days         Int
+  reason       String?
+  status       LeaveStatus @default(PENDING)
+  decidedById  String?
+  decidedAt    DateTime?
+  decisionNote String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  facility  Facility @relation(fields: [facilityId], references: [id])
+  user      User     @relation("LeaveOf", fields: [userId], references: [id])
+  decidedBy User?    @relation("LeaveDecidedBy", fields: [decidedById], references: [id])
+
+  @@index([facilityId])
+  @@index([userId, startDate])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4D: medical records. Every opening of a patient's full chart is
+// logged with its purpose; release of records to anyone outside the care
+// team goes through a request that needs consent (or a court order) and a
+// second person's approval.
+// ---------------------------------------------------------------------------
+
+enum ChartAccessPurpose {
+  TREATMENT
+  BILLING
+  CLINICAL_AUDIT
+  RECORDS_RELEASE
+  OTHER
+}
+
+enum RecordRequesterType {
+  PATIENT
+  NEXT_OF_KIN
+  INSURER
+  COURT_OR_POLICE
+  OTHER_FACILITY
+  EMPLOYER
+  OTHER
+}
+
+enum RecordRequestStatus {
+  PENDING
+  APPROVED
+  RELEASED
+  REFUSED
+}
+
+model ChartAccess {
+  id         String             @id @default(cuid())
+  facilityId String             @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  patientId  String
+  userId     String?
+  purpose    ChartAccessPurpose
+  note       String?
+  accessedAt DateTime           @default(now())
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+  patient  Patient  @relation(fields: [patientId], references: [id])
+  user     User?    @relation("ChartAccessedBy", fields: [userId], references: [id])
+
+  @@index([facilityId])
+  @@index([patientId, accessedAt])
+}
+
+model RecordRequest {
+  id               String              @id @default(cuid())
+  facilityId       String              @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  requestCode      String
+  patientId        String
+  requesterName    String
+  requesterType    RecordRequesterType
+  purpose          String
+  /// What is to be released, e.g. "Discharge summary and lab results, Jan-Mar 2026".
+  scope            String
+  consentObtained  Boolean             @default(false)
+  /// The signed consent form, court order or ID seen.
+  consentReference String?
+  status           RecordRequestStatus @default(PENDING)
+  loggedById       String?
+  decidedById      String?
+  decidedAt        DateTime?
+  decisionNote     String?
+  releasedById     String?
+  releasedAt       DateTime?
+  releaseMethod    String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  facility   Facility @relation(fields: [facilityId], references: [id])
+  patient    Patient  @relation(fields: [patientId], references: [id])
+  loggedBy   User?    @relation("RecordRequestLoggedBy", fields: [loggedById], references: [id])
+  decidedBy  User?    @relation("RecordRequestDecidedBy", fields: [decidedById], references: [id])
+  releasedBy User?    @relation("RecordRequestReleasedBy", fields: [releasedById], references: [id])
+
+  @@unique([facilityId, requestCode])
+  @@index([facilityId])
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 5: subscriptions. Plans and add-on prices are platform data (no
+// facilityId). A facility's Subscription decides its departments: the plan's
+// modules plus add-ons are written to FacilityModule. A facility without a
+// subscription is platform-managed, as before. An unpaid subscription past
+// its grace period makes the facility read-only; data is never deleted.
+// ---------------------------------------------------------------------------
+
+enum BillingInterval {
+  MONTHLY
+  YEARLY
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  SUSPENDED
+  CANCELLED
+}
+
+enum SubscriptionInvoiceStatus {
+  OPEN
+  PAID
+  VOID
+}
+
+enum SubscriptionInvoiceKind {
+  FIRST
+  RENEWAL
+  UPGRADE
+}
+
+model Plan {
+  id                    String       @id @default(cuid())
+  code                  String       @unique
+  name                  String
+  /// The kind of facility this plan is for. Plans are grouped by it on the
+  /// pricing page, and a kind may offer more than one size (a district and a
+  /// full hospital).
+  facilityKind          FacilityKind @default(HOSPITAL)
+  description           String?
+  monthlyPrice          Decimal      @db.Decimal(12, 2)
+  yearlyDiscountPercent Int          @default(0)
+  /// Staff accounts allowed; null for unlimited.
+  maxUsers              Int?
+  /// Fair-use limits, shown and warned about but never blocking care; null for none.
+  maxPatientsPerMonth   Int?
+  maxStorageMb          Int?
+  trialDays             Int          @default(14)
+  isActive              Boolean      @default(true)
+  /// Shown on the public pricing page.
+  isPublic              Boolean      @default(true)
+  sortOrder             Int          @default(0)
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+
+  modules       PlanModule[]
+  subscriptions Subscription[] @relation("SubscriptionPlan")
+  pendingFor    Subscription[] @relation("SubscriptionPendingPlan")
+}
+
+model PlanModule {
+  planId    String
+  moduleKey String
+
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@id([planId, moduleKey])
+}
+
+/// The monthly price of a department bought as an add-on to any plan.
+model ModulePrice {
+  moduleKey    String   @id
+  monthlyPrice Decimal  @db.Decimal(12, 2)
+  updatedAt    DateTime @updatedAt
+}
+
+model Subscription {
+  id                       String             @id @default(cuid())
+  facilityId               String             @unique @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  planId                   String
+  interval                 BillingInterval    @default(MONTHLY)
+  status                   SubscriptionStatus @default(TRIALING)
+  addOnModules             String[]           @default([])
+  trialEndsAt              DateTime?
+  currentPeriodStart       DateTime?
+  currentPeriodEnd         DateTime?
+  graceEndsAt              DateTime?
+  cancelAtPeriodEnd        Boolean            @default(false)
+  cancelledAt              DateTime?
+  /// A downgrade or interval change waiting for the next renewal.
+  pendingPlanId            String?
+  pendingInterval          BillingInterval?
+  pendingAddOns            String[]           @default([])
+  hasPendingChange         Boolean            @default(false)
+  /// Reminder keys already sent (for example TRIAL_3D:2026-10-13), so each goes once.
+  remindersSent            String[]           @default([])
+  billingEmail             String?
+  /// Reusable card / mobile money authorisation from the gateway, for renewals.
+  gatewayCustomerCode      String?
+  gatewayAuthorizationCode String?
+  gatewayAuthorizationHint String?
+  createdAt                DateTime           @default(now())
+  updatedAt                DateTime           @updatedAt
+
+  facility    Facility              @relation(fields: [facilityId], references: [id])
+  plan        Plan                  @relation("SubscriptionPlan", fields: [planId], references: [id])
+  pendingPlan Plan?                 @relation("SubscriptionPendingPlan", fields: [pendingPlanId], references: [id])
+  invoices    SubscriptionInvoice[]
+
+  @@index([status])
+  @@index([currentPeriodEnd])
+}
+
+model SubscriptionInvoice {
+  id               String                    @id @default(cuid())
+  facilityId       String                    @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  invoiceNumber    String
+  subscriptionId   String
+  kind             SubscriptionInvoiceKind
+  status           SubscriptionInvoiceStatus @default(OPEN)
+  planId           String
+  interval         BillingInterval
+  addOnModules     String[]                  @default([])
+  amount           Decimal                   @db.Decimal(12, 2)
+  currency         String                    @default("GHS")
+  /// [{ description, amount }]
+  lines            Json
+  periodStart      DateTime
+  periodEnd        DateTime
+  /// The gateway's transaction reference; unique so a payment is applied once.
+  gatewayReference String?                   @unique
+  paidAt           DateTime?
+  attempts         Int                       @default(0)
+  lastError        String?
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+
+  facility     Facility     @relation(fields: [facilityId], references: [id])
+  subscription Subscription @relation(fields: [subscriptionId], references: [id])
+
+  @@unique([facilityId, invoiceNumber])
+  @@index([facilityId])
+  @@index([status])
+}
+
+/// Every gateway webhook, stored before it is processed; eventKey makes processing idempotent.
+model PaymentEvent {
+  id          String    @id @default(cuid())
+  provider    String
+  eventKey    String    @unique
+  type        String
+  reference   String?
+  payload     Json
+  processedAt DateTime?
+  outcome     String?
+  createdAt   DateTime  @default(now())
+
+  @@index([reference])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 6: requests for a demo or a call, from the public website. Platform
+// data (no facilityId).
+// ---------------------------------------------------------------------------
+
+enum DemoRequestStatus {
+  NEW
+  CONTACTED
+  CLOSED
+}
+
+model DemoRequest {
+  id           String            @id @default(cuid())
+  name         String
+  organisation String
+  email        String
+  phone        String?
+  facilityType String?
+  message      String?
+  status       DemoRequestStatus @default(NEW)
+  notes        String?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@index([status])
+}
+
+/// A staff channel: all departments together, or one department's own.
+enum MessageChannel {
+  ALL
+  CLINICAL
+  LABORATORY
+  IMAGING
+  PHARMACY
+  FRONT_OFFICE
+  FINANCE
+}
+
+// A message between departments, kept for 24 hours.
+//
+// Deliberately temporary. This is the shout across the corridor - "theatre is
+// running late", "the centrifuge is down" - and not a clinical record. Anything
+// that has to be kept belongs on the patient's chart, where it can be found
+// again, audited, and read by whoever sees that patient next.
+//
+// Expiry is enforced by every query rather than by a cleaner running on time, so
+// a message is never visible past its 24 hours even if nothing has swept up yet.
+model StaffMessage {
+  id         String         @id @default(cuid())
+  facilityId String         @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  channel    MessageChannel
+  senderId   String
+  body       String
+  createdAt  DateTime       @default(now())
+  /// 24 hours after it was sent. Past this the message is gone, not hidden.
+  expiresAt  DateTime
+
+  sender   User     @relation("StaffMessageSender", fields: [senderId], references: [id])
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId, channel, expiresAt])
+  @@index([facilityId])
+}
