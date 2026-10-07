@@ -1,0 +1,26 @@
+# AI security review of every pull request, using Anthropic's
+# claude-code-security-review action. Needs a repository secret named
+# CLAUDE_API_KEY (Settings > Secrets and variables > Actions).
+name: Security review
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    # Pull requests from forks do not receive secrets, so skip them.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 2
+      - uses: anthropics/claude-code-security-review@main
+        with:
+          comment-pr: true
+          claude-api-key: ${{ secrets.CLAUDE_API_KEY }}
