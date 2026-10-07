@@ -698,6 +698,7 @@ model Patient {
 
   @@unique([facilityId, patientCode])
   @@index([facilityId])
+  @@index([facilityId, createdAt])
   @@index([firstName, lastName])
   @@index([phone])
   @@index([nationalId])
@@ -938,6 +939,7 @@ model Order {
 
   @@unique([facilityId, orderCode])
   @@index([facilityId])
+  @@index([facilityId, status, submittedAt])
   @@index([patientId])
   @@index([doctorId])
   @@index([hospitalId])
@@ -1044,6 +1046,7 @@ model Appointment {
 
   @@unique([facilityId, appointmentCode])
   @@index([facilityId])
+  @@index([facilityId, status, scheduledDate])
   @@index([patientId])
   @@index([orderId])
   @@index([scheduledDate])
@@ -1078,6 +1081,7 @@ model PatientVisit {
 
   @@unique([facilityId, visitCode])
   @@index([facilityId])
+  @@index([facilityId, status, checkedInAt])
   @@index([patientId])
   @@index([orderId])
   @@index([status])
@@ -1111,6 +1115,7 @@ model LabSample {
 
   @@unique([facilityId, sampleCode])
   @@index([facilityId])
+  @@index([facilityId, status, acceptedAt])
   @@index([patientId])
   @@index([status])
   @@index([acceptedAt])
@@ -1150,6 +1155,7 @@ model LabResult {
 
   @@unique([facilityId, resultCode])
   @@index([facilityId])
+  @@index([facilityId, status, submittedAt])
   @@index([orderItemId])
   @@index([sampleId])
   @@index([patientId])
@@ -1650,6 +1656,7 @@ model Invoice {
 
   @@unique([facilityId, invoiceCode])
   @@index([facilityId])
+  @@index([facilityId, status, createdAt])
   @@index([patientId])
   @@index([hospitalId])
   @@index([status])
@@ -1923,6 +1930,7 @@ model Notification {
   facility Facility @relation(fields: [facilityId], references: [id])
 
   @@index([facilityId])
+  @@index([facilityId, isRead, createdAt])
   @@index([orderId])
   @@index([type])
   @@index([isRead])

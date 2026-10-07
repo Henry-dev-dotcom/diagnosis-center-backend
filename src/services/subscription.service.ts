@@ -642,12 +642,16 @@ async function sendReminders(now: Date) {
         const due = remindersDue(s, usage, now).filter((r) => !s.remindersSent.includes(r.key));
         if (!due.length) return;
         const admins = await prisma.user.findMany({ where: { role: UserRole.ADMIN, status: UserStatus.ACTIVE }, select: { id: true } });
-        for (const r of due) {
-          for (const a of admins) {
-            await prisma.notification.create({ data: { type: NotificationType.PAYMENT_UPDATE, title: r.title, body: r.body, recipientUserId: a.id, recipientEmail: s.billingEmail } });
-          }
-          sent += 1;
-        }
+        await prisma.notification.createMany({
+          data: due.flatMap((r) => admins.map((a) => ({
+            type: NotificationType.PAYMENT_UPDATE,
+            title: r.title,
+            body: r.body,
+            recipientUserId: a.id,
+            recipientEmail: s.billingEmail
+          })))
+        });
+        sent += due.length;
         await prisma.subscription.update({ where: { id: s.id }, data: { remindersSent: [...due.map((r) => r.key), ...s.remindersSent].slice(0, 40) } });
         await audit(null, 'SUBSCRIPTION_REMINDERS_SENT', s.id, { keys: due.map((r) => r.key) });
       });

@@ -90,6 +90,21 @@ export const publicFormRateLimit = createRateLimiter({
   message: 'Too many submissions from this network. Please try again in an hour.'
 });
 
+function applyResponseCaching(req: Request, res: Response, next: NextFunction) {
+  if (req.method !== 'GET') return next();
+  res.vary('Accept-Encoding');
+  // Public catalogue/marketing reads can be reused by a CDN briefly. All
+  // authenticated reads remain private because they are facility-scoped.
+  if (req.path.includes('/public/')) {
+    res.setHeader('Cache-Control', 'public, max-age=30, stale-while-revalidate=60');
+  } else if (!req.path.includes('/auth/') && !req.path.includes('/files/')) {
+    res.setHeader('Cache-Control', 'private, max-age=10, stale-while-revalidate=20');
+  } else {
+    res.setHeader('Cache-Control', 'no-store');
+  }
+  return next();
+}
+
 export function applyGlobalMiddleware(app: Express) {
   if (env.TRUST_PROXY) {
     app.set('trust proxy', 1);
@@ -120,6 +135,7 @@ export function applyGlobalMiddleware(app: Express) {
   );
   app.use(rateLimit);
   app.use(compression());
+  app.use(applyResponseCaching);
   app.use(cookieParser());
   app.use(
     express.json({

@@ -539,17 +539,13 @@ async function notifyCriticalValues(results: AppliedResult[], device: AnalyzerDe
   });
   if (labUsers.length === 0) return;
 
-  for (const result of critical) {
-    for (const user of labUsers) {
-      await prisma.notification.create({
-        data: {
-          recipientUserId: user.id,
-          createdById: actorId,
-          type: NotificationType.ORDER_UPDATE,
-          title: `Critical value from ${device.name}`,
-          body: `${result.patientName} (${result.sampleCode}, ${result.testName}): ${result.criticalParameters.join(', ')} came back critical on ${device.name}. The result is a draft awaiting your check.`
-        }
-      });
-    }
-  }
+  await prisma.notification.createMany({
+    data: critical.flatMap((result) => labUsers.map((user) => ({
+      recipientUserId: user.id,
+      createdById: actorId,
+      type: NotificationType.ORDER_UPDATE,
+      title: `Critical value from ${device.name}`,
+      body: `${result.patientName} (${result.sampleCode}, ${result.testName}): ${result.criticalParameters.join(', ')} came back critical on ${device.name}. The result is a draft awaiting your check.`
+    })))
+  });
 }
