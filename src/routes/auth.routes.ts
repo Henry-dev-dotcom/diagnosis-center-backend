@@ -13,7 +13,8 @@ authRoutes.post('/auth/logout', validateBody(logoutSchema), logout);
 authRoutes.get('/auth/me', requireAuth, me);
 authRoutes.patch('/auth/change-password', requireAuth, validateBody(changePasswordSchema), updatePassword);
 
-// Email verification: requesting a link needs a session; following the link does not.
+// Email verification: requesting a link needs a session; confirming one does not,
+// since the person may open it on a phone that is not signed in. POST only - see
+// the controller for why.
 authRoutes.post('/auth/email/request-verification', authRateLimit, requireAuth, requestEmailVerificationController);
-authRoutes.get('/auth/email/verify', authRateLimit, verifyEmail);
 authRoutes.post('/auth/email/verify', authRateLimit, validateBody(verifyEmailSchema), verifyEmail);

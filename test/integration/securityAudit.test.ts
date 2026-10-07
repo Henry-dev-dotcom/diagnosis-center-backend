@@ -17,6 +17,10 @@ import { DEMO_USERS, FACILITY_A } from './fixtures.js';
 const PUBLIC_ROUTES = new Set([
   'GET /health', 'GET /live', 'GET /ready', 'GET /database/status', 'GET /version', // uptime checks; no data
   'POST /auth/login', 'POST /auth/logout', // logout without a session only clears cookies
+  // Confirming an address has to work from a phone that is not signed in. It is
+  // protected by the token itself (single-use, hashed, 24 hours) and rate limited,
+  // and is POST only so that a mail scanner fetching the link cannot spend it.
+  'POST /auth/email/verify',
   'GET /public/plans', 'POST /public/quote', 'POST /public/signup', 'POST /public/demo-requests', // website
   'GET /billing/fake-checkout/:reference', 'GET /billing/fake-checkout/:reference/complete' // development gateway only (404 otherwise)
 ]);

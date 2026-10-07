@@ -74,10 +74,12 @@ const envSchema = z
     MAIL_DRIVER: z.enum(['disabled', 'log', 'resend']).optional(),
     RESEND_API_KEY: z.string().optional(),
     MAIL_FROM: z.string().default('LHIMS <no-reply@lhims.app>'),
-    // Absolute public base of this API (e.g. https://api.example.com/api), used
-    // to build links sent by email. When unset, links are built from the host
-    // of the incoming request.
-    API_PUBLIC_URL: z.string().url().optional(),
+    // Where the web app is served from, INCLUDING any path (for GitHub Pages:
+    // https://<user>.github.io/<repo>). Links sent by email point here. When
+    // unset, FRONTEND_URL is used - which is only the origin, so an app served
+    // under a path needs this set. Never derived from a request header: a link
+    // built from the Host header can be pointed at someone else's site.
+    FRONTEND_APP_URL: z.string().url().optional(),
     // Subscription payments (Phase 5). 'fake' simulates a gateway for development and tests only.
     PAYMENT_GATEWAY: z.enum(['paystack', 'fake', 'disabled']).optional(),
     PAYSTACK_SECRET_KEY: z.string().optional(),

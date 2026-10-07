@@ -2,6 +2,7 @@ import type { Request } from 'express';
 import { BillingInterval, CatalogItemType, DemoRequestStatus, DepartmentType, FacilityKind, Prisma, UserRole, UserStatus } from '@prisma/client';
 import { prisma } from './prisma.service.js';
 import { currentFacilityId, runAsSystem, runWithFacility } from './tenantContext.js';
+import { requestEmailVerification } from './emailVerification.service.js';
 import { createAuditLog, getRequestAuditContext } from './audit.service.js';
 import { loginWithPassword, type RequestContext } from './auth.service.js';
 import { startTrial } from './subscription.service.js';
@@ -104,6 +105,18 @@ export async function signup(input: SignupInput, context: RequestContext) {
 
   // Signed straight in: the new administrator lands in their own hospital.
   const session = await loginWithPassword(facility.code, input.admin.username, input.admin.password, context);
+
+  /*
+    Ask them to confirm their address, without letting that hold anything up.
+
+    This runs after the account exists and is not awaited: a mail provider that
+    is slow or down must never be the reason somebody cannot sign up, and an
+    unverified address costs nothing - they can ask again from Setup.
+  */
+  void requestEmailVerification(session.user.id, context).catch((error) => {
+    console.warn(`Sign-up verification email was not sent: ${error instanceof Error ? error.message : String(error)}`);
+  });
+
   return { facility, ...session };
 }
 
