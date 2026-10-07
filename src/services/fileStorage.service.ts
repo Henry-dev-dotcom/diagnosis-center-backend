@@ -40,6 +40,66 @@ export type NormalizedUploadFile = {
 
 const DICOM_EXTENSIONS = /\.(dcm|dicom)$/i;
 
+/**
+ * What may be uploaded. Anything a browser can execute or render as active
+ * content - HTML, SVG, JavaScript - is deliberately absent, so a stored file
+ * served back from this origin can never become a stored-XSS payload.
+ * UPLOAD_ALLOWED_MIME_TYPES (comma-separated) replaces this list for a
+ * deployment that needs more.
+ */
+const DEFAULT_ALLOWED_MIME_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'image/bmp',
+  'image/tiff',
+  'application/pdf',
+  'text/plain',
+  'text/csv',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/dicom',
+  // Scanner output (DICOM in particular) often arrives with no type at all.
+  'application/octet-stream'
+]);
+
+function allowedMimeTypes(): Set<string> {
+  if (!env.UPLOAD_ALLOWED_MIME_TYPES) return DEFAULT_ALLOWED_MIME_TYPES;
+  const entries = env.UPLOAD_ALLOWED_MIME_TYPES.split(',').map((item) => item.trim().toLowerCase()).filter(Boolean);
+  return new Set(entries);
+}
+
+/** Lowercased media type without parameters: "Text/CSV; charset=utf-8" -> "text/csv". */
+export function normalizeMimeType(value: string) {
+  return value.split(';')[0]?.trim().toLowerCase() || 'application/octet-stream';
+}
+
+type SniffedType = 'jpeg' | 'png' | 'gif' | 'webp' | 'pdf' | 'dicom';
+
+/** Magic-byte check for the binary types we accept; null when nothing matches. */
+function sniffBufferType(buffer: Buffer): SniffedType | null {
+  if (buffer.length > 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) return 'jpeg';
+  if (buffer.length > 8 && buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return 'png';
+  if (buffer.length > 6 && ['GIF87a', 'GIF89a'].includes(buffer.subarray(0, 6).toString('ascii'))) return 'gif';
+  if (buffer.length > 12 && buffer.subarray(0, 4).toString('ascii') === 'RIFF' && buffer.subarray(8, 12).toString('ascii') === 'WEBP') return 'webp';
+  if (buffer.length > 5 && buffer.subarray(0, 5).toString('ascii') === '%PDF-') return 'pdf';
+  // DICOM Part 10: a 128-byte preamble followed by "DICM".
+  if (buffer.length > 132 && buffer.subarray(128, 132).toString('ascii') === 'DICM') return 'dicom';
+  return null;
+}
+
+const SNIFFED_TO_MIME: Record<SniffedType, string> = {
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  pdf: 'application/pdf',
+  dicom: 'application/dicom'
+};
+
 function safeFileName(name: string) {
   return name.replace(/[^A-Za-z0-9._-]/g, '_').replace(/_+/g, '_').slice(0, 180) || 'upload.bin';
 }
@@ -83,6 +143,13 @@ export async function normalizeAndStoreFile(file: IncomingFilePayload, context: 
   let storageKey = String(file.storageKey ?? buildStorageKey(context.module, context.entityType, context.entityId ?? undefined, fileName)).trim();
   const isDicom = inferDicom(file);
 
+  // Allowlist the declared type before touching any bytes. DICOM is exempt:
+  // scanners send many transfer syntaxes and the study metadata is what matters.
+  const mimeType = normalizeMimeType(fileType);
+  if (!isDicom && !allowedMimeTypes().has(mimeType)) {
+    throw new AppError(`Files of type "${mimeType}" cannot be uploaded`, 415, 'FILE_TYPE_NOT_ALLOWED');
+  }
+
   if (declaredSize > env.MAX_UPLOAD_BYTES) {
     throw new AppError(`File exceeds maximum upload size of ${env.MAX_UPLOAD_BYTES} bytes`, 413, 'FILE_TOO_LARGE');
   }
@@ -113,6 +180,14 @@ export async function normalizeAndStoreFile(file: IncomingFilePayload, context: 
   if (!buffer.byteLength) throw new AppError('File content is empty', 400, 'EMPTY_UPLOAD');
   if (buffer.byteLength > env.MAX_UPLOAD_BYTES) {
     throw new AppError(`File exceeds maximum upload size of ${env.MAX_UPLOAD_BYTES} bytes`, 413, 'FILE_TOO_LARGE');
+  }
+
+  // Trust bytes, not labels: a file whose magic bytes contradict its declared
+  // type is rejected. Plain-text types (CSV, .txt) carry no magic bytes, so
+  // only a contradiction - not an absence - fails.
+  const sniffed = sniffBufferType(buffer);
+  if (sniffed && SNIFFED_TO_MIME[sniffed] !== mimeType && !(isDicom && sniffed === 'dicom')) {
+    throw new AppError('File content does not match its declared type', 415, 'FILE_TYPE_MISMATCH');
   }
 
   const absolutePath = resolveUploadPath(storageKey);
