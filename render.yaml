@@ -86,6 +86,17 @@ services:
         sync: false
       - key: FRONTEND_URLS
         sync: false
+      # Where the web app lives, including its path: emailed links (confirm your
+      # email address) are built from this, never from a request header.
+      - key: FRONTEND_APP_URL
+        value: https://henry-dev-dotcom.github.io/LHIMS-Frontend
+      # Real email: set MAIL_DRIVER to resend in the dashboard once these two are
+      # filled in. Until then verification emails report "not set up" instead of
+      # pretending to send.
+      - key: RESEND_API_KEY
+        sync: false
+      - key: MAIL_FROM
+        sync: false
       - key: SEED_ADMIN_PASSWORD
         sync: false
       # Platform operator account (signs in with no facility code).
