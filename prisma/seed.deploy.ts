@@ -25,7 +25,7 @@
 */
 import { PrismaClient } from '@prisma/client';
 import { runAsSystem } from '../src/services/tenantContext.js';
-import { DEMO_FACILITY, seedDemoSubscription, seedFacility, seedPlans } from './seed.js';
+import { DEMO_FACILITY, ensureDemoScanFileBytes, seedDemoSubscription, seedFacility, seedPlans } from './seed.js';
 
 const plain = new PrismaClient();
 
@@ -45,7 +45,17 @@ async function main() {
 
   const existing = await plain.facility.findUnique({ where: { code: DEMO_FACILITY.code }, select: { id: true } });
   if (existing) {
+    /*
+      The demonstration study's bytes are restored even though nothing else is.
+
+      A deployment's disk is ephemeral: the row saying an ultrasound is attached
+      survives a redeploy and the file behind it does not, so without this the
+      viewer would quietly go back to reporting the study as metadata-only a few
+      hours after anyone last looked at it.
+    */
+    const restored = await ensureDemoScanFileBytes();
     console.log(`Deploy seed: the ${DEMO_FACILITY.code} facility is already here, so it was left exactly as it is.`);
+    if (restored > 0) console.log('Deploy seed: the demonstration scan image is in place.');
     return;
   }
 

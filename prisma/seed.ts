@@ -1,4 +1,9 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { hashPassword } from '../src/utils/password.js';
+import { resolveUploadPath } from '../src/services/fileStorage.service.js';
 
 import {
   FacilityKind,
@@ -868,14 +873,15 @@ async function seedLabAndScanWorkflow() {
     }
   });
 
+  const demoScanBytes = await ensureDemoScanFileBytes();
   await prisma.scanResultFile.create({
     data: {
       id: 'SCANFILE-0002',
       scanResultId: 'SCAN-RES-0002',
-      fileName: 'abdomen-ultrasound-seed.dcm',
+      fileName: DEMO_SCAN_FILE.fileName,
       fileType: 'application/dicom',
-      fileSize: 2048000,
-      storageKey: 'seed/scans/ORD-2026-0003/abdomen-ultrasound-seed.dcm',
+      fileSize: demoScanBytes,
+      storageKey: DEMO_SCAN_FILE.storageKey,
       isDicom: true,
       studyUid: '1.2.826.0.1.3680043.10.1000.202606170003',
       seriesUid: '1.2.826.0.1.3680043.10.1000.202606170003.1',
@@ -1383,6 +1389,50 @@ export type DemoFacility = {
 export const DEMO_FACILITY: DemoFacility = { id: 'fac_default', code: 'DEMO', name: 'LHIMS Demo Hospital', idPrefix: '' };
 
 /** Replaces one facility's demo data. Other facilities are untouched. */
+
+/*
+  Put the demonstration study's bytes where the viewer will look for them.
+
+  The seed used to record that an ultrasound was attached without ever writing
+  the file, so opening it in the viewer reported - correctly - that the record
+  was metadata only. A demonstration that cannot show a picture is not
+  demonstrating the viewer.
+
+  This runs on every boot rather than only when the facility is created, because
+  a deployment's disk is ephemeral: the row survives a redeploy and the file does
+  not. It copies only when the bytes are missing, so a restart costs nothing.
+
+  The size on the row is taken from the file itself. A stated size that disagrees
+  with the bytes is the kind of small lie that wastes an afternoon later.
+*/
+export const DEMO_SCAN_FILE = {
+  fileName: 'abdomen-ultrasound-seed.dcm',
+  storageKey: 'seed/scans/ORD-2026-0003/abdomen-ultrasound-seed.dcm',
+  assetPath: path.join(dirname(fileURLToPath(import.meta.url)), 'seed-assets', 'abdomen-ultrasound-seed.dcm')
+} as const;
+
+export async function ensureDemoScanFileBytes(): Promise<number> {
+  const target = resolveUploadPath(DEMO_SCAN_FILE.storageKey);
+  let size = 0;
+  try {
+    size = (await fs.stat(DEMO_SCAN_FILE.assetPath)).size;
+  } catch {
+    // Not fatal: the demo simply reports the study as metadata-only, which is
+    // what it did before. Worth saying out loud rather than failing a boot.
+    console.warn(`Seed: ${DEMO_SCAN_FILE.assetPath} is missing, so the demonstration scan will have no image.`);
+    return 0;
+  }
+  try {
+    const existing = await fs.stat(target);
+    if (existing.size === size) return size;
+  } catch {
+    // Not there yet, which is the normal case on a fresh disk.
+  }
+  await fs.mkdir(path.dirname(target), { recursive: true });
+  await fs.copyFile(DEMO_SCAN_FILE.assetPath, target);
+  return size;
+}
+
 export async function seedFacility(facility: DemoFacility) {
   await prisma.facility.upsert({
     where: { id: facility.id },
