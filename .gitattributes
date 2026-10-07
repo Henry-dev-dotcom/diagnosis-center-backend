@@ -1,0 +1,4 @@
+# Binary assets must never be touched by line-ending conversion. A DICOM file
+# with its CRLFs "fixed" is no longer a DICOM file, and nothing would say so
+# until the viewer refused it.
+*.dcm binary
