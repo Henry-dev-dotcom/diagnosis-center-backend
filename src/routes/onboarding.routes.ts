@@ -82,7 +82,7 @@ onboardingRoutes.post('/public/signup', publicFormRateLimit, validateRequest({ b
   void _t; void _w;
   const result = await onboarding.signup(input, context(req));
   setAuthCookies(res, result);
-  return sendCreated(res, `Welcome to LHIMS. Your sign-in code is ${result.facility.code}.`, result);
+  return sendCreated(res, `Welcome to CurataMed. Your sign-in code is ${result.facility.code}.`, result);
 }));
 onboardingRoutes.post('/public/demo-requests', publicFormRateLimit, validateRequest({ body: demoSchema }), asyncHandler(async (req: Request, res: Response) => {
   const { website: _w, ...body } = req.body as z.infer<typeof demoSchema>;
