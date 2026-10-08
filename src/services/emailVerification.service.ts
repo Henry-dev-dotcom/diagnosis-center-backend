@@ -55,7 +55,7 @@ export async function requestEmailVerification(userId: string, context: RequestC
   const link = `${appBase}/#/verify-email/${encodeURIComponent(token)}`;
   const delivered = await sendMail({
     to: user.email,
-    subject: 'Verify your LHIMS email address',
+    subject: 'Verify your CurataMed email address',
     text: [
       `Hello ${user.name},`,
       '',

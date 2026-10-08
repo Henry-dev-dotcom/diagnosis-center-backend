@@ -34,7 +34,7 @@ export type SupportInfo = { impersonatorId: string; operatorName: string; reason
 async function supportInfo(session: { impersonatorId: string | null; supportReason: string | null; expiresAt: Date }): Promise<SupportInfo | null> {
   if (!session.impersonatorId) return null;
   const operator = await runAsSystem('auth.support', () => prisma.user.findUnique({ where: { id: session.impersonatorId as string }, select: { name: true } }));
-  return { impersonatorId: session.impersonatorId, operatorName: operator?.name ?? 'LHIMS support', reason: session.supportReason, expiresAt: session.expiresAt };
+  return { impersonatorId: session.impersonatorId, operatorName: operator?.name ?? 'CurataMed support', reason: session.supportReason, expiresAt: session.expiresAt };
 }
 
 /** The signed-in user as the frontend sees it, including what they may use. */

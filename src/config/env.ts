@@ -76,7 +76,7 @@ const envSchema = z
     MAIL_DRIVER: z.enum(['disabled', 'log', 'resend', 'brevo']).optional(),
     RESEND_API_KEY: z.string().optional(),
     BREVO_API_KEY: z.string().optional(),
-    MAIL_FROM: z.string().default('LHIMS <no-reply@lhims.app>'),
+    MAIL_FROM: z.string().default('CurataMed <no-reply@curatamed.app>'),
     // Where the web app is served from, INCLUDING any path (for GitHub Pages:
     // https://<user>.github.io/<repo>). Links sent by email point here. When
     // unset, FRONTEND_URL is used - which is only the origin, so an app served
