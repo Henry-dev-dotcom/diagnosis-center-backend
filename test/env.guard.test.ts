@@ -90,3 +90,19 @@ describe('env production secret guard', () => {
     expect(result.ok).toBe(false);
   });
 });
+
+describe('env mail provider guard', () => {
+  const base = { NODE_ENV: 'production', DATABASE_URL: 'postgresql://u:p@localhost:5432/db', ...validProdSecrets };
+
+  it('refuses to start on brevo without a Brevo key, instead of failing on the first email', () => {
+    expect(loadEnvWith({ ...base, MAIL_DRIVER: 'brevo' }).ok).toBe(false);
+  });
+
+  it('starts on brevo once the key is present', () => {
+    expect(loadEnvWith({ ...base, MAIL_DRIVER: 'brevo', BREVO_API_KEY: 'xkeysib-test' }).ok).toBe(true);
+  });
+
+  it('still refuses resend without its key', () => {
+    expect(loadEnvWith({ ...base, MAIL_DRIVER: 'resend' }).ok).toBe(false);
+  });
+});
