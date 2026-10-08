@@ -71,9 +71,11 @@ const envSchema = z
     DICOM_GATEWAY_MODE: z.enum(['metadata-only', 'pacs-ready']).default('metadata-only'),
     // Transactional email (email verification links). 'log' prints the message
     // to the server log (development default), 'resend' sends through Resend's
-    // HTTPS API, 'disabled' (production default) sends nothing.
-    MAIL_DRIVER: z.enum(['disabled', 'log', 'resend']).optional(),
+    // HTTPS API, 'brevo' through Brevo's (which only needs one verified sender
+    // address, not a whole domain), 'disabled' (production default) sends nothing.
+    MAIL_DRIVER: z.enum(['disabled', 'log', 'resend', 'brevo']).optional(),
     RESEND_API_KEY: z.string().optional(),
+    BREVO_API_KEY: z.string().optional(),
     MAIL_FROM: z.string().default('LHIMS <no-reply@lhims.app>'),
     // Where the web app is served from, INCLUDING any path (for GitHub Pages:
     // https://<user>.github.io/<repo>). Links sent by email point here. When
@@ -125,6 +127,10 @@ const envSchema = z
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['RESEND_API_KEY'], message: 'RESEND_API_KEY is required when MAIL_DRIVER is resend.' });
     }
 
+    if (value.MAIL_DRIVER === 'brevo' && !value.BREVO_API_KEY) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['BREVO_API_KEY'], message: 'BREVO_API_KEY is required when MAIL_DRIVER is brevo.' });
+    }
+
     if (value.JWT_ACCESS_SECRET === value.JWT_REFRESH_SECRET) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -154,7 +160,7 @@ export const apiDocsEnabled = env.ENABLE_API_DOCS ?? !isProduction;
 
 // Without a configured driver, production sends no email rather than silently
 // writing verification links to logs anyone with log access could follow.
-export const mailDriver: 'disabled' | 'log' | 'resend' = env.MAIL_DRIVER ?? (isProduction ? 'disabled' : 'log');
+export const mailDriver: 'disabled' | 'log' | 'resend' | 'brevo' = env.MAIL_DRIVER ?? (isProduction ? 'disabled' : 'log');
 
 // Cross-site cookies (SameSite=None) are only sent by browsers over HTTPS, so
 // force Secure on. Otherwise default Secure to on in production.
