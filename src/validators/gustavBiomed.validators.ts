@@ -7,6 +7,7 @@ const notes = optionalText(1000);
 
 export const supplyRequestSchema = z.object({
   requestingUnit,
+  confirmNoPatientData: z.literal(true),
   supplyCategory: z.nativeEnum(GustavSupplyCategory),
   itemDescription: z.string().trim().min(2, 'Describe the item needed').max(500),
   quantity: z.coerce.number().int().min(1).max(1_000_000),
@@ -16,6 +17,7 @@ export const supplyRequestSchema = z.object({
 
 export const maintenanceRequestSchema = z.object({
   requestingUnit,
+  confirmNoPatientData: z.literal(true),
   analyzerDeviceId: optionalText(100),
   analyzerName: optionalText(160),
   serviceDescription: z.string().trim().min(3, 'Describe the routine service needed').max(1000),
