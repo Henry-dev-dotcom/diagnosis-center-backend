@@ -48,6 +48,10 @@ describe('permission resolution', () => {
     it('does not let LAB_STAFF sign off scan results (cross-department isolation)', () => {
       expect(hasPermission(UserRole.LAB_STAFF, PERMISSIONS.SCAN_RESULTS_SIGN_OFF)).toBe(false);
     });
+
+    it('grants LAB_STAFF the default Gustav Biomed analyzer-maintenance request permission', () => {
+      expect(hasPermission(UserRole.LAB_STAFF, PERMISSIONS.LAB_ANALYZER_MAINTENANCE_REQUEST)).toBe(true);
+    });
   });
 
   describe('hasAnyPermission / hasAllPermissions', () => {

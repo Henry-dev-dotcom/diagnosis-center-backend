@@ -20,7 +20,8 @@ import {
   updateSupplierSchema
 } from '../validators/stores.validators.js';
 import * as c from '../controllers/stores.controller.js';
-
+import * as g from '../controllers/gustavBiomed.controller.js';
+import { supplyRequestSchema, updateGustavRequestStatusSchema } from '../validators/gustavBiomed.validators.js';
 const P = PERMISSIONS;
 
 // Any facility role may ask the store for items; the store office manages stock and procurement.
@@ -30,6 +31,9 @@ storesRoutes.get('/stores/summary', requirePermission(P.STORES_READ), c.summaryC
 storesRoutes.get('/stores/suppliers', requireAnyPermission(P.STORES_READ, P.STORES_ORDER), c.listSuppliersController);
 storesRoutes.post('/stores/suppliers', requirePermission(P.STORES_MANAGE), validateRequest({ body: supplierSchema }), c.createSupplierController);
 storesRoutes.patch('/stores/suppliers/:id', requirePermission(P.STORES_MANAGE), validateRequest({ params: idParamSchema, body: updateSupplierSchema }), c.updateSupplierController);
+storesRoutes.get('/stores/gustav-biomed/requests', requirePermission(P.STORES_READ), g.listStoreGustavRequestsController);
+storesRoutes.post('/stores/gustav-biomed/requests', requirePermission(P.STORES_ORDER), validateRequest({ body: supplyRequestSchema }), g.createSupplyRequestController);
+storesRoutes.patch('/stores/gustav-biomed/requests/:id/status', requirePermission(P.STORES_MANAGE), validateRequest({ params: idParamSchema, body: updateGustavRequestStatusSchema }), g.updateGustavRequestStatusController);
 // Requesters need the item list to ask for things.
 storesRoutes.get('/stores/items', requireAnyPermission(P.STORES_READ, P.STORES_REQUEST), validateRequest({ query: itemQuerySchema }), c.listItemsController);
 storesRoutes.post('/stores/items', requirePermission(P.STORES_MANAGE), validateRequest({ body: itemSchema }), c.createItemController);

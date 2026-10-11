@@ -62,6 +62,7 @@ export const PERMISSIONS = {
   // mapping, and the log of what each instrument sent.
   LAB_ANALYZERS_READ: 'lab:analyzers:read',
   LAB_ANALYZERS_MANAGE: 'lab:analyzers:manage',
+  LAB_ANALYZER_MAINTENANCE_REQUEST: 'lab:analyzers:maintenance-request',
 
   SCAN_QUEUE_READ: 'scan:queue:read',
   SCAN_ACCEPT: 'scan:accept',
@@ -379,6 +380,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly
     // The bench sets up its own analyzers and fixes their test-code mapping.
     PERMISSIONS.LAB_ANALYZERS_READ,
     PERMISSIONS.LAB_ANALYZERS_MANAGE,
+    // Request routine analyzer maintenance from the facility's service partner.
+    PERMISSIONS.LAB_ANALYZER_MAINTENANCE_REQUEST,
     PERMISSIONS.REPORTS_READ,
     PERMISSIONS.REPORTS_EXPORT,
     PERMISSIONS.FILES_UPLOAD,

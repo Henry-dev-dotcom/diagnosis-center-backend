@@ -53,7 +53,8 @@ export const CODE_SERIES = {
   MOR: { table: 'DeceasedRecord', column: 'caseCode', yearly: true },
   ROI: { table: 'RecordRequest', column: 'requestCode', yearly: true },
   SUB: { table: 'SubscriptionInvoice', column: 'invoiceNumber', yearly: true },
-  ANZ: { table: 'AnalyzerDevice', column: 'deviceCode' }
+  ANZ: { table: 'AnalyzerDevice', column: 'deviceCode' },
+  GBR: { table: 'GustavBiomedRequest', column: 'requestCode', yearly: true }
 } satisfies Record<string, SeriesConfig>;
 
 export type CodeSeries = keyof typeof CODE_SERIES;
