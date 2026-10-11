@@ -69,8 +69,12 @@
       "description": "Schemes, memberships, claims and batches"
     },
     {
+      "name": "Integrations",
+      "description": ""
+    },
+    {
       "name": "Laboratory",
-      "description": "Samples, results, review and sign-off"
+      "description": "Samples, results, review, sign-off and analyzer-maintenance requests"
     },
     {
       "name": "Maternity",
@@ -79,6 +83,10 @@
     {
       "name": "Medical records",
       "description": "Full chart, access log, release-of-information requests"
+    },
+    {
+      "name": "Messages",
+      "description": ""
     },
     {
       "name": "Mortuary",
@@ -122,7 +130,7 @@
     },
     {
       "name": "Stores",
-      "description": "Store items, suppliers, purchase orders and requisitions"
+      "description": "Store items, suppliers, purchase orders, requisitions and Gustav Biomed requests"
     },
     {
       "name": "Subscription",
@@ -606,6 +614,132 @@
           "Auth"
         ],
         "summary": "Change current user password",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success: { success: true, message, data }",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiSuccess"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (errors lists each field)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the session expired"
+          },
+          "402": {
+            "description": "Subscription unpaid: the facility is read-only"
+          },
+          "403": {
+            "description": "Role, permission, department or support-session restriction"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        }
+      }
+    },
+    "/auth/email/request-verification": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "POST /auth/email/request-verification",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success: { success: true, message, data }",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiSuccess"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (errors lists each field)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the session expired"
+          },
+          "402": {
+            "description": "Subscription unpaid: the facility is read-only"
+          },
+          "403": {
+            "description": "Role, permission, department or support-session restriction"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        }
+      }
+    },
+    "/auth/email/verify": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "POST /auth/email/verify",
         "security": [
           {
             "cookieAuth": []
@@ -2349,6 +2483,69 @@
         }
       }
     },
+    "/integrations/analyzers/results": {
+      "post": {
+        "tags": [
+          "Integrations"
+        ],
+        "summary": "POST /integrations/analyzers/results",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success: { success: true, message, data }",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiSuccess"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (errors lists each field)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the session expired"
+          },
+          "402": {
+            "description": "Subscription unpaid: the facility is read-only"
+          },
+          "403": {
+            "description": "Role, permission, department or support-session restriction"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        }
+      }
+    },
     "/access/me": {
       "get": {
         "tags": [
@@ -3733,6 +3930,186 @@
           }
         ],
         "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success: { success: true, message, data }",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiSuccess"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (errors lists each field)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the session expired"
+          },
+          "402": {
+            "description": "Subscription unpaid: the facility is read-only"
+          },
+          "403": {
+            "description": "Role, permission, department or support-session restriction"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        }
+      }
+    },
+    "/messages/channels": {
+      "get": {
+        "tags": [
+          "Messages"
+        ],
+        "summary": "GET /messages/channels",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success: { success: true, message, data }",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiSuccess"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (errors lists each field)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the session expired"
+          },
+          "402": {
+            "description": "Subscription unpaid: the facility is read-only"
+          },
+          "403": {
+            "description": "Role, permission, department or support-session restriction"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        }
+      }
+    },
+    "/messages/{channel}": {
+      "get": {
+        "tags": [
+          "Messages"
+        ],
+        "summary": "GET /messages/:channel",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "channel",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success: { success: true, message, data }",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiSuccess"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (errors lists each field)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the session expired"
+          },
+          "402": {
+            "description": "Subscription unpaid: the facility is read-only"
+          },
+          "403": {
+            "description": "Role, permission, department or support-session restriction"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        }
+      }
+    },
+    "/messages": {
+      "post": {
+        "tags": [
+          "Messages"
+        ],
+        "summary": "POST /messages",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Success: { success: true, message, data }",
@@ -5399,6 +5776,78 @@
         }
       }
     },
+    "/lab/results/{id}/reverse": {
+      "post": {
+        "tags": [
+          "Laboratory"
+        ],
+        "summary": "POST /lab/results/:id/reverse",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success: { success: true, message, data }",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiSuccess"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (errors lists each field)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the session expired"
+          },
+          "402": {
+            "description": "Subscription unpaid: the facility is read-only"
+          },
+          "403": {
+            "description": "Role, permission, department or support-session restriction"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        }
+      }
+    },
     "/lab/results/{id}/files": {
       "post": {
         "tags": [
@@ -6079,6 +6528,997 @@
         }
       }
     },
+    "/lab/analyzers": {
+      "get": {
+        "tags": [
+          "Laboratory"
+        ],
+        "summary": "GET /lab/analyzers",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success: { success: true, message, data }",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiSuccess"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (errors lists each field)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the session expired"
+          },
+          "402": {
+            "description": "Subscription unpaid: the facility is read-only"
+          },
+          "403": {
+            "description": "Role, permission, department or support-session restriction"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Laboratory"
+        ],
+        "summary": "POST /lab/analyzers",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success: { success: true, message, data }",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiSuccess"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (errors lists each field)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the session expired"
+          },
+          "402": {
+            "description": "Subscription unpaid: the facility is read-only"
+          },
+          "403": {
+            "description": "Role, permission, department or support-session restriction"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        }
+      }
+    },
+    "/lab/analyzers/test-maps": {
+      "get": {
+        "tags": [
+          "Laboratory"
+        ],
+        "summary": "GET /lab/analyzers/test-maps",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success: { success: true, message, data }",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiSuccess"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (errors lists each field)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the session expired"
+          },
+          "402": {
+            "description": "Subscription unpaid: the facility is read-only"
+          },
+          "403": {
+            "description": "Role, permission, department or support-session restriction"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Laboratory"
+        ],
+        "summary": "POST /lab/analyzers/test-maps",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success: { success: true, message, data }",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiSuccess"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (errors lists each field)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the session expired"
+          },
+          "402": {
+            "description": "Subscription unpaid: the facility is read-only"
+          },
+          "403": {
+            "description": "Role, permission, department or support-session restriction"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        }
+      }
+    },
+    "/lab/analyzers/test-maps/{id}": {
+      "delete": {
+        "tags": [
+          "Laboratory"
+        ],
+        "summary": "DELETE /lab/analyzers/test-maps/:id",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success: { success: true, message, data }",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiSuccess"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (errors lists each field)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the session expired"
+          },
+          "402": {
+            "description": "Subscription unpaid: the facility is read-only"
+          },
+          "403": {
+            "description": "Role, permission, department or support-session restriction"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        }
+      }
+    },
+    "/lab/analyzers/unmapped-codes": {
+      "get": {
+        "tags": [
+          "Laboratory"
+        ],
+        "summary": "GET /lab/analyzers/unmapped-codes",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success: { success: true, message, data }",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiSuccess"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (errors lists each field)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the session expired"
+          },
+          "402": {
+            "description": "Subscription unpaid: the facility is read-only"
+          },
+          "403": {
+            "description": "Role, permission, department or support-session restriction"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        }
+      }
+    },
+    "/lab/analyzers/messages": {
+      "get": {
+        "tags": [
+          "Laboratory"
+        ],
+        "summary": "GET /lab/analyzers/messages",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success: { success: true, message, data }",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiSuccess"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (errors lists each field)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the session expired"
+          },
+          "402": {
+            "description": "Subscription unpaid: the facility is read-only"
+          },
+          "403": {
+            "description": "Role, permission, department or support-session restriction"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        }
+      }
+    },
+    "/lab/analyzers/messages/{id}": {
+      "get": {
+        "tags": [
+          "Laboratory"
+        ],
+        "summary": "GET /lab/analyzers/messages/:id",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success: { success: true, message, data }",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiSuccess"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (errors lists each field)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the session expired"
+          },
+          "402": {
+            "description": "Subscription unpaid: the facility is read-only"
+          },
+          "403": {
+            "description": "Role, permission, department or support-session restriction"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        }
+      }
+    },
+    "/lab/analyzers/messages/{id}/replay": {
+      "post": {
+        "tags": [
+          "Laboratory"
+        ],
+        "summary": "POST /lab/analyzers/messages/:id/replay",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success: { success: true, message, data }",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiSuccess"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (errors lists each field)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the session expired"
+          },
+          "402": {
+            "description": "Subscription unpaid: the facility is read-only"
+          },
+          "403": {
+            "description": "Role, permission, department or support-session restriction"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        }
+      }
+    },
+    "/lab/analyzers/messages/{id}/discard": {
+      "post": {
+        "tags": [
+          "Laboratory"
+        ],
+        "summary": "POST /lab/analyzers/messages/:id/discard",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success: { success: true, message, data }",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiSuccess"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (errors lists each field)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the session expired"
+          },
+          "402": {
+            "description": "Subscription unpaid: the facility is read-only"
+          },
+          "403": {
+            "description": "Role, permission, department or support-session restriction"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        }
+      }
+    },
+    "/lab/analyzers/upload": {
+      "post": {
+        "tags": [
+          "Laboratory"
+        ],
+        "summary": "POST /lab/analyzers/upload",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success: { success: true, message, data }",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiSuccess"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (errors lists each field)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the session expired"
+          },
+          "402": {
+            "description": "Subscription unpaid: the facility is read-only"
+          },
+          "403": {
+            "description": "Role, permission, department or support-session restriction"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        }
+      }
+    },
+    "/lab/analyzers/{id}": {
+      "get": {
+        "tags": [
+          "Laboratory"
+        ],
+        "summary": "GET /lab/analyzers/:id",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success: { success: true, message, data }",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiSuccess"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (errors lists each field)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the session expired"
+          },
+          "402": {
+            "description": "Subscription unpaid: the facility is read-only"
+          },
+          "403": {
+            "description": "Role, permission, department or support-session restriction"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Laboratory"
+        ],
+        "summary": "PATCH /lab/analyzers/:id",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success: { success: true, message, data }",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiSuccess"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (errors lists each field)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the session expired"
+          },
+          "402": {
+            "description": "Subscription unpaid: the facility is read-only"
+          },
+          "403": {
+            "description": "Role, permission, department or support-session restriction"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        }
+      }
+    },
+    "/lab/analyzers/{id}/rotate-key": {
+      "post": {
+        "tags": [
+          "Laboratory"
+        ],
+        "summary": "POST /lab/analyzers/:id/rotate-key",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success: { success: true, message, data }",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiSuccess"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (errors lists each field)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the session expired"
+          },
+          "402": {
+            "description": "Subscription unpaid: the facility is read-only"
+          },
+          "403": {
+            "description": "Role, permission, department or support-session restriction"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        }
+      }
+    },
+    "/lab/gustav-biomed/maintenance-requests": {
+      "get": {
+        "tags": [
+          "Laboratory"
+        ],
+        "summary": "GET /lab/gustav-biomed/maintenance-requests",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success: { success: true, message, data }",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiSuccess"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (errors lists each field)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the session expired"
+          },
+          "402": {
+            "description": "Subscription unpaid: the facility is read-only"
+          },
+          "403": {
+            "description": "Role, permission, department or support-session restriction"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Laboratory"
+        ],
+        "summary": "POST /lab/gustav-biomed/maintenance-requests",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success: { success: true, message, data }",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiSuccess"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (errors lists each field)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the session expired"
+          },
+          "402": {
+            "description": "Subscription unpaid: the facility is read-only"
+          },
+          "403": {
+            "description": "Role, permission, department or support-session restriction"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        }
+      }
+    },
     "/scan": {
       "get": {
         "tags": [
@@ -6686,6 +8126,78 @@
           "Imaging"
         ],
         "summary": "Radiologist/senior sign-off for scan report",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success: { success: true, message, data }",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiSuccess"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (errors lists each field)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the session expired"
+          },
+          "402": {
+            "description": "Subscription unpaid: the facility is read-only"
+          },
+          "403": {
+            "description": "Role, permission, department or support-session restriction"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        }
+      }
+    },
+    "/scan/results/{id}/reverse": {
+      "post": {
+        "tags": [
+          "Imaging"
+        ],
+        "summary": "POST /scan/results/:id/reverse",
         "security": [
           {
             "cookieAuth": []
@@ -19012,6 +20524,193 @@
           "Stores"
         ],
         "summary": "PATCH /stores/suppliers/:id",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success: { success: true, message, data }",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiSuccess"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (errors lists each field)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the session expired"
+          },
+          "402": {
+            "description": "Subscription unpaid: the facility is read-only"
+          },
+          "403": {
+            "description": "Role, permission, department or support-session restriction"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        }
+      }
+    },
+    "/stores/gustav-biomed/requests": {
+      "get": {
+        "tags": [
+          "Stores"
+        ],
+        "summary": "GET /stores/gustav-biomed/requests",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success: { success: true, message, data }",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiSuccess"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (errors lists each field)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the session expired"
+          },
+          "402": {
+            "description": "Subscription unpaid: the facility is read-only"
+          },
+          "403": {
+            "description": "Role, permission, department or support-session restriction"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Stores"
+        ],
+        "summary": "POST /stores/gustav-biomed/requests",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success: { success: true, message, data }",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiSuccess"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (errors lists each field)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the session expired"
+          },
+          "402": {
+            "description": "Subscription unpaid: the facility is read-only"
+          },
+          "403": {
+            "description": "Role, permission, department or support-session restriction"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        }
+      }
+    },
+    "/stores/gustav-biomed/requests/{id}/status": {
+      "patch": {
+        "tags": [
+          "Stores"
+        ],
+        "summary": "PATCH /stores/gustav-biomed/requests/:id/status",
         "security": [
           {
             "cookieAuth": []

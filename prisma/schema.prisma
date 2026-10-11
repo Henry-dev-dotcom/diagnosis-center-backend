@@ -151,6 +151,7 @@ model Facility {
   requisitions              Requisition[]
   requisitionLines          RequisitionLine[]
   storeMovements            StoreMovement[]
+  gustavBiomedRequests      GustavBiomedRequest[]
   bloodDonors               BloodDonor[]
   bloodDonations            BloodDonation[]
   bloodUnits                BloodUnit[]
@@ -189,6 +190,26 @@ enum UserStatus {
   ACTIVE
   INACTIVE
   SUSPENDED
+}
+
+enum GustavBiomedRequestType {
+  SUPPLY
+  ANALYZER_MAINTENANCE
+}
+
+enum GustavSupplyCategory {
+  MEDICAL_EQUIPMENT
+  LABORATORY_EQUIPMENT
+  REAGENTS
+}
+
+enum GustavRequestStatus {
+  PENDING
+  ACKNOWLEDGED
+  SCHEDULED
+  COMPLETED
+  DECLINED
+  CANCELLED
 }
 
 enum DepartmentType {
@@ -423,23 +444,23 @@ enum VisitStatus {
 }
 
 model User {
-  id           String     @id @default(cuid())
-  facilityId   String?
-  name         String
-  username     String
-  email        String?
-  passwordHash String
+  id              String     @id @default(cuid())
+  facilityId      String?
+  name            String
+  username        String
+  email           String?
+  passwordHash    String
   /// Base workspace role: drives route gates and the landing page. When
   /// customRoleId is set it always equals that custom role's baseRole.
-  role         UserRole
+  role            UserRole
   /// Optional facility-defined role whose permission list replaces the base role's defaults.
-  customRoleId String?
-  status       UserStatus @default(ACTIVE)
-  lastLoginAt  DateTime?
+  customRoleId    String?
+  status          UserStatus @default(ACTIVE)
+  lastLoginAt     DateTime?
   /// Set when the user proves ownership of the email address on the account.
   emailVerifiedAt DateTime?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
 
   customRole              FacilityRole?            @relation(fields: [customRoleId], references: [id])
   doctorProfile           DoctorProfile?
@@ -521,6 +542,8 @@ model User {
   requisitionsMade       Requisition[]              @relation("RequisitionBy")
   requisitionsIssued     Requisition[]              @relation("RequisitionIssuedBy")
   storeMovements         StoreMovement[]            @relation("StoreMovementBy")
+  gustavRequestsMade     GustavBiomedRequest[]      @relation("GustavRequestBy")
+  gustavRequestsUpdated  GustavBiomedRequest[]      @relation("GustavRequestStatusBy")
   bloodDonationsTaken    BloodDonation[]            @relation("DonationTakenBy")
   bloodRequestsMade      BloodRequest[]             @relation("BloodRequestedBy")
   crossmatchesDone       Crossmatch[]               @relation("CrossmatchBy")
@@ -1290,11 +1313,12 @@ model AnalyzerDevice {
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
 
-  department Department?       @relation(fields: [departmentId], references: [id])
-  createdBy  User?             @relation("AnalyzerDeviceCreatedBy", fields: [createdById], references: [id])
-  testMaps   AnalyzerTestMap[]
-  messages   AnalyzerMessage[]
-  results    LabResult[]
+  department      Department?           @relation(fields: [departmentId], references: [id])
+  createdBy       User?                 @relation("AnalyzerDeviceCreatedBy", fields: [createdById], references: [id])
+  testMaps        AnalyzerTestMap[]
+  messages        AnalyzerMessage[]
+  results         LabResult[]
+  serviceRequests GustavBiomedRequest[]
 
   facility Facility @relation(fields: [facilityId], references: [id])
 
@@ -1303,6 +1327,41 @@ model AnalyzerDevice {
   @@index([facilityId])
   @@index([departmentId])
   @@index([status])
+}
+
+model GustavBiomedRequest {
+  id                   String                  @id @default(cuid())
+  facilityId           String                  @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  requestCode          String
+  supplierName         String                  @default("Gustav Biomed Limited")
+  type                 GustavBiomedRequestType
+  status               GustavRequestStatus     @default(PENDING)
+  requestingUnit       String
+  supplyCategory       GustavSupplyCategory?
+  itemDescription      String?
+  quantity             Int?
+  quantityUnit         String?
+  analyzerDeviceId     String?
+  analyzerName         String?
+  serviceDescription   String?
+  preferredServiceDate DateTime?
+  notes                String?
+  statusNote           String?
+  requestedById        String?
+  statusUpdatedById    String?
+  statusUpdatedAt      DateTime?
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+
+  facility        Facility        @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+  requestedBy     User?           @relation("GustavRequestBy", fields: [requestedById], references: [id], onDelete: SetNull)
+  statusUpdatedBy User?           @relation("GustavRequestStatusBy", fields: [statusUpdatedById], references: [id], onDelete: SetNull)
+  analyzerDevice  AnalyzerDevice? @relation(fields: [analyzerDeviceId], references: [id], onDelete: SetNull)
+
+  @@unique([facilityId, requestCode])
+  @@index([facilityId, type, status, createdAt])
+  @@index([facilityId, requestedById])
+  @@index([facilityId, analyzerDeviceId])
 }
 
 // The analyzer's code for a test against ours. Without this the numbers cannot

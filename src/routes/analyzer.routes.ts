@@ -35,6 +35,8 @@ import {
   unmappedCodesQuerySchema,
   updateAnalyzerDeviceSchema
 } from '../validators/analyzer.validators.js';
+import { maintenanceRequestSchema } from '../validators/gustavBiomed.validators.js';
+import * as gustavBiomed from '../controllers/gustavBiomed.controller.js';
 
 /*
   Two doors into the same pipeline.
@@ -87,3 +89,5 @@ analyzerRoutes.post('/lab/analyzers/upload', requirePermission(PERMISSIONS.LAB_R
 analyzerRoutes.get('/lab/analyzers/:id', requirePermission(PERMISSIONS.LAB_ANALYZERS_READ), validateRequest({ params: idParamSchema }), getAnalyzerDeviceController);
 analyzerRoutes.patch('/lab/analyzers/:id', requirePermission(PERMISSIONS.LAB_ANALYZERS_MANAGE), validateRequest({ params: idParamSchema, body: updateAnalyzerDeviceSchema }), updateAnalyzerDeviceController);
 analyzerRoutes.post('/lab/analyzers/:id/rotate-key', requirePermission(PERMISSIONS.LAB_ANALYZERS_MANAGE), validateRequest({ params: idParamSchema }), rotateAnalyzerDeviceKeyController);
+analyzerRoutes.get('/lab/gustav-biomed/maintenance-requests', requireAuth, requireModule('laboratory'), requireRole(UserRole.ADMIN, UserRole.LAB_STAFF), requirePermission(PERMISSIONS.LAB_ANALYZER_MAINTENANCE_REQUEST), gustavBiomed.listLabMaintenanceRequestsController);
+analyzerRoutes.post('/lab/gustav-biomed/maintenance-requests', requireAuth, requireModule('laboratory'), requireRole(UserRole.ADMIN, UserRole.LAB_STAFF), requirePermission(PERMISSIONS.LAB_ANALYZER_MAINTENANCE_REQUEST), validateRequest({ body: maintenanceRequestSchema }), gustavBiomed.createMaintenanceRequestController);

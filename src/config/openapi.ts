@@ -36,14 +36,14 @@ const TAGS: Record<string, [string, string]> = {
   maternity: ['Maternity', 'Pregnancies, antenatal and postnatal care, deliveries'],
   'child-health': ['Child health', 'Growth and immunisations'],
   claims: ['Insurance claims', 'Schemes, memberships, claims and batches'],
-  stores: ['Stores', 'Store items, suppliers, purchase orders and requisitions'],
+  stores: ['Stores', 'Store items, suppliers, purchase orders, requisitions and Gustav Biomed requests'],
   'blood-bank': ['Blood bank', 'Donors, units, crossmatch, issue and transfusion'],
   mortuary: ['Mortuary', 'Deceased register, slots, certification and release'],
   hr: ['HR', 'Staff profiles, shift types, rota and leave'],
   records: ['Medical records', 'Full chart, access log, release-of-information requests'],
   admin: ['Admin', 'Users, roles, catalog, departments, equipment, audit log, data export'],
   orders: ['Orders', 'Lab and scan orders'], reception: ['Reception', 'Check-in, walk-ins, appointments, visits'],
-  lab: ['Laboratory', 'Samples, results, review and sign-off'], scan: ['Imaging', 'Scan queue, bookings, reports and sign-off'],
+  lab: ['Laboratory', 'Samples, results, review, sign-off and analyzer-maintenance requests'], scan: ['Imaging', 'Scan queue, bookings, reports and sign-off'],
   finance: ['Finance', 'Cashier shifts, float, expenses and ledger'], results: ['Results', 'Released results and delivery'],
   reports: ['Reports', 'Operational and finance reports'], notifications: ['Notifications', 'In-app notifications'], files: ['Files', 'Uploads and signed downloads']
 };
