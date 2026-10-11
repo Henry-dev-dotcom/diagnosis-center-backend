@@ -135,3 +135,12 @@ export const emergencyRegistrationSchema = z.object({
 });
 
 export const subIdParamSchema = z.object({ id: z.string().min(1), subId: z.string().min(1) });
+
+export const queueQuerySchema = z.object({ scope: z.enum(['mine', 'all']).optional() });
+
+// A clinician's unsaved work on a visit. The shape belongs to the screen that writes it, so the
+// server only insists on an object of a sensible size and stores it as it is.
+const MAX_DRAFT_CHARS = 100_000;
+export const draftSchema = z.object({
+  data: z.record(z.string(), z.unknown()).refine((value) => JSON.stringify(value).length <= MAX_DRAFT_CHARS, 'This draft is too large to save')
+});

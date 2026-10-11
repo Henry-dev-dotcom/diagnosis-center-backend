@@ -24,6 +24,7 @@ import { AppError } from '../utils/appError.js';
 import type { ModuleKey } from '../config/modules.js';
 import { CLINIC_MODULE, CLINIC_NAME } from '../config/clinics.js';
 import { assertPatientAlive } from './mortuary.service.js';
+import { deriveQueueState, testProgress } from './queueState.js';
 
 // Each visit type belongs to a department module.
 const MODULE_FOR_ENCOUNTER_TYPE: Record<EncounterType, ModuleKey> = {
@@ -147,7 +148,8 @@ export async function listEncounters(query: {
 export async function getEncounter(id: string) {
   const encounter = await prisma.encounter.findUnique({ where: { id }, include: encounterDetailInclude });
   if (!encounter) throw new AppError('Encounter not found', 404, 'ENCOUNTER_NOT_FOUND');
-  return encounter;
+  // Where the visit sits in the clinician's queue, worked out from how far its tests have got.
+  return { ...encounter, queueState: deriveQueueState(encounter, encounter.orders), tests: testProgress(encounter.orders) };
 }
 
 export async function startEncounter(
@@ -465,7 +467,9 @@ export async function completeEncounter(id: string, body: { outcome: string; sum
     ...(body.summary
       ? [prisma.clinicalNote.create({ data: { type: ClinicalNoteType.DISCHARGE, plan: body.summary, encounterId: id, patientId: encounter.patientId, authorId: req.user?.id ?? null } })]
       : []),
-    prisma.encounter.update({ where: { id }, data: { status: EncounterStatus.COMPLETED, outcome: body.outcome, completedAt: new Date() } })
+    prisma.encounter.update({ where: { id }, data: { status: EncounterStatus.COMPLETED, outcome: body.outcome, completedAt: new Date(), suspendedAt: null } }),
+    // The visit's real notes are saved; nobody's half-written draft should outlive it.
+    prisma.encounterDraft.deleteMany({ where: { encounterId: id } })
   ]);
   await audit(req, 'ENCOUNTER_COMPLETED', id, { outcome: body.outcome });
   return getEncounter(id);
