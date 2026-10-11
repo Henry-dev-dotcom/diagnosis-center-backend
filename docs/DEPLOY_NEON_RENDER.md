@@ -53,8 +53,10 @@ database — you bring Neon.
    | `SEED_ADMIN_EMAIL` | your email |
    | `SEED_ADMIN_PASSWORD` | a strong password, 12+ characters, that you keep |
 
-3. Set **`SEED_DEMO_DATA` to `true`** in the Render dashboard. It defaults to
-   `false`; see the warning below before you turn it on.
+3. Only for a dedicated demonstration service with its own database, set both
+   **`DEMO_INSTANCE=true`** and **`SEED_DEMO_DATA=true`** in Render. Production
+   stays at `false` for both; the seed refuses to run demo data without the
+   explicit `DEMO_INSTANCE` guard.
 
 On deploy, `render:start` runs the migrations, seeds, and starts the API. The
 first boot takes a few minutes because it builds every migration from nothing.
@@ -104,29 +106,35 @@ code `DEMO` and `admin` / `admin123`, and look at a patient.
 
 ## About `SEED_DEMO_DATA`
 
-`true` seeds a facility called **LHIMS Demo Hospital**, code `DEMO`, with a staff
-account for every role and enough patients, orders and results to show the system
-working:
+Both `DEMO_INSTANCE=true` and `SEED_DEMO_DATA=true` seed a facility called
+**LHIMS Demo Hospital**, code `DEMO`, with a staff account for every role and
+synthetic patients, orders and results to show the system working. The same
+isolated database also gets two synthetic Gustav Biomed requests and this shared
+vendor demo login:
 
 ```
 admin/admin123    doctor/doctor123   nurse/nurse123    pharmacist/pharmacist123
 reception/reception123   lab/lab123   scan/scan123     billing/billing123
+vendor-demo@curatamed.test / DemoVendor2026!
 ```
 
-Those passwords are short and shared **on purpose** — people you send the link to
-have to be able to get in. Which is exactly why:
+These demo credentials are shared **on purpose** so people with the link can
+explore; the staff passwords are intentionally short and the vendor login is a
+shared test identity. That is exactly why:
 
 > **A demonstration instance must never hold real patient data.** When a real
-> facility goes on, use a separate deployment with `SEED_DEMO_DATA=false`, and a
-> separate Neon project.
+> facility goes on, use a separate deployment with `DEMO_INSTANCE=false` and
+> `SEED_DEMO_DATA=false`, and a separate Neon project.
 
 The platform operator account is never one of these. It always uses
 `SEED_ADMIN_PASSWORD`, whatever else is seeded — the demo seed's own
 `platform/platform123` is deliberately not created on a deployed instance.
 
 The demo facility is only built if it is not already there, so restarts and
-redeploys never wipe what someone is in the middle of looking at. To start it
-fresh, drop the facility and redeploy.
+redeploys never wipe what someone is in the middle of looking at. Synthetic
+vendor fixtures are ensured at demo startup; if the demo vendor user is deleted,
+a later demo seed run may recreate it. To start the facility fresh, drop it and
+redeploy.
 
 ---
 

@@ -106,9 +106,10 @@ services:
       # Platform operator account (signs in with no facility code).
       - key: SEED_ADMIN_USERNAME
         value: platform
-      # "true" also seeds the DEMO facility, with shared staff logins people can
-      # explore. For a demonstration instance only: never on one holding real
-      # patient data. See docs/DEPLOY_NEON_RENDER.md.
+      # Production must remain non-demo. A separate database may seed synthetic
+      # fixtures only with both DEMO_INSTANCE=true and SEED_DEMO_DATA=true.
+      - key: DEMO_INSTANCE
+        value: "false"
       - key: SEED_DEMO_DATA
         value: "false"
       - key: SEED_ADMIN_EMAIL
