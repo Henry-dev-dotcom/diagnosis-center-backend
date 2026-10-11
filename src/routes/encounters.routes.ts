@@ -7,6 +7,7 @@ import { validateRequest } from '../middleware/validate.js';
 import { idParamSchema } from '../validators/common.validators.js';
 import {
   allergySchema,
+  clinicalHistoryQuerySchema,
   cancelSchema,
   emergencyRegistrationSchema,
   formularyQuerySchema,
@@ -29,6 +30,7 @@ import {
   addDiagnosisController,
   addNoteController,
   cancelEncounterController,
+  clinicalHistoryController,
   clinicianQueueController,
   deleteDraftController,
   getDraftController,
@@ -94,4 +96,5 @@ patientClinicalRoutes.get('/patients/:id/allergies', requireAuth, requireAnyPerm
 patientClinicalRoutes.post('/patients/:id/allergies', requireAuth, requirePermission(P.PATIENT_ALLERGIES_MANAGE), validateRequest({ params: idParamSchema, body: allergySchema }), addAllergyController);
 patientClinicalRoutes.patch('/patients/:id/allergies/:subId', requireAuth, requirePermission(P.PATIENT_ALLERGIES_MANAGE), validateRequest({ params: subIdParamSchema, body: updateAllergySchema }), updateAllergyController);
 patientClinicalRoutes.get('/patients/:id/forms', requireAuth, requirePermission(P.ENCOUNTERS_READ), validateRequest({ params: idParamSchema, query: patientFormsQuerySchema }), listPatientFormsController);
+patientClinicalRoutes.get('/patients/:id/clinical-history', requireAuth, requireAnyPermission(P.PATIENTS_READ, P.ENCOUNTERS_READ), validateRequest({ params: idParamSchema, query: clinicalHistoryQuerySchema }), clinicalHistoryController);
 patientClinicalRoutes.get('/patients/:id/timeline', requireAuth, requireAnyPermission(P.PATIENTS_READ, P.ENCOUNTERS_READ), validateRequest({ params: idParamSchema }), patientTimelineController);

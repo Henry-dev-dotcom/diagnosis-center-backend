@@ -3,6 +3,7 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 import { sendCreated, sendSuccess } from '../utils/apiResponse.js';
 import { searchIcd10 } from '../data/icd10Common.js';
 import { formulary } from '../services/pharmacy.service.js';
+import { getClinicalHistory } from '../services/clinicalHistory.service.js';
 import { deleteDraft, getClinicianQueue, getDraft, resumeEncounter, saveDraft, suspendEncounter } from '../services/clinicianQueue.service.js';
 import {
   addAllergy,
@@ -101,4 +102,8 @@ export const saveDraftController = asyncHandler(async (req: Request, res: Respon
 );
 export const deleteDraftController = asyncHandler(async (req: Request, res: Response) =>
   sendSuccess(res, 'Draft discarded', await deleteDraft(req.params.id, req))
+);
+
+export const clinicalHistoryController = asyncHandler(async (req: Request, res: Response) =>
+  sendSuccess(res, 'Clinical history loaded', await getClinicalHistory(req.params.id, Number((req.query as { limit?: number }).limit ?? 5)))
 );

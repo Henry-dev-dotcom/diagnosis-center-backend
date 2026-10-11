@@ -144,3 +144,5 @@ const MAX_DRAFT_CHARS = 100_000;
 export const draftSchema = z.object({
   data: z.record(z.string(), z.unknown()).refine((value) => JSON.stringify(value).length <= MAX_DRAFT_CHARS, 'This draft is too large to save')
 });
+
+export const clinicalHistoryQuerySchema = z.object({ limit: z.coerce.number().int().min(1).max(20).default(5) });

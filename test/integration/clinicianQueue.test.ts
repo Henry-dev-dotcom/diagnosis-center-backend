@@ -310,3 +310,64 @@ describe('drafts', () => {
     expect((await post(`/encounters/${visit.encounterId}/suspend`, 'admin', {}, FACILITY_B.code)).status).toBe(404);
   });
 });
+
+describe('clinical history', () => {
+  const history = async (patientId: string, as = 'doctor', query = '', facility?: string) => get(`/patients/${patientId}/clinical-history${query}`, as, facility);
+
+  it('lists the current visit with its tests, and shows result values only once the lab has signed them off', async () => {
+    const visit = await consultingPatient('History');
+    const order = await post(`/encounters/${visit.encounterId}/orders`, 'doctor', { items: [{ catalogItemId: 't1' }] });
+    const orderId = order.json.data.orders[0].id as string;
+
+    const before = await history(visit.patientId);
+    expect(before.status, before.text).toBe(200);
+    const current = before.json.data.encounters.find((e: { id: string }) => e.id === visit.encounterId);
+    expect(current.tests).toHaveLength(1);
+    expect(current.tests[0]).toMatchObject({ name: 'Full Blood Count (FBC)', kind: 'LAB', lab: null, scan: null });
+
+    // A draft the lab is still working on must never reach the doctor.
+    const accepted = await post('/lab/samples/accept', 'lab', { orderId });
+    const sampleId = accepted.json.data.samples[0].id;
+    await post('/lab/results', 'lab', { sampleId, parameters: [{ name: 'Haemoglobin', value: '7.7', unit: 'g/dL' }] });
+    const draftView = await history(visit.patientId);
+    expect(draftView.text, 'a draft value leaked to the clinician').not.toContain('7.7');
+
+    const draftRow = await runWithFacility(FACILITY_A.id, () => prisma.labResult.findFirstOrThrow({ where: { sampleId } }));
+    await post('/lab/results/submit-review', 'lab', { resultId: draftRow.id });
+    await post(`/lab/results/${draftRow.id}/sign-off`, 'lab', { decision: 'SIGNED_OFF' });
+
+    const after = await history(visit.patientId);
+    const signed = after.json.data.encounters.find((e: { id: string }) => e.id === visit.encounterId).tests[0];
+    expect(signed.lab.parameters).toEqual([expect.objectContaining({ name: 'Haemoglobin', value: '7.7', unit: 'g/dL' })]);
+    expect(signed.resultedAt).not.toBeNull();
+  });
+
+  it('orders visits newest first, carries diagnoses, and honours the limit', async () => {
+    const patientId = await runWithFacility(FACILITY_A.id, async () =>
+      (await prisma.patient.create({ data: { patientCode: `PAT-HIST-${++counter}`, firstName: 'Many', lastName: 'Visits', phone: `+23320000${1000 + counter}` } })).id
+    );
+    const codes: string[] = [];
+    for (const complaint of ['First visit', 'Second visit', 'Third visit']) {
+      const started = await post('/encounters', 'reception', { patientId, type: 'OPD', chiefComplaint: complaint });
+      const id = started.json.data.id as string;
+      codes.push(complaint);
+      await post(`/encounters/${id}/vitals`, 'nurse', { temperatureC: 37.2, triageLevel: 'GREEN', completeTriage: true });
+      await post(`/encounters/${id}/start-consultation`, 'doctor');
+      await post(`/encounters/${id}/diagnoses`, 'doctor', { code: 'B54', description: `Dx for ${complaint}`, type: 'PRIMARY' });
+      await post(`/encounters/${id}/complete`, 'doctor', { outcome: 'DISCHARGED' });
+    }
+    const all = (await history(patientId)).json.data.encounters;
+    expect(all.map((e: { chiefComplaint: string }) => e.chiefComplaint)).toEqual(['Third visit', 'Second visit', 'First visit']);
+    expect(all[0].diagnoses[0]).toMatchObject({ code: 'B54', description: 'Dx for Third visit' });
+
+    const two = (await history(patientId, 'doctor', '?limit=2')).json.data.encounters;
+    expect(two).toHaveLength(2);
+    expect((await history(patientId, 'doctor', '?limit=500')).status).toBe(400);
+  });
+
+  it('is not readable across facilities, and an unknown patient is a 404', async () => {
+    const visit = await consultingPatient('Secret');
+    expect((await history(visit.patientId, 'admin', '', FACILITY_B.code)).status).toBe(404);
+    expect((await history('does-not-exist')).status).toBe(404);
+  });
+});
