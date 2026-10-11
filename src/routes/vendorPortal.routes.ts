@@ -23,6 +23,7 @@ export const vendorPortalRoutes = Router();
 vendorPortalRoutes.get('/platform/vendor-partners', requireAuth, requireRole(UserRole.PLATFORM_ADMIN), controller.listPartnersController);
 vendorPortalRoutes.post('/platform/vendor-partners/:id/invitations', requireAuth, requireRole(UserRole.PLATFORM_ADMIN), validateRequest({ params: vendorPartnerIdParamSchema, body: vendorInviteSchema }), controller.createInvitationController);
 vendorPortalRoutes.patch('/platform/vendor-portal-users/:userId/status', requireAuth, requireRole(UserRole.PLATFORM_ADMIN), validateRequest({ params: vendorPortalUserIdParamSchema, body: vendorPortalUserStatusSchema }), controller.setVendorUserStatusController);
+vendorPortalRoutes.delete('/platform/vendor-portal-users/:userId', requireAuth, requireRole(UserRole.PLATFORM_ADMIN), validateRequest({ params: vendorPortalUserIdParamSchema }), controller.deleteVendorUserController);
 
 // The vendor uses a separate refresh cookie and vendor-only access-token claim.
 vendorPortalRoutes.post('/vendor/auth/login', authRateLimit, validateRequest({ body: vendorLoginSchema }), controller.loginController);

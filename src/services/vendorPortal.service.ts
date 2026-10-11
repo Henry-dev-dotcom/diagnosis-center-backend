@@ -174,6 +174,36 @@ export async function setVendorPortalUserStatus(userId: string, status: UserStat
   }));
 }
 
+export async function deleteVendorPortalUser(userId: string, context: VendorRequestContext, actorPlatformUserId: string) {
+  return runAsSystem('platform vendor account deletion', () => prisma.$transaction(async (tx) => {
+    const user = await tx.vendorPortalUser.findUnique({ where: { id: userId }, include: { partner: true } });
+    if (!user || user.partner.code !== GUSTAV_PARTNER_CODE) throw new AppError('Vendor account not found', 404, 'VENDOR_ACCOUNT_NOT_FOUND');
+
+    const now = new Date();
+    await tx.vendorPortalInvite.updateMany({
+      where: { partnerId: user.partnerId, email: user.email, redeemedAt: null, expiresAt: { gt: now } },
+      data: { expiresAt: now }
+    });
+    await tx.vendorPortalAudit.updateMany({
+      where: { vendorUserId: user.id },
+      data: { targetFullName: user.fullName, targetEmail: user.email }
+    });
+    await tx.vendorPortalAudit.create({
+      data: {
+        partnerId: user.partnerId,
+        actorPlatformUserId,
+        action: 'ACCOUNT_DELETED',
+        targetFullName: user.fullName,
+        targetEmail: user.email,
+        ipAddress: context.ipAddress ?? null,
+        userAgent: context.userAgent ?? null
+      }
+    });
+    await tx.vendorPortalUser.delete({ where: { id: user.id } });
+    return { id: user.id, fullName: user.fullName, email: user.email, status: 'DELETED' as const };
+  }));
+}
+
 export async function activateVendorInvitation(token: string, password: string, context: VendorRequestContext) {
   const tokenHash = hashToken(token);
   const now = new Date();

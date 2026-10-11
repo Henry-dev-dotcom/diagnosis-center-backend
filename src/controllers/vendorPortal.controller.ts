@@ -26,6 +26,12 @@ export const setVendorUserStatusController = asyncHandler(async (req: Request, r
   return sendSuccess(res, 'Vendor account status updated', result);
 });
 
+export const deleteVendorUserController = asyncHandler(async (req: Request, res: Response) => {
+  if (!req.user) throw new AppError('Platform administrator sign-in is required', 401, 'AUTH_REQUIRED');
+  const result = await portal.deleteVendorPortalUser(req.params.userId, requestContext(req), req.user.id);
+  return sendSuccess(res, 'Vendor login deleted; request and audit history retained', result);
+});
+
 export const loginController = asyncHandler(async (req: Request, res: Response) => {
   const result = await portal.loginVendorPortal(req.body.email, req.body.password, requestContext(req));
   setVendorRefreshCookie(res, result.refreshToken);

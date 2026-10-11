@@ -1450,6 +1450,8 @@ model VendorPortalAudit {
   action              String
   previousStatus      GustavRequestStatus?
   newStatus           GustavRequestStatus?
+  targetFullName      String?
+  targetEmail         String?
   ipAddress           String?
   userAgent           String?
   createdAt           DateTime             @default(now())

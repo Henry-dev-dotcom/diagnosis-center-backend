@@ -219,4 +219,44 @@ describe('Gustav Biomed vendor portal', () => {
     const rejected = await call('GET', '/vendor/requests', { token: tokens.vendor });
     expect(rejected.status).toBe(401);
   });
+
+  it('deletes a vendor login only for platform admins and preserves request and audit history', async () => {
+    const reactivated = await call('PATCH', `/platform/vendor-portal-users/${encodeURIComponent(vendorUserId)}/status`, {
+      token: tokens.platform,
+      body: { status: 'ACTIVE' }
+    });
+    expect(reactivated.status, reactivated.text).toBe(200);
+    const freshLogin = await call('POST', '/vendor/auth/login', { body: { email: accountEmail, password: accountPassword } });
+    expect(freshLogin.status, freshLogin.text).toBe(200);
+    const activeVendorToken = freshLogin.json.data.accessToken as string;
+    expect((await call('GET', '/vendor/requests', { token: activeVendorToken })).status).toBe(200);
+
+    const denied = await call('DELETE', `/platform/vendor-portal-users/${encodeURIComponent(vendorUserId)}`, { token: tokens.storesA });
+    expect(denied.status).toBe(403);
+
+    const deleted = await call('DELETE', `/platform/vendor-portal-users/${encodeURIComponent(vendorUserId)}`, { token: tokens.platform });
+    expect(deleted.status, deleted.text).toBe(200);
+    expect(deleted.json.data).toMatchObject({ id: vendorUserId, fullName: 'Gustav Service Lead', email: accountEmail, status: 'DELETED' });
+
+    const deletionAudit = await runAsSystem('vendor portal integration assertion', () => prisma.vendorPortalAudit.findFirst({
+      where: { partnerId: 'gustav-biomed-limited', action: 'ACCOUNT_DELETED', targetEmail: accountEmail, targetFullName: 'Gustav Service Lead' }
+    }));
+    expect(deletionAudit?.actorPlatformUserId).toBeTruthy();
+    const retainedAudit = await runAsSystem('vendor portal integration assertion', () => prisma.vendorPortalAudit.findFirst({
+      where: { partnerId: 'gustav-biomed-limited', targetEmail: accountEmail, action: 'REQUEST_STATUS_UPDATED' }
+    }));
+    expect(retainedAudit).toBeTruthy();
+
+    const retainedRequest = await runAsSystem('vendor portal integration assertion', () => prisma.gustavBiomedRequest.findUnique({
+      where: { id: supplyRequestId },
+      select: { status: true, statusUpdatedByVendorUserId: true }
+    }));
+    expect(retainedRequest?.status).toBe('SCHEDULED');
+    expect(retainedRequest?.statusUpdatedByVendorUserId).toBeNull();
+
+    const activeSessionRejected = await call('GET', '/vendor/requests', { token: activeVendorToken });
+    expect(activeSessionRejected.status).toBe(401);
+    const rejectedLogin = await call('POST', '/vendor/auth/login', { body: { email: accountEmail, password: accountPassword } });
+    expect(rejectedLogin.status).toBe(401);
+  });
 });
