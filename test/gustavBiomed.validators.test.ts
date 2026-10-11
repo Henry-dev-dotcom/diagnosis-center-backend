@@ -5,6 +5,7 @@ describe('Gustav Biomed request validation', () => {
   it('accepts a categorized supply request with a positive whole quantity', () => {
     const result = supplyRequestSchema.safeParse({
       requestingUnit: 'Stores',
+      confirmNoPatientData: true,
       supplyCategory: 'REAGENTS',
       itemDescription: 'Chemistry reagent kit',
       quantity: '3',
@@ -16,18 +17,21 @@ describe('Gustav Biomed request validation', () => {
   });
 
   it('rejects missing specifications, unsupported categories, and fractional quantities', () => {
-    expect(supplyRequestSchema.safeParse({ requestingUnit: 'Stores', supplyCategory: 'OTHER', itemDescription: 'Kit', quantity: 1, quantityUnit: 'box' }).success).toBe(false);
-    expect(supplyRequestSchema.safeParse({ requestingUnit: 'Stores', supplyCategory: 'REAGENTS', itemDescription: 'Kit', quantity: 1.5, quantityUnit: 'box' }).success).toBe(false);
+    expect(supplyRequestSchema.safeParse({ requestingUnit: 'Stores', confirmNoPatientData: true, supplyCategory: 'OTHER', itemDescription: 'Kit', quantity: 1, quantityUnit: 'box' }).success).toBe(false);
+    expect(supplyRequestSchema.safeParse({ requestingUnit: 'Stores', confirmNoPatientData: true, supplyCategory: 'REAGENTS', itemDescription: 'Kit', quantity: 1.5, quantityUnit: 'box' }).success).toBe(false);
+    expect(supplyRequestSchema.safeParse({ requestingUnit: 'Stores', supplyCategory: 'REAGENTS', itemDescription: 'Kit', quantity: 1, quantityUnit: 'box' }).success).toBe(false);
   });
 
   it('accepts a maintenance request for a registered or manually named analyzer', () => {
     expect(maintenanceRequestSchema.safeParse({
       requestingUnit: 'Laboratory',
+      confirmNoPatientData: true,
       analyzerDeviceId: 'analyzer-123',
       serviceDescription: 'Routine preventive maintenance'
     }).success).toBe(true);
     const manual = maintenanceRequestSchema.safeParse({
       requestingUnit: 'Laboratory',
+      confirmNoPatientData: true,
       analyzerName: 'Chemistry analyzer A',
       serviceDescription: 'Routine preventive maintenance',
       preferredServiceDate: '2026-10-16'
@@ -37,8 +41,8 @@ describe('Gustav Biomed request validation', () => {
   });
 
   it('requires a valid analyzer reference or name and a service description', () => {
-    expect(maintenanceRequestSchema.safeParse({ requestingUnit: 'Laboratory', serviceDescription: 'Service' }).success).toBe(false);
-    expect(maintenanceRequestSchema.safeParse({ requestingUnit: 'Laboratory', analyzerName: 'Chemistry analyzer', serviceDescription: 'x' }).success).toBe(false);
+    expect(maintenanceRequestSchema.safeParse({ requestingUnit: 'Laboratory', confirmNoPatientData: true, serviceDescription: 'Service' }).success).toBe(false);
+    expect(maintenanceRequestSchema.safeParse({ requestingUnit: 'Laboratory', confirmNoPatientData: true, analyzerName: 'Chemistry analyzer', serviceDescription: 'x' }).success).toBe(false);
   });
 
   it('only accepts known request statuses', () => {

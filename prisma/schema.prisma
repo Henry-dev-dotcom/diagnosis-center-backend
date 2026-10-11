@@ -1330,38 +1330,138 @@ model AnalyzerDevice {
 }
 
 model GustavBiomedRequest {
-  id                   String                  @id @default(cuid())
-  facilityId           String                  @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
-  requestCode          String
-  supplierName         String                  @default("Gustav Biomed Limited")
-  type                 GustavBiomedRequestType
-  status               GustavRequestStatus     @default(PENDING)
-  requestingUnit       String
-  supplyCategory       GustavSupplyCategory?
-  itemDescription      String?
-  quantity             Int?
-  quantityUnit         String?
-  analyzerDeviceId     String?
-  analyzerName         String?
-  serviceDescription   String?
-  preferredServiceDate DateTime?
-  notes                String?
-  statusNote           String?
-  requestedById        String?
-  statusUpdatedById    String?
-  statusUpdatedAt      DateTime?
-  createdAt            DateTime                @default(now())
-  updatedAt            DateTime                @updatedAt
+  id                          String                  @id @default(cuid())
+  facilityId                  String                  @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  supplierPartnerId           String
+  requestCode                 String
+  supplierName                String                  @default("Gustav Biomed Limited")
+  type                        GustavBiomedRequestType
+  status                      GustavRequestStatus     @default(PENDING)
+  requestingUnit              String
+  supplyCategory              GustavSupplyCategory?
+  itemDescription             String?
+  quantity                    Int?
+  quantityUnit                String?
+  analyzerDeviceId            String?
+  analyzerName                String?
+  serviceDescription          String?
+  preferredServiceDate        DateTime?
+  notes                       String?
+  statusNote                  String?
+  vendorStatusNote            String?
+  requestedById               String?
+  statusUpdatedById           String?
+  statusUpdatedByVendorUserId String?
+  statusUpdatedAt             DateTime?
+  createdAt                   DateTime                @default(now())
+  updatedAt                   DateTime                @updatedAt
 
-  facility        Facility        @relation(fields: [facilityId], references: [id], onDelete: Restrict)
-  requestedBy     User?           @relation("GustavRequestBy", fields: [requestedById], references: [id], onDelete: SetNull)
-  statusUpdatedBy User?           @relation("GustavRequestStatusBy", fields: [statusUpdatedById], references: [id], onDelete: SetNull)
-  analyzerDevice  AnalyzerDevice? @relation(fields: [analyzerDeviceId], references: [id], onDelete: SetNull)
+  facility                  Facility            @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+  requestedBy               User?               @relation("GustavRequestBy", fields: [requestedById], references: [id], onDelete: SetNull)
+  statusUpdatedBy           User?               @relation("GustavRequestStatusBy", fields: [statusUpdatedById], references: [id], onDelete: SetNull)
+  statusUpdatedByVendorUser VendorPortalUser?   @relation("GustavRequestStatusByVendor", fields: [statusUpdatedByVendorUserId], references: [id], onDelete: SetNull)
+  supplierPartner           VendorPartner       @relation(fields: [supplierPartnerId], references: [id], onDelete: Restrict)
+  analyzerDevice            AnalyzerDevice?     @relation(fields: [analyzerDeviceId], references: [id], onDelete: SetNull)
+  vendorAudit               VendorPortalAudit[]
 
   @@unique([facilityId, requestCode])
   @@index([facilityId, type, status, createdAt])
   @@index([facilityId, requestedById])
   @@index([facilityId, analyzerDeviceId])
+  @@index([supplierPartnerId, status, createdAt])
+}
+
+model VendorPartner {
+  id           String   @id @default(cuid())
+  code         String   @unique
+  name         String
+  contactPhone String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  requests GustavBiomedRequest[]
+  users    VendorPortalUser[]
+  invites  VendorPortalInvite[]
+  audits   VendorPortalAudit[]
+
+  @@index([isActive])
+}
+
+model VendorPortalUser {
+  id           String     @id @default(cuid())
+  partnerId    String
+  fullName     String
+  email        String
+  passwordHash String
+  status       UserStatus @default(ACTIVE)
+  lastLoginAt  DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  partner       VendorPartner         @relation(fields: [partnerId], references: [id], onDelete: Restrict)
+  sessions      VendorPortalSession[]
+  statusUpdates GustavBiomedRequest[] @relation("GustavRequestStatusByVendor")
+  auditEntries  VendorPortalAudit[]
+
+  @@unique([partnerId, email])
+  @@index([partnerId, status])
+}
+
+model VendorPortalSession {
+  id                             String    @id @default(cuid())
+  userId                         String
+  refreshTokenHash               String    @unique
+  previousRefreshTokenHash       String?
+  previousRefreshTokenValidUntil DateTime?
+  createdAt                      DateTime  @default(now())
+  expiresAt                      DateTime
+  revokedAt                      DateTime?
+  ipAddress                      String?
+  userAgent                      String?
+
+  user VendorPortalUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+}
+
+model VendorPortalInvite {
+  id              String    @id @default(cuid())
+  partnerId       String
+  fullName        String
+  email           String
+  tokenHash       String    @unique
+  createdByUserId String
+  createdAt       DateTime  @default(now())
+  expiresAt       DateTime
+  redeemedAt      DateTime?
+
+  partner VendorPartner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+
+  @@index([partnerId, email, expiresAt])
+}
+
+model VendorPortalAudit {
+  id                  String               @id @default(cuid())
+  partnerId           String
+  vendorUserId        String?
+  actorPlatformUserId String?
+  requestId           String?
+  action              String
+  previousStatus      GustavRequestStatus?
+  newStatus           GustavRequestStatus?
+  ipAddress           String?
+  userAgent           String?
+  createdAt           DateTime             @default(now())
+
+  partner    VendorPartner        @relation(fields: [partnerId], references: [id], onDelete: Restrict)
+  vendorUser VendorPortalUser?    @relation(fields: [vendorUserId], references: [id], onDelete: SetNull)
+  request    GustavBiomedRequest? @relation(fields: [requestId], references: [id], onDelete: Restrict)
+
+  @@index([partnerId, createdAt])
+  @@index([requestId, createdAt])
+  @@index([vendorUserId, createdAt])
+  @@index([actorPlatformUserId, createdAt])
 }
 
 // The analyzer's code for a test against ours. Without this the numbers cannot
@@ -2384,7 +2484,7 @@ model PatientAllergy {
   updatedAt    DateTime        @updatedAt
 
   facility   Facility @relation(fields: [facilityId], references: [id])
-  patient   Patient  @relation(fields: [patientId], references: [id])
+  patient    Patient  @relation(fields: [patientId], references: [id])
   recordedBy User?    @relation("AllergyRecordedBy", fields: [recordedById], references: [id])
 
   @@index([facilityId])

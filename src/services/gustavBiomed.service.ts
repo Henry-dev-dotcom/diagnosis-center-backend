@@ -8,8 +8,12 @@ import { AppError } from '../utils/appError.js';
 const requestInclude = {
   requestedBy: { select: { id: true, name: true, role: true } },
   statusUpdatedBy: { select: { id: true, name: true, role: true } },
+  statusUpdatedByVendorUser: { select: { id: true, fullName: true, email: true } },
+  supplierPartner: { select: { id: true, code: true, name: true, contactPhone: true } },
   analyzerDevice: { select: { id: true, name: true, deviceCode: true, make: true, model: true } }
 } satisfies Prisma.GustavBiomedRequestInclude;
+
+const GUSTAV_BIOMED_PARTNER_ID = 'gustav-biomed-limited';
 
 async function audit(req: Request, action: string, requestId: string, details?: unknown) {
   await createAuditLog({
@@ -55,6 +59,7 @@ type SupplyRequestInput = {
 export async function createSupplyRequest(body: SupplyRequestInput, req: Request) {
   const request = await prisma.$transaction(async (tx) => tx.gustavBiomedRequest.create({
     data: {
+      supplierPartnerId: GUSTAV_BIOMED_PARTNER_ID,
       requestCode: await nextCode(tx, 'GBR'),
       type: GustavBiomedRequestType.SUPPLY,
       requestingUnit: body.requestingUnit,
@@ -90,6 +95,7 @@ export async function createMaintenanceRequest(body: MaintenanceRequestInput, re
 
   const request = await prisma.$transaction(async (tx) => tx.gustavBiomedRequest.create({
     data: {
+      supplierPartnerId: GUSTAV_BIOMED_PARTNER_ID,
       requestCode: await nextCode(tx, 'GBR'),
       type: GustavBiomedRequestType.ANALYZER_MAINTENANCE,
       requestingUnit: body.requestingUnit,
@@ -130,6 +136,7 @@ export async function updateGustavRequestStatus(id: string, body: StatusInput, r
         status: body.status,
         ...(body.statusNote !== undefined ? { statusNote: body.statusNote } : {}),
         statusUpdatedById: req.user?.id ?? null,
+        statusUpdatedByVendorUserId: null,
         statusUpdatedAt: new Date()
       }
     });

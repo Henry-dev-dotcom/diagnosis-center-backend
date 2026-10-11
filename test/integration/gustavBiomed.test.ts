@@ -52,6 +52,7 @@ describe('Gustav Biomed requests', () => {
   it('lets Stores record categorized supply requests and denies that action to Lab Staff', async () => {
     const supply = await post('/stores/gustav-biomed/requests', 'billing', {
       requestingUnit: 'Stores',
+      confirmNoPatientData: true,
       supplyCategory: 'REAGENTS',
       itemDescription: 'Glucose reagent kit, compatible with the chemistry analyzer',
       quantity: 4,
@@ -72,6 +73,7 @@ describe('Gustav Biomed requests', () => {
 
     const forbidden = await post('/stores/gustav-biomed/requests', 'lab', {
       requestingUnit: 'Laboratory',
+      confirmNoPatientData: true,
       supplyCategory: 'REAGENTS',
       itemDescription: 'Unauthorized supply request',
       quantity: 1,
@@ -83,6 +85,7 @@ describe('Gustav Biomed requests', () => {
   it('lets every Lab Staff user create and follow maintenance requests, with no patient data', async () => {
     const maintenance = await post('/lab/gustav-biomed/maintenance-requests', 'lab', {
       requestingUnit: 'Laboratory',
+      confirmNoPatientData: true,
       analyzerName: 'Chemistry analyzer A',
       serviceDescription: 'Routine preventive maintenance and calibration check',
       preferredServiceDate: '2026-10-16',

@@ -34,11 +34,13 @@ import { recordsRoutes } from './records.routes.js';
 import { subscriptionRoutes } from './subscription.routes.js';
 import { onboardingRoutes } from './onboarding.routes.js';
 import { analyzerIngestRoutes, analyzerRoutes } from './analyzer.routes.js';
+import { vendorPortalRoutes } from './vendorPortal.routes.js';
 
 export const apiRouter = Router();
 
 apiRouter.use(systemRoutes);
 apiRouter.use(authRoutes);
+apiRouter.use(vendorPortalRoutes);
 // Before the department routers: public pricing, webhooks and the fake checkout need no sign-in.
 apiRouter.use(subscriptionRoutes);
 apiRouter.use(onboardingRoutes);
