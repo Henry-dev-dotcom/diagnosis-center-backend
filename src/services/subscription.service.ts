@@ -189,7 +189,17 @@ export async function subscriptionStateFor(facilityId: string) {
 
 async function loadSubscriptionState(facilityId: string) {
   const s = await runAsSystem('auth.subscription', () =>
-    prisma.subscription.findUnique({ where: { facilityId }, select: { status: true, trialEndsAt: true, graceEndsAt: true, currentPeriodEnd: true, cancelAtPeriodEnd: true } })
+    prisma.subscription.findUnique({
+      where: { facilityId },
+      select: {
+        status: true,
+        trialEndsAt: true,
+        graceEndsAt: true,
+        currentPeriodEnd: true,
+        cancelAtPeriodEnd: true,
+        plan: { select: { facilityKind: true } }
+      }
+    })
   );
   if (!s) return null;
   return { ...s, readOnly: NOT_WRITABLE.includes(s.status) };
