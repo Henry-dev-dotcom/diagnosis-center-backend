@@ -1,4 +1,4 @@
-import { AdministrationStatus, AdmissionStatus, BedStatus, WardGender, WardType } from '@prisma/client';
+import { AdministrationStatus, AdmissionStatus, BedStatus, FluidDirection, MedicationBlock, WardGender, WardType } from '@prisma/client';
 import { z } from 'zod';
 
 const optionalText = (max: number) => z.string().trim().max(max).optional().transform((v) => (v ? v : undefined));
@@ -51,7 +51,14 @@ export const transferSchema = z.object({
 export const administerSchema = z.object({
   status: z.nativeEnum(AdministrationStatus),
   doseGiven: optionalText(60),
-  notes: optionalText(500)
+  notes: optionalText(500),
+  // Which scheduled dose this answers. All three, or none for a dose given outside the schedule.
+  scheduleDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use a date like 2026-10-12').optional(),
+  scheduleBlock: z.nativeEnum(MedicationBlock).optional(),
+  scheduleSlot: z.coerce.number().int().min(0).max(3).optional()
+}).refine((v) => [v.scheduleDate, v.scheduleBlock, v.scheduleSlot].every((x) => x === undefined) || [v.scheduleDate, v.scheduleBlock, v.scheduleSlot].every((x) => x !== undefined), {
+  message: 'Give the day, the part of the day and the dose together',
+  path: ['scheduleDate']
 });
 
 export const dischargeSchema = z.object({
@@ -62,3 +69,15 @@ export const dischargeSchema = z.object({
 export const cancelAdmissionSchema = z.object({ reason: z.string().trim().min(3).max(300) });
 
 export const admissionItemParamSchema = z.object({ id: z.string().min(1), itemId: z.string().min(1) });
+
+export const marQuerySchema = z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use a date like 2026-10-12').optional() });
+
+export const fluidSchema = z.object({
+  direction: z.nativeEnum(FluidDirection),
+  kind: z.string().trim().min(2, 'Say what it was').max(40),
+  volumeMl: z.coerce.number().int().min(1, 'Enter a volume in millilitres').max(10_000),
+  note: optionalText(200),
+  recordedAt: z.coerce.date().optional()
+});
+
+export const fluidQuerySchema = z.object({ days: z.coerce.number().int().min(1).max(14).default(3) });

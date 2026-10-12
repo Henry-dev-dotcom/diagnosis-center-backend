@@ -132,6 +132,7 @@ model Facility {
   admissions                Admission[]
   bedAssignments            BedAssignment[]
   medicationAdministrations MedicationAdministration[]
+  fluidBalanceEntries       FluidBalanceEntry[]
   theatres                  Theatre[]
   clinicalForms             ClinicalForm[]
   pregnancies               Pregnancy[]
@@ -530,6 +531,7 @@ model User {
   dischargesDone         Admission[]                @relation("DischargedBy")
   bedMovesMade           BedAssignment[]            @relation("BedAssignedBy")
   medicationsGiven       MedicationAdministration[] @relation("AdministeredBy")
+  fluidsRecorded         FluidBalanceEntry[]        @relation("FluidRecordedBy")
   surgeriesBooked        Surgery[]                  @relation("SurgeryBookedBy")
   surgeriesPerformed     Surgery[]                  @relation("SurgerySurgeon")
   formsWritten           ClinicalForm[]             @relation("FormAuthor")
@@ -2735,6 +2737,39 @@ enum AdmissionStatus {
   CANCELLED
 }
 
+/// The parts of a ward day a scheduled medicine is given in. Facility time is UTC (Africa/Accra).
+enum MedicationBlock {
+  MORNING
+  AFTERNOON
+  NIGHT
+}
+
+enum FluidDirection {
+  INTAKE
+  OUTPUT
+}
+
+/// One entry on a patient's fluid balance chart: something drunk or infused, or passed or lost.
+model FluidBalanceEntry {
+  id           String         @id @default(cuid())
+  facilityId   String         @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  admissionId  String
+  direction    FluidDirection
+  /// Oral, IV fluid, Urine, Vomit, Drain, Stool ... free text so a ward can chart what it measures.
+  kind         String
+  volumeMl     Int
+  note         String?
+  recordedAt   DateTime       @default(now())
+  recordedById String?
+
+  facility   Facility  @relation(fields: [facilityId], references: [id])
+  admission  Admission @relation(fields: [admissionId], references: [id])
+  recordedBy User?     @relation("FluidRecordedBy", fields: [recordedById], references: [id])
+
+  @@index([facilityId])
+  @@index([admissionId, recordedAt])
+}
+
 enum AdministrationStatus {
   GIVEN
   HELD
@@ -2806,6 +2841,8 @@ model Admission {
   dischargeOutcome    String?
   dischargeSummary    String?
   cancelReason        String?
+  /// When a doctor last looked at this stay's results; results signed off after it are "new" on the ward board.
+  resultsReviewedAt   DateTime?
   createdAt           DateTime        @default(now())
   updatedAt           DateTime        @updatedAt
 
@@ -2820,6 +2857,7 @@ model Admission {
   dischargedBy    User?                      @relation("DischargedBy", fields: [dischargedById], references: [id])
   bedAssignments  BedAssignment[]
   administrations MedicationAdministration[]
+  fluidEntries    FluidBalanceEntry[]
 
   @@unique([facilityId, admissionCode])
   @@index([facilityId])
@@ -2860,6 +2898,11 @@ model MedicationAdministration {
   notes              String?
   administeredById   String?
   administeredAt     DateTime             @default(now())
+  /// The scheduled dose this answers (day, part of the day, and which dose in that part), so the
+  /// chart can show it ticked. All three are empty for a dose given outside the schedule.
+  scheduleDate       String?
+  scheduleBlock      MedicationBlock?
+  scheduleSlot       Int?
 
   facility         Facility         @relation(fields: [facilityId], references: [id])
   admission        Admission        @relation(fields: [admissionId], references: [id])
@@ -2868,6 +2911,8 @@ model MedicationAdministration {
 
   @@index([facilityId])
   @@index([admissionId, administeredAt])
+  /// A scheduled dose can be recorded once; two nurses ticking the same box cannot both succeed.
+  @@unique([prescriptionItemId, scheduleDate, scheduleBlock, scheduleSlot])
 }
 
 // ---------------------------------------------------------------------------

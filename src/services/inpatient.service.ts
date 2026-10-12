@@ -11,6 +11,7 @@ import {
   SurgeryStatus,
   WardGender,
   type AdministrationStatus,
+  type MedicationBlock,
   type WardType
 } from '@prisma/client';
 import { prisma } from './prisma.service.js';
@@ -19,6 +20,7 @@ import { nextCode as issueCode } from './codeSequence.service.js';
 import { createAuditLog, getRequestAuditContext } from './audit.service.js';
 import { AppError } from '../utils/appError.js';
 import { assertPatientAlive } from './mortuary.service.js';
+import { dayKey, parseFrequency, runsOn, slotState } from './medicationSchedule.js';
 
 /*
   Inpatient care (Phase 4B). An Admission owns an INPATIENT encounter, so the
@@ -311,7 +313,7 @@ export async function transfer(id: string, body: { wardId: string; bedId: string
 export async function administer(
   id: string,
   prescriptionItemId: string,
-  body: { status: AdministrationStatus; doseGiven?: string; notes?: string },
+  body: { status: AdministrationStatus; doseGiven?: string; notes?: string; scheduleDate?: string; scheduleBlock?: MedicationBlock; scheduleSlot?: number },
   req: Request
 ) {
   const admission = await loadActiveAdmission(id);
@@ -319,17 +321,35 @@ export async function administer(
   if (!item || item.prescription.encounterId !== admission.encounterId) throw new AppError('That medicine is not prescribed for this stay', 400, 'ITEM_NOT_ON_ADMISSION');
   if (item.prescription.status === PrescriptionStatus.CANCELLED) throw new AppError('That prescription was cancelled', 409, 'PRESCRIPTION_CANCELLED');
   if (body.status !== 'GIVEN' && !body.notes) throw new AppError('Say why the dose was not given', 400, 'REASON_REQUIRED');
-  await prisma.medicationAdministration.create({
-    data: {
-      admissionId: id,
-      prescriptionItemId,
-      status: body.status,
-      doseGiven: body.doseGiven ?? (body.status === 'GIVEN' ? item.dose : null),
-      notes: body.notes ?? null,
-      administeredById: req.user?.id ?? null
+  // A tick on the chart names the dose it answers: which day, which part of the day, which dose in it.
+  if (body.scheduleDate) {
+    const { scheduleBlock, scheduleSlot } = body;
+    const slotExists = parseFrequency(item.frequency).slots.some((s) => s.block === scheduleBlock && s.slot === scheduleSlot);
+    if (!slotExists) throw new AppError("That dose is not part of this medicine's schedule", 400, 'SLOT_NOT_SCHEDULED');
+    if (body.scheduleDate > dayKey(new Date())) throw new AppError('A dose cannot be recorded ahead of its day', 400, 'DOSE_IN_THE_FUTURE');
+    if (!runsOn(body.scheduleDate, item.prescription.createdAt, item.durationDays)) throw new AppError("That day is outside this medicine's course", 400, 'OUTSIDE_COURSE');
+    if (slotState(body.scheduleDate, scheduleBlock as MedicationBlock, item.prescription.createdAt, Date.now(), false) === 'NOT_APPLICABLE') {
+      throw new AppError('That dose was before this medicine was prescribed', 400, 'BEFORE_PRESCRIBED');
     }
-  });
-  await audit(req, 'MEDICATION_ADMINISTERED', id, { prescriptionItemId, status: body.status });
+  }
+  try {
+    await prisma.medicationAdministration.create({
+      data: {
+        admissionId: id,
+        prescriptionItemId,
+        status: body.status,
+        doseGiven: body.doseGiven ?? (body.status === 'GIVEN' ? item.dose : null),
+        notes: body.notes ?? null,
+        administeredById: req.user?.id ?? null,
+        ...(body.scheduleDate ? { scheduleDate: body.scheduleDate, scheduleBlock: body.scheduleBlock, scheduleSlot: body.scheduleSlot } : {})
+      }
+    });
+  } catch (error) {
+    // Two nurses ticking the same box: the second finds it already done.
+    if (isUniqueViolation(error)) throw new AppError('That dose has already been recorded', 409, 'DOSE_ALREADY_RECORDED');
+    throw error;
+  }
+  await audit(req, 'MEDICATION_ADMINISTERED', id, { prescriptionItemId, status: body.status, ...(body.scheduleDate ? { scheduleDate: body.scheduleDate, scheduleBlock: body.scheduleBlock, scheduleSlot: body.scheduleSlot } : {}) });
   return getAdmission(id);
 }
 
