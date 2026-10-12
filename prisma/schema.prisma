@@ -166,6 +166,7 @@ model Facility {
   leaveRequests             LeaveRequest[]
   chartAccesses             ChartAccess[]
   encounterDrafts           EncounterDraft[]
+  patientDocuments          PatientDocument[]
   recordRequests            RecordRequest[]
   subscription              Subscription?
   subscriptionInvoices      SubscriptionInvoice[]
@@ -559,6 +560,7 @@ model User {
   leaveRequests          LeaveRequest[]             @relation("LeaveOf")
   leaveDecisions         LeaveRequest[]             @relation("LeaveDecidedBy")
   chartAccesses          ChartAccess[]              @relation("ChartAccessedBy")
+  uploadedDocuments      PatientDocument[]          @relation("PatientDocumentUploader")
   encounterDrafts        EncounterDraft[]           @relation("EncounterDraftAuthor")
   recordRequestsLogged   RecordRequest[]            @relation("RecordRequestLoggedBy")
   recordRequestsDecided  RecordRequest[]            @relation("RecordRequestDecidedBy")
@@ -738,6 +740,7 @@ model Patient {
   bloodRequests  BloodRequest[]
   deceasedRecord DeceasedRecord?
   chartAccesses  ChartAccess[]
+  documents      PatientDocument[]
   recordRequests RecordRequest[]
 
   @@unique([facilityId, patientCode])
@@ -3975,6 +3978,41 @@ enum RecordRequestStatus {
   APPROVED
   RELEASED
   REFUSED
+}
+
+enum PatientDocumentCategory {
+  REFERRAL_LETTER
+  IMAGING_REPORT
+  LAB_REPORT
+  DISCHARGE_SUMMARY
+  CONSENT
+  INSURANCE
+  OTHER
+}
+
+/// A document filed against a patient's record: a referral letter, a report from another
+/// hospital, a signed consent. The bytes are kept in the database, not on disk, because a
+/// host's disk can be wiped on every deploy and a patient's referral letter must not vanish.
+/// Capped in size by the service (a few megabytes: letters, reports and photographs).
+model PatientDocument {
+  id           String                  @id @default(cuid())
+  facilityId   String                  @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  patientId    String
+  uploadedById String?
+  title        String
+  category     PatientDocumentCategory @default(OTHER)
+  fileName     String
+  mimeType     String
+  sizeBytes    Int
+  content      Bytes
+  createdAt    DateTime                @default(now())
+
+  facility   Facility @relation(fields: [facilityId], references: [id])
+  patient    Patient  @relation(fields: [patientId], references: [id])
+  uploadedBy User?    @relation("PatientDocumentUploader", fields: [uploadedById], references: [id])
+
+  @@index([facilityId])
+  @@index([patientId, createdAt])
 }
 
 /// A clinician's unsaved work on a visit (notes, chosen diagnosis, half-built orders).

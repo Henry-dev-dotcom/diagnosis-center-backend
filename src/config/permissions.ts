@@ -201,7 +201,8 @@ export const PERMISSIONS = {
   RECORDS_CHART_READ: 'records:chart:read',
   RECORDS_RELEASE: 'records:release',
   RECORDS_APPROVE: 'records:approve',
-  RECORDS_AUDIT: 'records:audit'
+  RECORDS_AUDIT: 'records:audit',
+  RECORDS_DOCUMENTS_WRITE: 'records:documents:write'
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -263,8 +264,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly
     // See the duty rota and ask for leave (HR module).
     PERMISSIONS.HR_ROTA_READ,
     PERMISSIONS.HR_LEAVE_REQUEST,
-    // Read the full patient chart (Medical Records module).
-    PERMISSIONS.RECORDS_CHART_READ
+    // Read the full patient chart, and file documents against it (Medical Records module).
+    PERMISSIONS.RECORDS_CHART_READ,
+    PERMISSIONS.RECORDS_DOCUMENTS_WRITE
   ],
   [UserRole.NURSE]: [
     PERMISSIONS.SYSTEM_READ,
@@ -303,8 +305,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly
     // See the duty rota and ask for leave (HR module).
     PERMISSIONS.HR_ROTA_READ,
     PERMISSIONS.HR_LEAVE_REQUEST,
-    // Read the full patient chart (Medical Records module).
-    PERMISSIONS.RECORDS_CHART_READ
+    // Read the full patient chart, and file documents against it (Medical Records module).
+    PERMISSIONS.RECORDS_CHART_READ,
+    PERMISSIONS.RECORDS_DOCUMENTS_WRITE
   ],
   [UserRole.PHARMACIST]: [
     PERMISSIONS.SYSTEM_READ,
@@ -356,6 +359,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly
     PERMISSIONS.HR_LEAVE_REQUEST,
     // The records office: log and release record requests (Medical Records module).
     PERMISSIONS.RECORDS_CHART_READ,
+    PERMISSIONS.RECORDS_DOCUMENTS_WRITE,
     PERMISSIONS.RECORDS_RELEASE
   ],
   [UserRole.LAB_STAFF]: [

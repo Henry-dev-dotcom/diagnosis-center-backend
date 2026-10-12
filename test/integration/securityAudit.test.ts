@@ -21,6 +21,10 @@ const PUBLIC_ROUTES = new Set([
   // protected by the token itself (single-use, hashed, 24 hours) and rate limited,
   // and is POST only so that a mail scanner fetching the link cannot spend it.
   'POST /auth/email/verify',
+  // Gustav vendor portal sign-in and invitation activation: a vendor has no session
+  // until these succeed. Both are authRateLimit'ed and validate their body; the
+  // activation token is single-use. Every other /vendor route requires vendor auth.
+  'POST /vendor/auth/login', 'POST /vendor/auth/activate',
   'GET /public/plans', 'POST /public/quote', 'POST /public/signup', 'POST /public/demo-requests', // website
   'GET /billing/fake-checkout/:reference', 'GET /billing/fake-checkout/:reference/complete' // development gateway only (404 otherwise)
 ]);

@@ -330,7 +330,10 @@ describe('clinical history', () => {
     const sampleId = accepted.json.data.samples[0].id;
     await post('/lab/results', 'lab', { sampleId, parameters: [{ name: 'Haemoglobin', value: '7.7', unit: 'g/dL' }] });
     const draftView = await history(visit.patientId);
-    expect(draftView.text, 'a draft value leaked to the clinician').not.toContain('7.7');
+    const draftTest = draftView.json.data.encounters.find((e: { id: string }) => e.id === visit.encounterId).tests[0];
+    expect(draftTest.lab, 'a draft result reached the clinician').toBeNull();
+    // Not a plain substring search: a timestamp in the response can contain "7.7" by chance.
+    expect(draftView.text).not.toContain('"value":"7.7"');
 
     const draftRow = await runWithFacility(FACILITY_A.id, () => prisma.labResult.findFirstOrThrow({ where: { sampleId } }));
     await post('/lab/results/submit-review', 'lab', { resultId: draftRow.id });
