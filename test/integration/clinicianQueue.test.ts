@@ -1,5 +1,6 @@
 import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
+import { ResultFlag } from '@prisma/client';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../../src/app.js';
 import { prisma } from '../../src/services/prisma.service.js';
@@ -212,6 +213,25 @@ describe('the visit finds its own way back', () => {
     expect(await queueState(visit.encounterId), 'signed off means the doctor can carry on').toBe('REVIEW_READY');
     expect(await inQueue('reviewReady', visit.encounterId)).toBe(true);
     expect(await inQueue('pendingLabs', visit.encounterId)).toBe(false);
+    await runWithFacility(FACILITY_A.id, async () => {
+      const updated = await prisma.labResultParameter.updateMany({ where: { labResultId: resultId }, data: { flag: ResultFlag.CRITICAL } });
+      expect(updated.count).toBeGreaterThan(0);
+    });
+    const queue = await get('/encounters/queue', 'doctor');
+    expect(queue.status, queue.text).toBe(200);
+    const priorityRow = queue.json.data.reviewReady.find((item: { id: string }) => item.id === visit.encounterId);
+    expect(priorityRow.resultPriority).toBe('CRITICAL');
+    expect(priorityRow).not.toHaveProperty('orders');
+    expect(priorityRow).not.toHaveProperty('labResults');
+    const nurseQueue = await get('/encounters/queue', 'nurse');
+    const nurseRow = nurseQueue.json.data.reviewReady.find((item: { id: string }) => item.id === visit.encounterId);
+    expect(nurseRow).not.toHaveProperty('resultPriority');
+    const receptionQueue = await get('/encounters/queue', 'reception');
+    const receptionRow = receptionQueue.json.data.reviewReady.find((item: { id: string }) => item.id === visit.encounterId);
+    expect(receptionRow).not.toHaveProperty('resultPriority');
+    const adminQueue = await get('/encounters/queue', 'admin');
+    const adminRow = adminQueue.json.data.reviewReady.find((item: { id: string }) => item.id === visit.encounterId);
+    expect(adminRow.resultPriority).toBe('CRITICAL');
     const ready = (await get(`/encounters/${visit.encounterId}`, 'doctor')).json.data;
     expect(ready.tests).toMatchObject({ total: 1, ready: 1, outstanding: [] });
 
@@ -219,6 +239,9 @@ describe('the visit finds its own way back', () => {
     expect(withdrawn.status, withdrawn.text).toBe(200);
     expect(await queueState(visit.encounterId), 'a withdrawn result must not leave the patient looking ready').toBe('PENDING_LABS');
     expect(await inQueue('pendingLabs', visit.encounterId)).toBe(true);
+    const pendingQueue = await get('/encounters/queue', 'doctor');
+    const pendingRow = pendingQueue.json.data.pendingLabs.find((item: { id: string }) => item.id === visit.encounterId);
+    expect(pendingRow).not.toHaveProperty('resultPriority');
 
     const resigned = await post(`/lab/results/${resultId}/sign-off`, 'lab', { decision: 'SIGNED_OFF' });
     expect(resigned.status, resigned.text).toBe(200);
