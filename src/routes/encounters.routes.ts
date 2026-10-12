@@ -5,6 +5,7 @@ import { requireAnyPermission, requireAuth, requirePermission, requireRole } fro
 import { requireAnyModule } from '../middleware/requireModule.js';
 import { validateRequest } from '../middleware/validate.js';
 import { idParamSchema } from '../validators/common.validators.js';
+import { noteFormattingRequestSchema } from '../services/curataAiNote.service.js';
 import {
   allergySchema,
   clinicalHistoryQuerySchema,
@@ -29,6 +30,8 @@ import {
   addAllergyController,
   addDiagnosisController,
   addNoteController,
+  curataAiNoteFormattingStatusController,
+  curataAiNoteFormattingController,
   cancelEncounterController,
   clinicalHistoryController,
   clinicianQueueController,
@@ -73,6 +76,8 @@ encountersRoutes.get('/encounters/diagnosis-codes', requirePermission(P.ENCOUNTE
 encountersRoutes.get('/encounters/formulary', requirePermission(P.PHARMACY_FORMULARY_READ), validateRequest({ query: formularyQuerySchema }), formularyController);
 encountersRoutes.post('/encounters/emergency-arrivals', requirePermission(P.ENCOUNTERS_CREATE), validateRequest({ body: emergencyRegistrationSchema }), emergencyRegistrationController);
 encountersRoutes.get('/encounters/queue', requirePermission(P.ENCOUNTERS_READ), validateRequest({ query: queueQuerySchema }), clinicianQueueController);
+encountersRoutes.get('/encounters/:id/curataai/note-formatting', requirePermission(P.ENCOUNTERS_CONSULT), validateRequest({ params: idParamSchema }), curataAiNoteFormattingStatusController);
+encountersRoutes.post('/encounters/:id/curataai/note-formatting', requirePermission(P.ENCOUNTERS_CONSULT), validateRequest({ params: idParamSchema, body: noteFormattingRequestSchema }), curataAiNoteFormattingController);
 encountersRoutes.get('/encounters/:id', requirePermission(P.ENCOUNTERS_READ), validateRequest({ params: idParamSchema }), getEncounterController);
 encountersRoutes.post('/encounters/:id/vitals', requireAnyPermission(P.ENCOUNTERS_TRIAGE, P.ENCOUNTERS_CONSULT), validateRequest({ params: idParamSchema, body: vitalsSchema }), recordVitalsController);
 encountersRoutes.post('/encounters/:id/start-consultation', requirePermission(P.ENCOUNTERS_CONSULT), validateRequest({ params: idParamSchema }), startConsultationController);
