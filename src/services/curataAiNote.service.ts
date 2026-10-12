@@ -39,6 +39,24 @@ export const noteFormattingResponseSchema = z
   .strict();
 export type NoteFormattingResponse = z.infer<typeof noteFormattingResponseSchema>;
 
+/**
+ * Phase 3 adapter seam. Production does not configure or call this interface yet;
+ * the encounter route remains fail-closed until clinical and data-processing gates pass.
+ */
+export interface NoteFormattingProvider {
+  format(request: NoteFormattingRequest): Promise<unknown>;
+}
+
+/** Validate both sides of an explicitly injected formatter using the narrow SOAP contract. */
+export async function formatNoteWithProvider(
+  provider: NoteFormattingProvider,
+  payload: unknown
+): Promise<NoteFormattingResponse> {
+  const request = noteFormattingRequestSchema.parse(payload);
+  const response = await provider.format(request);
+  return noteFormattingResponseSchema.parse(response);
+}
+
 export type NoteFormattingStatus = {
   task: 'NOTE_FORMATTING';
   enabled: boolean;
