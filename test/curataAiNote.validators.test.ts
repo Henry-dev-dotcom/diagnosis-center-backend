@@ -1,12 +1,21 @@
 import { describe, expect, it, vi } from 'vitest';
 import { env } from '../src/config/env.js';
-import { formatNoteWithProvider, noteFormattingRequestSchema, noteFormattingResponseSchema } from '../src/services/curataAiNote.service.js';
+import { formatNoteWithProvider, noteFormattingRequestSchema, noteFormattingResponseSchema, noteFormattingStatusFor } from '../src/services/curataAiNote.service.js';
 import type { NoteFormattingRequest, NoteFormattingResponse } from '../src/services/curataAiNote.service.js';
 import { syntheticNoteFormattingInputs } from './fixtures/curataAiNoteFormatting.synthetic.js';
 
 describe('CurataAI note-format foundation contracts', () => {
   it('keeps the feature flag off by default', () => {
     expect(env.CURATAAI_NOTE_FORMATTING_ENABLED).toBe(false);
+  });
+
+  it('remains unavailable when the flag is on but no provider is configured', () => {
+    expect(noteFormattingStatusFor(true)).toEqual({
+      task: 'NOTE_FORMATTING',
+      enabled: true,
+      available: false,
+      reason: 'PROVIDER_NOT_CONFIGURED'
+    });
   });
 
   it('accepts only clinician-entered SOAP text', () => {

@@ -64,6 +64,16 @@ export type NoteFormattingStatus = {
   reason: 'FEATURE_DISABLED' | 'PROVIDER_NOT_CONFIGURED';
 };
 
+/** The feature flag alone never makes formatting available; a provider is not configured in this phase. */
+export function noteFormattingStatusFor(enabled: boolean): NoteFormattingStatus {
+  return {
+    task: 'NOTE_FORMATTING',
+    enabled,
+    available: false,
+    reason: enabled ? 'PROVIDER_NOT_CONFIGURED' : 'FEATURE_DISABLED'
+  };
+}
+
 async function assertEncounterInFacility(encounterId: string) {
   // The Prisma tenant extension scopes this lookup to the authenticated facility.
   const encounter = await prisma.encounter.findUnique({ where: { id: encounterId }, select: { id: true } });
@@ -72,13 +82,7 @@ async function assertEncounterInFacility(encounterId: string) {
 
 export async function getNoteFormattingStatus(encounterId: string): Promise<NoteFormattingStatus> {
   await assertEncounterInFacility(encounterId);
-  const enabled = env.CURATAAI_NOTE_FORMATTING_ENABLED;
-  return {
-    task: 'NOTE_FORMATTING',
-    enabled,
-    available: false,
-    reason: enabled ? 'PROVIDER_NOT_CONFIGURED' : 'FEATURE_DISABLED'
-  };
+  return noteFormattingStatusFor(env.CURATAAI_NOTE_FORMATTING_ENABLED);
 }
 
 /**
@@ -90,7 +94,7 @@ export async function requestNoteFormatting(encounterId: string, payload: NoteFo
   await assertEncounterInFacility(encounterId);
   const inputChars = Object.values(payload.sections).reduce((total, text) => total + (text?.length ?? 0), 0);
   const enabled = env.CURATAAI_NOTE_FORMATTING_ENABLED;
-  const reason = enabled ? 'PROVIDER_NOT_CONFIGURED' : 'FEATURE_DISABLED';
+  const { reason } = noteFormattingStatusFor(enabled);
 
   await createAuditLog({
     ...getRequestAuditContext(req),
