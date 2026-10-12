@@ -20,6 +20,7 @@ import { createAuditLog, getRequestAuditContext } from './audit.service.js';
 import { getPagination, paginationMeta, safeOrderBy } from './query.service.js';
 import { computeFlag, numberOrNull, referenceDisplay } from './labFlags.js';
 import { AppError } from '../utils/appError.js';
+import { evaluateQcRunAlert } from './analyzer/alert.service.js';
 
 const patientSelect = {
   id: true,
@@ -770,6 +771,7 @@ export async function createQualityControlRun(body: QcPayload, req: Request) {
     include: { performedBy: { select: { id: true, name: true, role: true } } }
   });
   await createAuditLog({ ...getRequestAuditContext(req), action: 'LAB_QC_RUN_CREATED', module: 'Lab', entityType: 'QualityControlRun', entityId: run.id, afterData: run });
+  await evaluateQcRunAlert(run);
   return run;
 }
 
