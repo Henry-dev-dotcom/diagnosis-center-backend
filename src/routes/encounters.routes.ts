@@ -78,6 +78,8 @@ encountersRoutes.get('/encounters/:id', requirePermission(P.ENCOUNTERS_READ), va
 encountersRoutes.post('/encounters/:id/vitals', requireAnyPermission(P.ENCOUNTERS_TRIAGE, P.ENCOUNTERS_CONSULT), validateRequest({ params: idParamSchema, body: vitalsSchema }), recordVitalsController);
 encountersRoutes.post('/encounters/:id/start-consultation', requirePermission(P.ENCOUNTERS_CONSULT), validateRequest({ params: idParamSchema }), startConsultationController);
 encountersRoutes.post('/encounters/:id/suspend', requirePermission(P.ENCOUNTERS_CONSULT), validateRequest({ params: idParamSchema }), suspendEncounterController);
+encountersRoutes.post('/encounters/:id/ping-diagnostics', requirePermission(P.ENCOUNTERS_CONSULT), validateRequest({ params: idParamSchema }), pingLabController);
+// Keep the original route for older clients while the clinician UI moves to diagnostic terminology.
 encountersRoutes.post('/encounters/:id/ping-lab', requirePermission(P.ENCOUNTERS_CONSULT), validateRequest({ params: idParamSchema }), pingLabController);
 encountersRoutes.post('/encounters/:id/resume', requirePermission(P.ENCOUNTERS_CONSULT), validateRequest({ params: idParamSchema }), resumeEncounterController);
 encountersRoutes.get('/encounters/:id/draft', requirePermission(P.ENCOUNTERS_CONSULT), validateRequest({ params: idParamSchema }), getDraftController);

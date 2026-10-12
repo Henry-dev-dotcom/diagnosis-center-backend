@@ -73,7 +73,7 @@ export async function getClinicianQueue(query: { scope?: 'mine' | 'all' }, req: 
   type QueueItem = Omit<(typeof rows)[number], 'orders'> & {
     queueState: QueueState;
     tests: ReturnType<typeof testProgress>;
-    canPingLab: boolean;
+  canPingDiagnostics: boolean;
     resultPriority?: QueueResultPriority;
   };
   const buckets: Record<'new' | 'inConsultation' | 'pendingLabs' | 'reviewReady', QueueItem[]> = {
@@ -85,11 +85,11 @@ export async function getClinicianQueue(query: { scope?: 'mine' | 'all' }, req: 
   for (const row of rows) {
     const queueState: QueueState = deriveQueueState(row, row.orders);
     const { orders, ...encounter } = row;
-    const canPingLab = orders.some((order) => order.status !== OrderStatus.CANCELLED && order.items.some((orderItem) =>
-      orderItem.type === CatalogItemType.LAB &&
+    const canPingDiagnostics = orders.some((order) => order.status !== OrderStatus.CANCELLED && order.items.some((orderItem) =>
+      (orderItem.type === CatalogItemType.LAB || orderItem.type === CatalogItemType.SCAN) &&
       !COMPLETED_ORDER_ITEM_STATUSES.has(orderItem.status)
     ));
-    const item: QueueItem = { ...encounter, queueState, tests: testProgress(orders), canPingLab };
+    const item: QueueItem = { ...encounter, queueState, tests: testProgress(orders), canPingDiagnostics };
     if (queueState === 'NEW') {
       buckets.new.push(item);
       continue;
