@@ -93,7 +93,9 @@ const envSchema = z
     // Optional incoming-webhook URL (Slack, Teams, …) for operational alerts.
     ALERT_WEBHOOK_URL: z.string().url().optional(),
     // How long each facility's departments and subscription state are cached (0 = off).
-    ACCESS_CACHE_TTL_MS: z.coerce.number().int().min(0).max(60_000).default(5000)
+    ACCESS_CACHE_TTL_MS: z.coerce.number().int().min(0).max(60_000).default(5000),
+    // CurataAI note formatting remains unavailable until a provider and clinical review are approved.
+    CURATAAI_NOTE_FORMATTING_ENABLED: envBoolean.default(false)
   })
   .superRefine((value, ctx) => {
     if (value.NODE_ENV !== 'production') {

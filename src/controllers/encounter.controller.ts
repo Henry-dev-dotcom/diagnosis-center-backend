@@ -4,6 +4,7 @@ import { sendCreated, sendSuccess } from '../utils/apiResponse.js';
 import { searchIcd10 } from '../data/icd10Common.js';
 import { formulary } from '../services/pharmacy.service.js';
 import { getClinicalHistory } from '../services/clinicalHistory.service.js';
+import { getNoteFormattingStatus, requestNoteFormatting } from '../services/curataAiNote.service.js';
 import { deleteDraft, getClinicianQueue, getDraft, resumeEncounter, saveDraft, suspendEncounter } from '../services/clinicianQueue.service.js';
 import {
   addAllergy,
@@ -99,6 +100,12 @@ export const getDraftController = asyncHandler(async (req: Request, res: Respons
 );
 export const saveDraftController = asyncHandler(async (req: Request, res: Response) =>
   sendSuccess(res, 'Draft saved', await saveDraft(req.params.id, req.body.data, req))
+);
+export const curataAiNoteFormattingStatusController = asyncHandler(async (req: Request, res: Response) =>
+  sendSuccess(res, 'CurataAI note formatting status loaded', await getNoteFormattingStatus(req.params.id))
+);
+export const curataAiNoteFormattingController = asyncHandler(async (req: Request, res: Response) =>
+  sendSuccess(res, 'CurataAI note formatting unavailable', await requestNoteFormatting(req.params.id, req.body, req))
 );
 export const deleteDraftController = asyncHandler(async (req: Request, res: Response) =>
   sendSuccess(res, 'Draft discarded', await deleteDraft(req.params.id, req))

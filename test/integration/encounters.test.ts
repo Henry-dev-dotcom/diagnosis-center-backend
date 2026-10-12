@@ -44,6 +44,7 @@ beforeAll(async () => {
   baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   for (const user of ['reception', 'nurse', 'doctor', 'lab', 'billing', 'admin'] as const) await signIn(FACILITY_A.code, user);
   await signIn(FACILITY_B.code, 'nurse');
+  await signIn(FACILITY_B.code, 'doctor');
   // A fresh patient so the journey does not collide with other suites.
   patientId = await runWithFacility(FACILITY_A.id, async () =>
     (await prisma.patient.create({ data: { patientCode: 'PAT-OPD-1', firstName: 'Kweku', lastName: 'Journey', phone: '+233200000009' } })).id
@@ -123,6 +124,29 @@ describe('outpatient journey', () => {
 
     const queue = await get('/lab/queue', 'lab');
     expect(queue.text).toContain(placed.orderCode);
+  });
+
+  it('CurataAI note formatting is disabled, permission-protected, tenant-scoped, and audits no note text', async () => {
+    const path = `/encounters/${encounterId}/curataai/note-formatting`;
+    const status = await get(path, 'doctor');
+    expect(status.status, status.text).toBe(200);
+    expect(status.json.data).toEqual({ task: 'NOTE_FORMATTING', enabled: false, available: false, reason: 'FEATURE_DISABLED' });
+
+    expect((await get(path, 'reception')).status).toBe(403);
+    expect((await get(path, 'doctor', FACILITY_B.code)).status).toBe(404);
+
+    const marker = 'CONFIDENTIAL_NOTE_TEXT_MUST_NOT_BE_AUDITED';
+    const blocked = await post(path, 'doctor', { sections: { subjective: marker } });
+    expect(blocked.status).toBe(503);
+    expect(blocked.json.code).toBe('CURATAAI_DISABLED');
+
+    const event = await runWithFacility(FACILITY_A.id, () => prisma.auditLog.findFirst({
+      where: { action: 'CURATAAI_NOTE_FORMATTING_REQUESTED', entityId: encounterId },
+      orderBy: { createdAt: 'desc' }
+    }));
+    expect(event).not.toBeNull();
+    expect(JSON.stringify(event?.details)).not.toContain(marker);
+    expect(JSON.stringify(event?.details)).toContain('NOTE_FORMATTING');
   });
 
   it('service items cannot be ordered as investigations', async () => {
