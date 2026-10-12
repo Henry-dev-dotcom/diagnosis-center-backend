@@ -1,9 +1,10 @@
 import type { Request } from 'express';
-import { EncounterStatus, EncounterType, Prisma } from '@prisma/client';
+import { EncounterStatus, EncounterType, LabResultStatus, Prisma, UserRole } from '@prisma/client';
 import { prisma } from './prisma.service.js';
 import { createAuditLog, getRequestAuditContext } from './audit.service.js';
 import { getEncounter } from './encounter.service.js';
 import { deriveQueueState, testProgress, type QueueState } from './queueState.js';
+import { summarizeQueueResultPriority, type QueueResultPriority } from './queueResultPriority.js';
 import { AppError } from '../utils/appError.js';
 
 /*
@@ -68,7 +69,12 @@ export async function getClinicianQueue(query: { scope?: 'mine' | 'all' }, req: 
     }
   });
 
-  const buckets: Record<'new' | 'inConsultation' | 'pendingLabs' | 'reviewReady', Array<{ suspendedAt: Date | null }>> = {
+  type QueueItem = Omit<(typeof rows)[number], 'orders'> & {
+    queueState: QueueState;
+    tests: ReturnType<typeof testProgress>;
+    resultPriority?: QueueResultPriority;
+  };
+  const buckets: Record<'new' | 'inConsultation' | 'pendingLabs' | 'reviewReady', QueueItem[]> = {
     new: [],
     inConsultation: [],
     pendingLabs: [],
@@ -77,7 +83,7 @@ export async function getClinicianQueue(query: { scope?: 'mine' | 'all' }, req: 
   for (const row of rows) {
     const queueState: QueueState = deriveQueueState(row, row.orders);
     const { orders, ...encounter } = row;
-    const item = { ...encounter, queueState, tests: testProgress(orders) };
+    const item: QueueItem = { ...encounter, queueState, tests: testProgress(orders) };
     if (queueState === 'NEW') {
       buckets.new.push(item);
       continue;
@@ -91,6 +97,38 @@ export async function getClinicianQueue(query: { scope?: 'mine' | 'all' }, req: 
   const bySuspended = (a: { suspendedAt: Date | null }, b: { suspendedAt: Date | null }) => +new Date(a.suspendedAt ?? 0) - +new Date(b.suspendedAt ?? 0);
   buckets.pendingLabs.sort(bySuspended);
   buckets.reviewReady.sort(bySuspended);
+
+  // Load only enum flags for patients ready for clinician review. Raw results and
+  // numeric values stay out of the queue payload, and the existing wait order stays intact.
+  const canViewResultPriority = req.user?.role === UserRole.DOCTOR || req.user?.role === UserRole.ADMIN;
+  if (canViewResultPriority && buckets.reviewReady.length > 0) {
+    const resultRows = await prisma.encounter.findMany({
+      where: { id: { in: buckets.reviewReady.map((row) => row.id) } },
+      select: {
+        id: true,
+        orders: {
+          select: {
+            status: true,
+            items: {
+              select: {
+                status: true,
+                labResults: {
+                  where: { status: LabResultStatus.SIGNED_OFF },
+                  orderBy: { signedOffAt: 'desc' },
+                  take: 1,
+                  select: { parameters: { select: { flag: true } } }
+                }
+              }
+            }
+          }
+        }
+      }
+    });
+    const priorities = new Map<string, QueueResultPriority>(
+      resultRows.map((row) => [row.id, summarizeQueueResultPriority(row.orders)])
+    );
+    for (const row of buckets.reviewReady) row.resultPriority = priorities.get(row.id) ?? 'UNCLASSIFIED';
+  }
 
   return {
     scope,
