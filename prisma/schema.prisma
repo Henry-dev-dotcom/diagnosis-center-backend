@@ -165,6 +165,7 @@ model Facility {
   rotaEntries               RotaEntry[]
   leaveRequests             LeaveRequest[]
   chartAccesses             ChartAccess[]
+  encounterDrafts           EncounterDraft[]
   recordRequests            RecordRequest[]
   subscription              Subscription?
   subscriptionInvoices      SubscriptionInvoice[]
@@ -558,6 +559,7 @@ model User {
   leaveRequests          LeaveRequest[]             @relation("LeaveOf")
   leaveDecisions         LeaveRequest[]             @relation("LeaveDecidedBy")
   chartAccesses          ChartAccess[]              @relation("ChartAccessedBy")
+  encounterDrafts        EncounterDraft[]           @relation("EncounterDraftAuthor")
   recordRequestsLogged   RecordRequest[]            @relation("RecordRequestLoggedBy")
   recordRequestsDecided  RecordRequest[]            @relation("RecordRequestDecidedBy")
   recordRequestsReleased RecordRequest[]            @relation("RecordRequestReleasedBy")
@@ -2353,6 +2355,10 @@ model Encounter {
   startedAt             DateTime        @default(now())
   triagedAt             DateTime?
   consultationStartedAt DateTime?
+  /// Set when the clinician sends the patient off for tests and pauses the consultation; cleared
+  /// on resume. The visit stays IN_CONSULTATION - the clinician's queue bucket (pending labs or
+  /// review ready) is worked out from this and the state of the tests ordered, never stored.
+  suspendedAt           DateTime?
   completedAt           DateTime?
   /// DISCHARGED, REFERRED, ADMITTED, LEFT_WITHOUT_BEING_SEEN, ... (free text for now)
   outcome               String?
@@ -2377,6 +2383,7 @@ model Encounter {
   admissionsStarted Admission[]      @relation("AdmissionSource")
   surgeries         Surgery[]
   forms             ClinicalForm[]
+  drafts            EncounterDraft[]
   deliveries        Delivery[]
   immunizations     Immunization[]
   claims            Claim[]
@@ -3968,6 +3975,27 @@ enum RecordRequestStatus {
   APPROVED
   RELEASED
   REFUSED
+}
+
+/// A clinician's unsaved work on a visit (notes, chosen diagnosis, half-built orders).
+/// Clinical notes are append-only, so work in progress lives here until it is saved as a real
+/// note. One draft per clinician per visit; it is replaced on every save and deleted when the
+/// visit closes.
+model EncounterDraft {
+  id          String   @id @default(cuid())
+  facilityId  String   @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
+  encounterId String
+  authorId    String
+  data        Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  facility  Facility  @relation(fields: [facilityId], references: [id])
+  encounter Encounter @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+  author    User      @relation("EncounterDraftAuthor", fields: [authorId], references: [id])
+
+  @@unique([encounterId, authorId])
+  @@index([facilityId])
 }
 
 model ChartAccess {

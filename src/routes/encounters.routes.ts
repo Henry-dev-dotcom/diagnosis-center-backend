@@ -7,10 +7,13 @@ import { validateRequest } from '../middleware/validate.js';
 import { idParamSchema } from '../validators/common.validators.js';
 import {
   allergySchema,
+  clinicalHistoryQuerySchema,
   cancelSchema,
   emergencyRegistrationSchema,
   formularyQuerySchema,
   completeEncounterSchema,
+  draftSchema,
+  queueQuerySchema,
   diagnosisSchema,
   encounterOrderSchema,
   encounterQuerySchema,
@@ -27,6 +30,13 @@ import {
   addDiagnosisController,
   addNoteController,
   cancelEncounterController,
+  clinicalHistoryController,
+  clinicianQueueController,
+  deleteDraftController,
+  getDraftController,
+  resumeEncounterController,
+  saveDraftController,
+  suspendEncounterController,
   completeEncounterController,
   emergencyRegistrationController,
   formularyController,
@@ -62,9 +72,15 @@ encountersRoutes.post('/encounters', requirePermission(P.ENCOUNTERS_CREATE), val
 encountersRoutes.get('/encounters/diagnosis-codes', requirePermission(P.ENCOUNTERS_READ), validateRequest({ query: icd10QuerySchema }), icd10SearchController);
 encountersRoutes.get('/encounters/formulary', requirePermission(P.PHARMACY_FORMULARY_READ), validateRequest({ query: formularyQuerySchema }), formularyController);
 encountersRoutes.post('/encounters/emergency-arrivals', requirePermission(P.ENCOUNTERS_CREATE), validateRequest({ body: emergencyRegistrationSchema }), emergencyRegistrationController);
+encountersRoutes.get('/encounters/queue', requirePermission(P.ENCOUNTERS_READ), validateRequest({ query: queueQuerySchema }), clinicianQueueController);
 encountersRoutes.get('/encounters/:id', requirePermission(P.ENCOUNTERS_READ), validateRequest({ params: idParamSchema }), getEncounterController);
 encountersRoutes.post('/encounters/:id/vitals', requireAnyPermission(P.ENCOUNTERS_TRIAGE, P.ENCOUNTERS_CONSULT), validateRequest({ params: idParamSchema, body: vitalsSchema }), recordVitalsController);
 encountersRoutes.post('/encounters/:id/start-consultation', requirePermission(P.ENCOUNTERS_CONSULT), validateRequest({ params: idParamSchema }), startConsultationController);
+encountersRoutes.post('/encounters/:id/suspend', requirePermission(P.ENCOUNTERS_CONSULT), validateRequest({ params: idParamSchema }), suspendEncounterController);
+encountersRoutes.post('/encounters/:id/resume', requirePermission(P.ENCOUNTERS_CONSULT), validateRequest({ params: idParamSchema }), resumeEncounterController);
+encountersRoutes.get('/encounters/:id/draft', requirePermission(P.ENCOUNTERS_CONSULT), validateRequest({ params: idParamSchema }), getDraftController);
+encountersRoutes.put('/encounters/:id/draft', requirePermission(P.ENCOUNTERS_CONSULT), validateRequest({ params: idParamSchema, body: draftSchema }), saveDraftController);
+encountersRoutes.delete('/encounters/:id/draft', requirePermission(P.ENCOUNTERS_CONSULT), validateRequest({ params: idParamSchema }), deleteDraftController);
 encountersRoutes.post('/encounters/:id/notes', requireAnyPermission(P.ENCOUNTERS_TRIAGE, P.ENCOUNTERS_CONSULT), validateRequest({ params: idParamSchema, body: noteSchema }), addNoteController);
 encountersRoutes.post('/encounters/:id/forms', requireAnyPermission(P.ENCOUNTERS_TRIAGE, P.ENCOUNTERS_CONSULT), validateRequest({ params: idParamSchema, body: clinicalFormSchema }), addClinicalFormController);
 encountersRoutes.post('/encounters/:id/diagnoses', requirePermission(P.ENCOUNTERS_CONSULT), validateRequest({ params: idParamSchema, body: diagnosisSchema }), addDiagnosisController);
@@ -80,4 +96,5 @@ patientClinicalRoutes.get('/patients/:id/allergies', requireAuth, requireAnyPerm
 patientClinicalRoutes.post('/patients/:id/allergies', requireAuth, requirePermission(P.PATIENT_ALLERGIES_MANAGE), validateRequest({ params: idParamSchema, body: allergySchema }), addAllergyController);
 patientClinicalRoutes.patch('/patients/:id/allergies/:subId', requireAuth, requirePermission(P.PATIENT_ALLERGIES_MANAGE), validateRequest({ params: subIdParamSchema, body: updateAllergySchema }), updateAllergyController);
 patientClinicalRoutes.get('/patients/:id/forms', requireAuth, requirePermission(P.ENCOUNTERS_READ), validateRequest({ params: idParamSchema, query: patientFormsQuerySchema }), listPatientFormsController);
+patientClinicalRoutes.get('/patients/:id/clinical-history', requireAuth, requireAnyPermission(P.PATIENTS_READ, P.ENCOUNTERS_READ), validateRequest({ params: idParamSchema, query: clinicalHistoryQuerySchema }), clinicalHistoryController);
 patientClinicalRoutes.get('/patients/:id/timeline', requireAuth, requireAnyPermission(P.PATIENTS_READ, P.ENCOUNTERS_READ), validateRequest({ params: idParamSchema }), patientTimelineController);

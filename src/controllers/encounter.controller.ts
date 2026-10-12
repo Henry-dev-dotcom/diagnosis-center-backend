@@ -3,6 +3,8 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 import { sendCreated, sendSuccess } from '../utils/apiResponse.js';
 import { searchIcd10 } from '../data/icd10Common.js';
 import { formulary } from '../services/pharmacy.service.js';
+import { getClinicalHistory } from '../services/clinicalHistory.service.js';
+import { deleteDraft, getClinicianQueue, getDraft, resumeEncounter, saveDraft, suspendEncounter } from '../services/clinicianQueue.service.js';
 import {
   addAllergy,
   addDiagnosis,
@@ -81,4 +83,27 @@ export const formularyController = asyncHandler(async (req: Request, res: Respon
 );
 export const emergencyRegistrationController = asyncHandler(async (req: Request, res: Response) =>
   sendCreated(res, 'Emergency arrival registered', await registerEmergencyArrival(req.body, req))
+);
+
+export const clinicianQueueController = asyncHandler(async (req: Request, res: Response) =>
+  sendSuccess(res, 'Queue loaded', await getClinicianQueue(req.query as never, req))
+);
+export const suspendEncounterController = asyncHandler(async (req: Request, res: Response) =>
+  sendSuccess(res, 'Visit paused for results', await suspendEncounter(req.params.id, req))
+);
+export const resumeEncounterController = asyncHandler(async (req: Request, res: Response) =>
+  sendSuccess(res, 'Visit resumed', await resumeEncounter(req.params.id, req))
+);
+export const getDraftController = asyncHandler(async (req: Request, res: Response) =>
+  sendSuccess(res, 'Draft loaded', await getDraft(req.params.id, req))
+);
+export const saveDraftController = asyncHandler(async (req: Request, res: Response) =>
+  sendSuccess(res, 'Draft saved', await saveDraft(req.params.id, req.body.data, req))
+);
+export const deleteDraftController = asyncHandler(async (req: Request, res: Response) =>
+  sendSuccess(res, 'Draft discarded', await deleteDraft(req.params.id, req))
+);
+
+export const clinicalHistoryController = asyncHandler(async (req: Request, res: Response) =>
+  sendSuccess(res, 'Clinical history loaded', await getClinicalHistory(req.params.id, Number((req.query as { limit?: number }).limit ?? 5)))
 );
