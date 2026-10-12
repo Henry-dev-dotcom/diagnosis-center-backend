@@ -5,6 +5,7 @@ import { searchIcd10 } from '../data/icd10Common.js';
 import { formulary } from '../services/pharmacy.service.js';
 import { getClinicalHistory } from '../services/clinicalHistory.service.js';
 import { deleteDraft, getClinicianQueue, getDraft, resumeEncounter, saveDraft, suspendEncounter } from '../services/clinicianQueue.service.js';
+import { requestLabStatusPing } from '../services/labPing.service.js';
 import {
   addAllergy,
   addDiagnosis,
@@ -90,6 +91,9 @@ export const clinicianQueueController = asyncHandler(async (req: Request, res: R
 );
 export const suspendEncounterController = asyncHandler(async (req: Request, res: Response) =>
   sendSuccess(res, 'Visit paused for results', await suspendEncounter(req.params.id, req))
+);
+export const pingLabController = asyncHandler(async (req: Request, res: Response) =>
+  sendSuccess(res, 'Lab status request sent', await requestLabStatusPing(req.params.id, req))
 );
 export const resumeEncounterController = asyncHandler(async (req: Request, res: Response) =>
   sendSuccess(res, 'Visit resumed', await resumeEncounter(req.params.id, req))

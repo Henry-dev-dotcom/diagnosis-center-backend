@@ -1,5 +1,5 @@
 import type { Request } from 'express';
-import { EncounterStatus, EncounterType, LabResultStatus, Prisma, UserRole } from '@prisma/client';
+import { CatalogItemType, EncounterStatus, EncounterType, LabResultStatus, OrderItemStatus, OrderStatus, Prisma, UserRole } from '@prisma/client';
 import { prisma } from './prisma.service.js';
 import { createAuditLog, getRequestAuditContext } from './audit.service.js';
 import { getEncounter } from './encounter.service.js';
@@ -17,6 +17,7 @@ import { AppError } from '../utils/appError.js';
 */
 
 const OPEN: EncounterStatus[] = [EncounterStatus.WAITING_DOCTOR, EncounterStatus.IN_CONSULTATION];
+const COMPLETED_ORDER_ITEM_STATUSES = new Set<OrderItemStatus>([OrderItemStatus.SIGNED_OFF, OrderItemStatus.FINAL_RELEASED, OrderItemStatus.CANCELLED]);
 
 const patientSelect = {
   id: true,
@@ -65,13 +66,14 @@ export async function getClinicianQueue(query: { scope?: 'mine' | 'all' }, req: 
     include: {
       patient: { select: patientSelect },
       attending: staffSelect,
-      orders: { include: { items: { select: { status: true, catalogItem: { select: { name: true } } } } } }
+      orders: { include: { items: { select: { status: true, type: true, catalogItem: { select: { name: true } } } } } }
     }
   });
 
   type QueueItem = Omit<(typeof rows)[number], 'orders'> & {
     queueState: QueueState;
     tests: ReturnType<typeof testProgress>;
+    canPingLab: boolean;
     resultPriority?: QueueResultPriority;
   };
   const buckets: Record<'new' | 'inConsultation' | 'pendingLabs' | 'reviewReady', QueueItem[]> = {
@@ -83,7 +85,11 @@ export async function getClinicianQueue(query: { scope?: 'mine' | 'all' }, req: 
   for (const row of rows) {
     const queueState: QueueState = deriveQueueState(row, row.orders);
     const { orders, ...encounter } = row;
-    const item: QueueItem = { ...encounter, queueState, tests: testProgress(orders) };
+    const canPingLab = orders.some((order) => order.status !== OrderStatus.CANCELLED && order.items.some((orderItem) =>
+      orderItem.type === CatalogItemType.LAB &&
+      !COMPLETED_ORDER_ITEM_STATUSES.has(orderItem.status)
+    ));
+    const item: QueueItem = { ...encounter, queueState, tests: testProgress(orders), canPingLab };
     if (queueState === 'NEW') {
       buckets.new.push(item);
       continue;
