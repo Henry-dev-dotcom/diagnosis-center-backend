@@ -1,6 +1,7 @@
 import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { env } from '../../src/config/env.js';
 import { createApp } from '../../src/app.js';
 import { prisma } from '../../src/services/prisma.service.js';
 import { runWithFacility } from '../../src/services/tenantContext.js';
@@ -147,6 +148,32 @@ describe('outpatient journey', () => {
     expect(event).not.toBeNull();
     expect(JSON.stringify(event?.details)).not.toContain(marker);
     expect(JSON.stringify(event?.details)).toContain('NOTE_FORMATTING');
+  });
+
+  it('remains unavailable over HTTP when the flag is on but no provider is configured', async () => {
+    const path = `/encounters/${encounterId}/curataai/note-formatting`;
+    const previousFlag = env.CURATAAI_NOTE_FORMATTING_ENABLED;
+    env.CURATAAI_NOTE_FORMATTING_ENABLED = true;
+    try {
+      const status = await get(path, 'doctor');
+      expect(status.status, status.text).toBe(200);
+      expect(status.json.data).toEqual({ task: 'NOTE_FORMATTING', enabled: true, available: false, reason: 'PROVIDER_NOT_CONFIGURED' });
+
+      const marker = 'SYNTHETIC_TEXT_MUST_NOT_REACH_A_PROVIDER_OR_AUDIT';
+      const blocked = await post(path, 'doctor', { sections: { subjective: marker } });
+      expect(blocked.status).toBe(503);
+      expect(blocked.json.code).toBe('CURATAAI_PROVIDER_NOT_CONFIGURED');
+
+      const event = await runWithFacility(FACILITY_A.id, () => prisma.auditLog.findFirst({
+        where: { action: 'CURATAAI_NOTE_FORMATTING_REQUESTED', entityId: encounterId },
+        orderBy: { createdAt: 'desc' }
+      }));
+      expect(event).not.toBeNull();
+      expect(JSON.stringify(event?.details)).not.toContain(marker);
+      expect(JSON.stringify(event?.details)).toContain('PROVIDER_NOT_CONFIGURED');
+    } finally {
+      env.CURATAAI_NOTE_FORMATTING_ENABLED = previousFlag;
+    }
   });
 
   it('service items cannot be ordered as investigations', async () => {
