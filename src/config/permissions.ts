@@ -146,6 +146,7 @@ export const PERMISSIONS = {
   INPATIENT_ADMINISTER: 'inpatient:administer',
   INPATIENT_BED_STATUS: 'inpatient:beds:status',
   INPATIENT_WARDS_MANAGE: 'inpatient:wards:manage',
+  INPATIENT_REVIEW_RESULTS: 'inpatient:results:review',
 
   // Operating theatre, Phase 4B.
   THEATRE_READ: 'theatre:read',
@@ -240,6 +241,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly
     PERMISSIONS.INPATIENT_ADMIT,
     PERMISSIONS.INPATIENT_TRANSFER,
     PERMISSIONS.INPATIENT_DISCHARGE,
+    PERMISSIONS.INPATIENT_REVIEW_RESULTS,
     // Book operations, run the safety checklist and write the operation note (Theatre module).
     PERMISSIONS.THEATRE_READ,
     PERMISSIONS.THEATRE_SCHEDULE,

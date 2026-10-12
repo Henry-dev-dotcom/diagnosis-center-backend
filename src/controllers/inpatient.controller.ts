@@ -15,6 +15,7 @@ import {
   transfer,
   updateWard
 } from '../services/inpatient.service.js';
+import { getBoard, getMedicationChart, listFluids, markResultsReviewed, recordFluid } from '../services/wardChart.service.js';
 
 export const listWardsController = asyncHandler(async (_req: Request, res: Response) => sendSuccess(res, 'Wards loaded', await listWards()));
 export const createWardController = asyncHandler(async (req: Request, res: Response) => sendCreated(res, 'Ward created', await createWard(req.body, req)));
@@ -30,3 +31,11 @@ export const administerController = asyncHandler(async (req: Request, res: Respo
 );
 export const dischargeController = asyncHandler(async (req: Request, res: Response) => sendSuccess(res, 'Patient discharged', await discharge(req.params.id, req.body, req)));
 export const cancelAdmissionController = asyncHandler(async (req: Request, res: Response) => sendSuccess(res, 'Admission cancelled', await cancelAdmission(req.params.id, req.body, req)));
+
+export const boardController = asyncHandler(async (_req: Request, res: Response) => sendSuccess(res, 'Ward board loaded', await getBoard()));
+export const medicationChartController = asyncHandler(async (req: Request, res: Response) =>
+  sendSuccess(res, 'Medication chart loaded', await getMedicationChart(req.params.id, (req.query as { date?: string }).date))
+);
+export const resultsReviewedController = asyncHandler(async (req: Request, res: Response) => sendSuccess(res, 'Results marked as reviewed', await markResultsReviewed(req.params.id, req)));
+export const listFluidsController = asyncHandler(async (req: Request, res: Response) => sendSuccess(res, 'Fluid balance loaded', await listFluids(req.params.id, Number((req.query as { days?: number }).days ?? 3))));
+export const recordFluidController = asyncHandler(async (req: Request, res: Response) => sendCreated(res, 'Recorded on the fluid balance chart', await recordFluid(req.params.id, req.body, req)));
