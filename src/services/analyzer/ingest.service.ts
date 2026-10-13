@@ -18,7 +18,7 @@ import { computeFlag, flagFromAnalyzerMarker, numberOrNull, referenceDisplay } f
 import { createAuditLog } from '../audit.service.js';
 import { AppError } from '../../utils/appError.js';
 import { parseAnalyzerPayload, type AnalyzerObservation, type AnalyzerReading } from './parsers.js';
-import { evaluateAnalyzerReliabilityAlert } from './alert.service.js';
+import { evaluateAnalyzerReliabilityAlert, withoutBlocking } from './alert.service.js';
 
 /*
   Putting an analyzer's numbers on the right patient's result.
@@ -133,7 +133,7 @@ export async function applyAnalyzerMessage(messageId: string, device: AnalyzerDe
       where: { id: messageId },
       data: { status: AnalyzerMessageStatus.FAILED, error: reason, processedAt: new Date(), parsed: Prisma.DbNull }
     });
-    await evaluateAnalyzerReliabilityAlert(device);
+    await withoutBlocking('reliability check', () => evaluateAnalyzerReliabilityAlert(device));
     return { messageId, status: AnalyzerMessageStatus.FAILED, applied: 0, skipped: 0, notes: [], error: reason, results: [] };
   }
 
@@ -170,8 +170,9 @@ export async function applyAnalyzerMessage(messageId: string, device: AnalyzerDe
     }
   });
 
-  await evaluateAnalyzerReliabilityAlert(device);
+  // Critical values first: they concern a patient, the reliability figure concerns a machine.
   await notifyCriticalValues(results, device, actorId);
+  await withoutBlocking('reliability check', () => evaluateAnalyzerReliabilityAlert(device));
 
   return { messageId, status, applied, skipped, notes, error: null, results };
 }

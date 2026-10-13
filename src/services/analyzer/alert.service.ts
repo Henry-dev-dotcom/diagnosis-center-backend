@@ -7,6 +7,7 @@ export const ANALYZER_ALERT_RULES = {
   reliabilityThreshold: 90,
   reliabilityMinimumMessages: 5,
   reliabilityWindowMessages: 20,
+  /** Applies to the reliability alert only; QC failures always alert. */
   cooldownHours: 6
 } as const;
 
@@ -21,6 +22,28 @@ async function activeRecipients() {
     where: { role: { in: [UserRole.ADMIN, UserRole.LAB_STAFF] }, status: UserStatus.ACTIVE },
     select: { id: true }
   });
+}
+
+async function createAlert(title: string, body: string) {
+  const recipients = await activeRecipients();
+  if (!recipients.length) return { created: false, reason: 'no-recipients' as const };
+  await prisma.notification.createMany({
+    data: recipients.map(({ id }) => ({ type: NotificationType.SYSTEM_ALERT, title, body, recipientUserId: id, isRead: false }))
+  });
+  return { created: true, recipientCount: recipients.length };
+}
+
+/**
+ * Monitoring must never get in the way of the work it monitors: a failed alert is logged
+ * and the result or QC run it was raised about is still saved and still notified.
+ */
+export async function withoutBlocking<T>(what: string, fn: () => Promise<T>): Promise<T | null> {
+  try {
+    return await fn();
+  } catch (error) {
+    console.error(`[analyzer-alert] ${what} failed`, error);
+    return null;
+  }
 }
 
 async function createAlertIfNotRecentlySent(title: string, body: string) {
@@ -50,7 +73,8 @@ export async function evaluateQcRunAlert(run: {
 }) {
   if (String(run.result).toUpperCase() !== 'FAIL') return { triggered: false, rule: 'qcFailure' as const };
   const detail = [run.controlLevel, run.value != null ? `value ${run.value}` : null, run.expectedMean != null ? `expected ${run.expectedMean}` : null].filter(Boolean).join(', ');
-  const alert = await createAlertIfNotRecentlySent(
+  // No cooldown: a second failure may be a different analyzer or a different lot, and each one holds results.
+  const alert = await createAlert(
     `Analyzer QC failure: ${run.parameterName}`,
     `A laboratory analyzer QC run failed for ${run.parameterName}${detail ? ` (${detail})` : ''}. Hold affected patient results, investigate the analyzer/reagents, and record corrective action.`
   );
