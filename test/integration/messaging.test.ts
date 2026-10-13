@@ -66,6 +66,10 @@ describe('message channels', () => {
     expect(labKeys).toContain('LABORATORY');
     expect(labKeys, 'the laboratory should not be offered the finance channel').not.toContain('FINANCE');
     expect(forLab.json.data.ttlHours).toBe(24);
+    expect(forLab.json.data.ownDepartment.key).toBe('LABORATORY');
+    const labRecipients = forLab.json.data.directDepartments.map((department: { key: string }) => department.key);
+    expect(labRecipients).toContain('FINANCE');
+    expect(labRecipients).not.toContain('LABORATORY');
 
     // An administrator has to be able to answer in any of them.
     const forAdmin = await get('/messages/channels', tokens.admin);
@@ -86,6 +90,57 @@ describe('message channels', () => {
   it('refuses a channel that does not exist', async () => {
     const res = await post('/messages', tokens.lab, { channel: 'CANTEEN', body: 'Lunch' });
     expect(res.status, res.text).toBe(400);
+  });
+
+  it('allows selecting a recipient department without exposing its private history', async () => {
+    const body = `Finance, please review the lab order ${Date.now()}`;
+    const sent = await post('/messages', tokens.lab, { recipientDepartment: 'FINANCE', body });
+    expect(sent.status, sent.text).toBe(201);
+    expect(sent.json.data.senderDepartment).toBe('LABORATORY');
+    expect(sent.json.data.recipientDepartment).toBe('FINANCE');
+
+    const senderThread = await get('/messages/departments/FINANCE', tokens.lab);
+    expect(senderThread.status, senderThread.text).toBe(200);
+    expect(senderThread.json.data.messages.some((message: { body: string }) => message.body === body)).toBe(true);
+
+    const recipientThread = await get('/messages/departments/LABORATORY', tokens.billing);
+    expect(recipientThread.status, recipientThread.text).toBe(200);
+    expect(recipientThread.json.data.messages.some((message: { body: string }) => message.body === body)).toBe(true);
+
+    const unrelatedThread = await get('/messages/departments/FINANCE', tokens.doctor);
+    expect(unrelatedThread.status, unrelatedThread.text).toBe(200);
+    expect(unrelatedThread.json.data.messages.some((message: { body: string }) => message.body === body)).toBe(false);
+
+    const sharedChannel = await get('/messages/ALL', tokens.doctor);
+    expect(sharedChannel.json.data.messages.some((message: { body: string }) => message.body === body)).toBe(false);
+
+    const otherFacility = await get('/messages/departments/FINANCE', tokens.bravoLab);
+    expect(otherFacility.status, otherFacility.text).toBe(200);
+    expect(otherFacility.json.data.messages.some((message: { body: string }) => message.body === body)).toBe(false);
+  });
+
+  it('lets administration and a department reply in the same private thread', async () => {
+    const toAdmin = `Lab update for administration ${Date.now()}`;
+    const reply = `Administration reply ${Date.now()}`;
+    const sent = await post('/messages', tokens.lab, { recipientDepartment: 'ADMINISTRATION', body: toAdmin });
+    expect(sent.status, sent.text).toBe(201);
+
+    const adminThread = await get('/messages/departments/LABORATORY', tokens.admin);
+    expect(adminThread.json.data.messages.some((message: { body: string }) => message.body === toAdmin)).toBe(true);
+
+    const answered = await post('/messages', tokens.admin, { recipientDepartment: 'LABORATORY', body: reply });
+    expect(answered.status, answered.text).toBe(201);
+    const labThread = await get('/messages/departments/ADMINISTRATION', tokens.lab);
+    const bodies = labThread.json.data.messages.map((message: { body: string }) => message.body);
+    expect(bodies).toContain(toAdmin);
+    expect(bodies).toContain(reply);
+  });
+
+  it('rejects self-directed and invalid department recipients', async () => {
+    const ownDepartment = await post('/messages', tokens.lab, { recipientDepartment: 'LABORATORY', body: 'Self message' });
+    expect(ownDepartment.status, ownDepartment.text).toBe(400);
+    const unknown = await post('/messages', tokens.lab, { recipientDepartment: 'CANTEEN', body: 'Lunch' });
+    expect(unknown.status, unknown.text).toBe(400);
   });
 });
 

@@ -1,26 +1,26 @@
 import { MessageChannel, UserRole } from '@prisma/client';
 import type { Request } from 'express';
 import { prisma } from './prisma.service.js';
-import { MESSAGE_CHANNELS, MESSAGE_TTL_HOURS, canUseChannel, channelsForRole } from '../config/messageChannels.js';
+import {
+  DIRECT_MESSAGE_DEPARTMENTS,
+  MESSAGE_CHANNELS,
+  MESSAGE_TTL_HOURS,
+  canUseChannel,
+  channelsForRole,
+  departmentForRole
+} from '../config/messageChannels.js';
 import { AppError } from '../utils/appError.js';
 
 /*
   Staff messaging.
 
-  Two rules carry the whole design.
+  Group channels remain role-restricted. Direct department threads are visible
+  only to the sender's department and the selected recipient department; a new
+  picker must never make other departments' private history visible.
 
-  First, a message lives 24 hours. Every read filters on that rather than
-  trusting a cleaner to have run, so a message stops being visible exactly when
-  it should even if nothing has swept it up. Expired rows are then deleted as
-  they are encountered, which keeps the table from growing without needing a
-  scheduler - and because that deletion is tenant-scoped like everything else,
-  one facility's traffic never touches another's.
-
-  Second, a channel belongs to the people in it. The check is on the way in and
-  on the way out: a role that cannot read a channel cannot post to it either, and
-  being able to name a channel is not the same as being in it.
+  Messages live 24 hours. Every read filters on the deadline, and expired rows
+  are deleted opportunistically inside the caller's facility.
 */
-
 const senderSelect = { id: true, name: true, role: true } as const;
 
 /** The 24-hour deadline for a message being sent now. */
@@ -28,13 +28,6 @@ function expiryFromNow() {
   return new Date(Date.now() + MESSAGE_TTL_HOURS * 60 * 60 * 1000);
 }
 
-/*
-  Clears out what has already expired.
-
-  Opportunistic rather than scheduled: it runs on the way past a read, inside the
-  caller's facility. A facility nobody is using keeps a few dead rows, which costs
-  nothing and is invisible, because no query will return them.
-*/
 async function removeExpired() {
   await prisma.staffMessage.deleteMany({ where: { expiresAt: { lte: new Date() } } });
 }
@@ -42,6 +35,12 @@ async function removeExpired() {
 function requireRole(req: Request): UserRole {
   if (!req.user) throw new AppError('Authentication is required', 401, 'AUTH_REQUIRED');
   return req.user.role as UserRole;
+}
+
+function requireDepartment(role: UserRole) {
+  const department = departmentForRole(role);
+  if (!department) throw new AppError('Your role is not assigned to a messaging department', 403, 'MESSAGE_DEPARTMENT_FORBIDDEN');
+  return department;
 }
 
 function assertChannel(channel: string, role: UserRole): MessageChannel {
@@ -53,20 +52,23 @@ function assertChannel(channel: string, role: UserRole): MessageChannel {
   return definition.key;
 }
 
-/** The channels this person can open, and how long a message lasts. */
+/** The shared/role-limited channels and other departments available to this user. */
 export async function listChannels(req: Request) {
   const role = requireRole(req);
   await removeExpired();
 
   const allowed = channelsForRole(role);
-  // How much is waiting in each, so somebody can see where to look without
-  // opening every channel in turn.
   const counts = await prisma.staffMessage.groupBy({
     by: ['channel'],
-    where: { channel: { in: allowed.map((entry) => entry.key) }, expiresAt: { gt: new Date() } },
+    where: {
+      channel: { in: allowed.map((entry) => entry.key) },
+      recipientDepartment: null,
+      expiresAt: { gt: new Date() }
+    },
     _count: { _all: true }
   });
   const countByChannel = new Map(counts.map((row) => [row.channel, row._count._all]));
+  const ownDepartment = departmentForRole(role);
 
   return {
     ttlHours: MESSAGE_TTL_HOURS,
@@ -75,11 +77,15 @@ export async function listChannels(req: Request) {
       name: entry.name,
       description: entry.description,
       messageCount: countByChannel.get(entry.key) ?? 0
-    }))
+    })),
+    ownDepartment: ownDepartment
+      ? DIRECT_MESSAGE_DEPARTMENTS.find((entry) => entry.key === ownDepartment) ?? null
+      : null,
+    directDepartments: DIRECT_MESSAGE_DEPARTMENTS.filter((entry) => entry.key !== ownDepartment)
   };
 }
 
-/** One channel's conversation, oldest first, with nothing expired in it. */
+/** One shared or role-limited channel's conversation, oldest first. */
 export async function listMessages(channel: string, query: Request['query'], req: Request) {
   const role = requireRole(req);
   const key = assertChannel(channel, role);
@@ -87,7 +93,7 @@ export async function listMessages(channel: string, query: Request['query'], req
 
   const limit = Math.min(Math.max(Number(query.limit) || 100, 1), 200);
   const messages = await prisma.staffMessage.findMany({
-    where: { channel: key, expiresAt: { gt: new Date() } },
+    where: { channel: key, recipientDepartment: null, expiresAt: { gt: new Date() } },
     include: { sender: { select: senderSelect } },
     orderBy: { createdAt: 'asc' },
     take: limit
@@ -96,29 +102,73 @@ export async function listMessages(channel: string, query: Request['query'], req
   return { channel: key, ttlHours: MESSAGE_TTL_HOURS, messages };
 }
 
-/** Posts a message, which the sender must be entitled to do. */
-export async function sendMessage(body: { channel: string; body: string }, req: Request) {
+/** A two-department thread. Neither department can read another pair's messages. */
+export async function listDepartmentMessages(department: string, query: Request['query'], req: Request) {
   const role = requireRole(req);
-  const key = assertChannel(body.channel, role);
+  const ownDepartment = requireDepartment(role);
+  const target = DIRECT_MESSAGE_DEPARTMENTS.find((entry) => entry.key === department);
+  if (!target) throw new AppError('That department does not exist', 404, 'MESSAGE_DEPARTMENT_NOT_FOUND');
+  if (target.key === ownDepartment) throw new AppError('Choose a different department', 400, 'MESSAGE_DEPARTMENT_SELF');
   await removeExpired();
 
-  const created = await prisma.staffMessage.create({
-    data: {
+  const limit = Math.min(Math.max(Number(query.limit) || 100, 1), 200);
+  const messages = await prisma.staffMessage.findMany({
+    where: {
+      expiresAt: { gt: new Date() },
+      OR: [
+        { senderDepartment: ownDepartment, recipientDepartment: target.key },
+        { senderDepartment: target.key, recipientDepartment: ownDepartment }
+      ]
+    },
+    include: { sender: { select: senderSelect } },
+    orderBy: { createdAt: 'asc' },
+    take: limit
+  });
+
+  return { department: target, ownDepartment, ttlHours: MESSAGE_TTL_HOURS, messages };
+}
+
+/** Posts to a group channel or creates a private thread message for a department. */
+export async function sendMessage(
+  body: { channel?: string; recipientDepartment?: string; body: string },
+  req: Request
+) {
+  const role = requireRole(req);
+  await removeExpired();
+
+  let data;
+  if (body.recipientDepartment) {
+    const senderDepartment = requireDepartment(role);
+    const target = DIRECT_MESSAGE_DEPARTMENTS.find((entry) => entry.key === body.recipientDepartment);
+    if (!target) throw new AppError('That department does not exist', 404, 'MESSAGE_DEPARTMENT_NOT_FOUND');
+    if (target.key === senderDepartment) throw new AppError('Choose a different department', 400, 'MESSAGE_DEPARTMENT_SELF');
+    data = {
+      channel: MessageChannel.ALL,
+      senderDepartment,
+      recipientDepartment: target.key,
+      senderId: req.user!.id,
+      body: body.body.trim(),
+      expiresAt: expiryFromNow()
+    };
+  } else {
+    if (!body.channel) throw new AppError('Choose a message channel or department', 400, 'MESSAGE_DESTINATION_REQUIRED');
+    const key = assertChannel(body.channel, role);
+    data = {
       channel: key,
       senderId: req.user!.id,
       body: body.body.trim(),
       expiresAt: expiryFromNow()
-    },
+    };
+  }
+
+  const created = await prisma.staffMessage.create({
+    data,
     include: { sender: { select: senderSelect } }
   });
 
   /*
-    No audit entry.
-
-    Everything else here is audited, so the omission is deliberate: an audit log
-    is permanent, and writing the body of a message into it would keep forever
-    exactly what the feature promises to discard after a day. The message itself
-    is the record, and it expires.
+    No audit entry: audit logs are permanent, while this message is deliberately
+    temporary. Anything that must be retained belongs on the patient's chart.
   */
   return created;
 }

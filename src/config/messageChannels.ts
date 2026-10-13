@@ -78,6 +78,37 @@ export const MESSAGE_CHANNELS: readonly MessageChannelDefinition[] = [
   }
 ];
 
+/** Department identities used only for private, department-to-department threads. */
+export const DIRECT_MESSAGE_DEPARTMENT_KEYS = [
+  'CLINICAL', 'LABORATORY', 'IMAGING', 'PHARMACY', 'FRONT_OFFICE', 'FINANCE', 'ADMINISTRATION'
+] as const;
+export type DirectMessageDepartmentKey = typeof DIRECT_MESSAGE_DEPARTMENT_KEYS[number];
+
+export const DIRECT_MESSAGE_DEPARTMENTS: readonly { key: DirectMessageDepartmentKey; name: string; description: string }[] = [
+  { key: 'CLINICAL', name: 'Clinical team', description: 'Doctors and nurses on the wards and in clinic.' },
+  { key: 'LABORATORY', name: 'Laboratory', description: 'The laboratory team.' },
+  { key: 'IMAGING', name: 'Scan / Imaging', description: 'The imaging unit.' },
+  { key: 'PHARMACY', name: 'Pharmacy', description: 'The pharmacy team.' },
+  { key: 'FRONT_OFFICE', name: 'Front office', description: 'Reception and the records desk.' },
+  { key: 'FINANCE', name: 'Finance', description: 'The cashier window and finance team.' },
+  { key: 'ADMINISTRATION', name: 'Administration', description: 'Facility administrators.' }
+];
+
+/** Resolve a staff role to the shared department identity used by direct threads. */
+export function departmentForRole(role: UserRole): DirectMessageDepartmentKey | null {
+  switch (role) {
+    case UserRole.ADMIN: return 'ADMINISTRATION';
+    case UserRole.DOCTOR:
+    case UserRole.NURSE: return 'CLINICAL';
+    case UserRole.RECEPTIONIST: return 'FRONT_OFFICE';
+    case UserRole.LAB_STAFF: return 'LABORATORY';
+    case UserRole.SCAN_STAFF: return 'IMAGING';
+    case UserRole.BILLING_STAFF: return 'FINANCE';
+    case UserRole.PHARMACIST: return 'PHARMACY';
+    default: return null;
+  }
+}
+
 /** How long a message lives. Changing this changes only new messages. */
 export const MESSAGE_TTL_HOURS = 24;
 

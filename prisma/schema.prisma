@@ -4346,6 +4346,9 @@ model StaffMessage {
   id         String         @id @default(cuid())
   facilityId String         @default(dbgenerated("current_setting('lhims.facility_id'::text)"))
   channel    MessageChannel
+  /// Null for existing group channels; otherwise identifies each side of a direct department thread.
+  senderDepartment    String?
+  recipientDepartment String?
   senderId   String
   body       String
   createdAt  DateTime       @default(now())
@@ -4356,5 +4359,7 @@ model StaffMessage {
   facility Facility @relation(fields: [facilityId], references: [id])
 
   @@index([facilityId, channel, expiresAt])
+  @@index([facilityId, senderDepartment, recipientDepartment, expiresAt], map: "StaffMessage_direct_sender_idx")
+  @@index([facilityId, recipientDepartment, senderDepartment, expiresAt], map: "StaffMessage_direct_recipient_idx")
   @@index([facilityId])
 }
