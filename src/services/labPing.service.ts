@@ -9,6 +9,11 @@ const PING_BODY = 'A clinician requests a status update on this pending laborato
 const COOLDOWN_MS = 5 * 60 * 1000;
 const COMPLETED_ITEM_STATUSES: OrderItemStatus[] = [OrderItemStatus.SIGNED_OFF, OrderItemStatus.FINAL_RELEASED, OrderItemStatus.CANCELLED];
 
+/** The kinds of work still outstanding on an order: a finished lab test does not make the scan the lab's business. */
+export function outstandingDiagnosticTypes(order: { items: Array<{ type: CatalogItemType; status: OrderItemStatus }> }) {
+  return new Set(order.items.filter((item) => !COMPLETED_ITEM_STATUSES.includes(item.status)).map((item) => item.type));
+}
+
 function jsonValue(value: unknown): Prisma.InputJsonValue {
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
 }
@@ -65,11 +70,17 @@ export async function requestDiagnosticStatusPing(encounterId: string, req: Requ
   const cooldownStart = new Date(now.getTime() - COOLDOWN_MS);
   const auditContext = getRequestAuditContext(req);
   const lockKey = `lab-ping:${req.user?.facilityId ?? 'facility'}:${encounterId}:${actorId}`;
-  const notificationCount = diagnosticOrders.reduce((count, order) => {
-    const types = new Set(order.items.map((item) => item.type));
-    return count + recipients.filter((recipient) => (types.has(CatalogItemType.LAB) && recipient.role === UserRole.LAB_STAFF)
-      || (types.has(CatalogItemType.SCAN) && recipient.role === UserRole.SCAN_STAFF)).length;
-  }, 0);
+  const recipientsFor = (order: (typeof diagnosticOrders)[number]) => {
+    const types = outstandingDiagnosticTypes(order);
+    return recipients.filter((recipient) => (types.has(CatalogItemType.LAB) && recipient.role === UserRole.LAB_STAFF)
+      || (types.has(CatalogItemType.SCAN) && recipient.role === UserRole.SCAN_STAFF));
+  };
+  const notificationCount = diagnosticOrders.reduce((count, order) => count + recipientsFor(order).length, 0);
+  // The people actually told, not everybody who could have been: the clinician is shown this number.
+  const recipientCount = new Set(diagnosticOrders.flatMap((order) => recipientsFor(order).map((recipient) => recipient.id))).size;
+  if (recipientCount === 0) {
+    throw new AppError('No active staff are available in the unit this request is for', 409, 'DIAGNOSTIC_STAFF_UNAVAILABLE');
+  }
 
   return prisma.$transaction(async (tx) => {
     // Serializing requests per clinician/visit makes the persisted cooldown effective across API instances.
@@ -90,10 +101,7 @@ export async function requestDiagnosticStatusPing(encounterId: string, req: Requ
     }
 
     for (const order of diagnosticOrders) {
-      const types = new Set(order.items.map((item) => item.type));
-      const orderRecipients = recipients.filter((recipient) => (types.has(CatalogItemType.LAB) && recipient.role === UserRole.LAB_STAFF)
-        || (types.has(CatalogItemType.SCAN) && recipient.role === UserRole.SCAN_STAFF));
-      for (const recipient of orderRecipients) {
+      for (const recipient of recipientsFor(order)) {
         const notification = await tx.notification.create({
           data: {
             orderId: order.id,
@@ -136,7 +144,7 @@ export async function requestDiagnosticStatusPing(encounterId: string, req: Requ
         module: 'Encounters',
         entityType: 'Encounter',
         entityId: encounterId,
-        details: { orderCount: diagnosticOrders.length, recipientCount: recipients.length, notificationCount, channel: 'IN_APP', cooldownSeconds: COOLDOWN_MS / 1000 }
+        details: { orderCount: diagnosticOrders.length, recipientCount, notificationCount, channel: 'IN_APP', cooldownSeconds: COOLDOWN_MS / 1000 }
       }
     });
 
@@ -144,7 +152,7 @@ export async function requestDiagnosticStatusPing(encounterId: string, req: Requ
       status: 'DELIVERED' as const,
       requestedAt: now,
       orderCount: diagnosticOrders.length,
-      recipientCount: recipients.length,
+      recipientCount,
       notificationCount
     };
   });

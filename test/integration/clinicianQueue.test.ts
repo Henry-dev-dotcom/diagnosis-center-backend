@@ -211,7 +211,7 @@ describe('Ping Lab', () => {
 
     const queue = await get('/encounters/queue', 'doctor');
     const queueRow = queue.json.data.pendingLabs.find((item: { id: string }) => item.id === visit.encounterId);
-    expect(queueRow.canPingLab).toBe(true);
+    expect(queueRow.canPingDiagnostics).toBe(true);
     expect((await post(`/encounters/${visit.encounterId}/ping-lab`, 'nurse')).status).toBe(403);
     expect((await post(`/encounters/${visit.encounterId}/ping-lab`, 'admin', {}, FACILITY_B.code)).status).toBe(404);
 
@@ -223,22 +223,22 @@ describe('Ping Lab', () => {
     const sent = concurrent.find((result) => result.status === 200)!;
     expect(sent.json.data).toMatchObject({ status: 'DELIVERED', orderCount: 1, recipientCount: 1, notificationCount: 1 });
 
-    const visible = await get(`/notifications?search=${encodeURIComponent('Lab status requested')}&limit=100`, 'lab');
+    const visible = await get(`/notifications?search=${encodeURIComponent('Diagnostic status requested')}&limit=100`, 'lab');
     expect(visible.status, visible.text).toBe(200);
     expect(visible.json.data.items.some((item: { orderId: string }) => item.orderId === orderId)).toBe(true);
 
     await runWithFacility(FACILITY_A.id, async () => {
       const notifications = await prisma.notification.findMany({
-        where: { orderId, title: 'Lab status requested' },
+        where: { orderId, title: 'Diagnostic status requested' },
         include: { deliveryLogs: true }
       });
       expect(notifications).toHaveLength(1);
       expect(notifications[0].recipientUserId).not.toBeNull();
       expect(notifications[0].deliveryLogs).toMatchObject([{ channel: 'IN_APP', status: 'DELIVERED' }]);
-      const audit = await prisma.auditLog.findFirst({ where: { action: 'LAB_STATUS_PINGED', entityId: visit.encounterId } });
+      const audit = await prisma.auditLog.findFirst({ where: { action: 'DIAGNOSTIC_STATUS_PINGED', entityId: visit.encounterId } });
       expect(audit?.details).toMatchObject({ orderCount: 1, recipientCount: 1, notificationCount: 1, channel: 'IN_APP' });
     });
-    expect(concurrent.find((result) => result.status === 429)?.json.code).toBe('LAB_PING_COOLDOWN');
+    expect(concurrent.find((result) => result.status === 429)?.json.code).toBe('DIAGNOSTIC_PING_COOLDOWN');
   });
 });
 

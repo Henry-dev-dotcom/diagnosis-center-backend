@@ -95,9 +95,10 @@ export async function listMessages(channel: string, query: Request['query'], req
   const messages = await prisma.staffMessage.findMany({
     where: { channel: key, recipientDepartment: null, expiresAt: { gt: new Date() } },
     include: { sender: { select: senderSelect } },
-    orderBy: { createdAt: 'asc' },
+    // The newest messages are the ones that matter in a busy thread: take those, then show them oldest first.
+    orderBy: { createdAt: 'desc' },
     take: limit
-  });
+  }).then((rows) => rows.reverse());
 
   return { channel: key, ttlHours: MESSAGE_TTL_HOURS, messages };
 }
@@ -121,9 +122,10 @@ export async function listDepartmentMessages(department: string, query: Request[
       ]
     },
     include: { sender: { select: senderSelect } },
-    orderBy: { createdAt: 'asc' },
+    // The newest messages are the ones that matter in a busy thread: take those, then show them oldest first.
+    orderBy: { createdAt: 'desc' },
     take: limit
-  });
+  }).then((rows) => rows.reverse());
 
   return { department: target, ownDepartment, ttlHours: MESSAGE_TTL_HOURS, messages };
 }
