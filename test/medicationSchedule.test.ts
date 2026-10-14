@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dayKey, dosesWaiting, parseFrequency, runsOn, slotState, slotWindow, validDayKey, type ChartItem, type Recorded } from '../src/services/medicationSchedule.js';
+import { chartDayOf, chartDayWindow, dayKey, dosesWaiting, parseFrequency, runsOn, slotState, slotWindow, validDayKey, type ChartItem, type Recorded } from '../src/services/medicationSchedule.js';
 
 const blocks = (text: string) => parseFrequency(text).slots.map((s) => `${s.block[0]}${s.slot}`);
 const at = (iso: string) => new Date(iso).getTime();
@@ -56,6 +56,35 @@ describe('days and parts of the day', () => {
     for (const day of ['2026-10-10', '2026-10-11', '2026-10-12']) expect(runsOn(day, written, 3), day).toBe(true);
     expect(runsOn('2026-10-13', written, 3)).toBe(false);
     expect(runsOn('2027-01-01', written, null), 'no end date means it keeps running').toBe(true);
+  });
+});
+
+describe('the night that runs past midnight', () => {
+  it('keeps one in the morning on the chart of the day before', () => {
+    expect(chartDayOf(new Date('2026-10-14T00:46:00Z'))).toBe('2026-10-13');
+    expect(chartDayOf(new Date('2026-10-14T05:59:00Z'))).toBe('2026-10-13');
+    expect(chartDayOf(new Date('2026-10-14T06:00:00Z'))).toBe('2026-10-14');
+    const window = chartDayWindow('2026-10-13');
+    expect(new Date(window.opens).toISOString()).toBe('2026-10-13T06:00:00.000Z');
+    expect(new Date(window.closes).toISOString()).toBe('2026-10-14T06:00:00.000Z');
+  });
+
+  it('starts a medicine written after midnight in the night that is still going', () => {
+    const written = new Date('2026-10-14T00:46:00Z');
+    expect(runsOn('2026-10-13', written, 5)).toBe(true);
+    expect(slotState('2026-10-13', 'NIGHT', written, written.getTime() + 60_000, false)).toBe('DUE');
+    // The parts of that day that were over before it was written are not held against anyone.
+    expect(slotState('2026-10-13', 'MORNING', written, written.getTime() + 60_000, false)).toBe('NOT_APPLICABLE');
+    expect(slotState('2026-10-13', 'AFTERNOON', written, written.getTime() + 60_000, false)).toBe('NOT_APPLICABLE');
+  });
+
+  it('has a dose waiting straight away for a four-times-daily medicine written at any hour', () => {
+    for (let hour = 0; hour < 24; hour += 1) {
+      const written = new Date(`2026-10-14T${String(hour).padStart(2, '0')}:46:00Z`);
+      const item: ChartItem = { id: 'q', frequency: 'Four times daily', prescribedAt: written, durationDays: 5 };
+      const waiting = dosesWaiting([item], [], written.getTime() + 60_000);
+      expect(waiting.due + waiting.overdue, `written at ${hour}:46`).toBeGreaterThan(0);
+    }
   });
 });
 

@@ -199,7 +199,7 @@ describe('the medication chart', () => {
     const body = { status: 'GIVEN', scheduleDate: dayOffset(0), scheduleBlock: 'AFTERNOON', scheduleSlot: 0 };
 
     expect((await post(url, 'nurse', body)).status).toBe(201);
-    const chart = await get(`/inpatient/admissions/${stay.admissionId}/medication-chart`, 'nurse');
+    const chart = await get(`/inpatient/admissions/${stay.admissionId}/medication-chart?date=${dayOffset(0)}`, 'nurse');
     const slot = chart.json.data.rows[0].slots.find((s: { block: string }) => s.block === 'AFTERNOON');
     expect(slot.state).toBe('GIVEN');
     expect(slot.administration).toMatchObject({ status: 'GIVEN', doseGiven: '500 mg' });
@@ -219,7 +219,7 @@ describe('the medication chart', () => {
     expect(noReason.status).toBe(400);
     expect(noReason.json.code).toBe('REASON_REQUIRED');
     expect((await post(url, 'nurse', { status: 'HELD', notes: 'Patient nil by mouth for a scan', ...slot })).status).toBe(201);
-    const chart = await get(`/inpatient/admissions/${stay.admissionId}/medication-chart`, 'nurse');
+    const chart = await get(`/inpatient/admissions/${stay.admissionId}/medication-chart?date=${dayOffset(0)}`, 'nurse');
     expect(chart.json.data.rows[0].slots.find((s: { block: string }) => s.block === 'MORNING').administration).toMatchObject({ status: 'HELD', notes: 'Patient nil by mouth for a scan' });
   });
 

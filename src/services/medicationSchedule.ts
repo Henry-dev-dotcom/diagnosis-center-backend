@@ -60,9 +60,26 @@ export function slotWindow(day: string, block: MedicationBlock) {
   return { opens: start + START_HOUR[block] * HOUR_MS, closes: start + END_HOUR[block] * HOUR_MS };
 }
 
-/** Whether a prescription is running on a day: from the day it was written, for its length (open-ended when none). */
+/**
+ * The chart day a moment belongs to. The night part of a day runs to 06:00 the next morning,
+ * so one o'clock at night is still on the chart of the day before: that is the page the
+ * night nurse has open, and the night box on it is the one that is due.
+ */
+export const chartDayOf = (date: Date) => dayKey(new Date(date.getTime() - START_HOUR.MORNING * HOUR_MS));
+
+/** When a chart day opens and closes: 06:00 to 06:00. Doses given outside the schedule are shown on the day they fall in. */
+export function chartDayWindow(day: string) {
+  const opens = dayStart(day) + START_HOUR.MORNING * HOUR_MS;
+  return { opens, closes: opens + DAY_MS };
+}
+
+/**
+ * Whether a prescription is running on a day: from the chart day it was written on, for its
+ * length (open-ended when none). A medicine written at one in the morning starts in the night
+ * that is still going, not five hours later at the next morning round.
+ */
 export function runsOn(day: string, prescribedAt: Date, durationDays: number | null | undefined) {
-  const first = dayStart(dayKey(prescribedAt));
+  const first = dayStart(chartDayOf(prescribedAt));
   const d = dayStart(day);
   if (d < first) return false;
   return durationDays == null || d < first + durationDays * DAY_MS;
