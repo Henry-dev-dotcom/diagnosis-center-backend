@@ -3,7 +3,7 @@ import { AdmissionStatus, FluidDirection, PrescriptionStatus } from '@prisma/cli
 import { prisma } from './prisma.service.js';
 import { createAuditLog, getRequestAuditContext } from './audit.service.js';
 import { listWards } from './inpatient.service.js';
-import { BLOCKS, dayKey, dosesWaiting, parseFrequency, runsOn, slotState, slotWindow, validDayKey } from './medicationSchedule.js';
+import { BLOCKS, chartDayOf, chartDayWindow, dayKey, dosesWaiting, parseFrequency, runsOn, slotState, slotWindow, validDayKey } from './medicationSchedule.js';
 import { AppError } from '../utils/appError.js';
 
 /*
@@ -108,7 +108,9 @@ export async function getBoard() {
 
 export async function getMedicationChart(admissionId: string, requestedDay?: string) {
   const now = Date.now();
-  const day = requestedDay ?? dayKey(new Date(now));
+  // Opens on the chart day now belongs to: before 06:00 that is still yesterday's page, with its night boxes.
+  const today = chartDayOf(new Date(now));
+  const day = requestedDay ?? today;
   if (!validDayKey(day)) throw new AppError('That is not a date', 400, 'INVALID_DATE');
 
   const admission = await prisma.admission.findUnique({
@@ -123,9 +125,9 @@ export async function getMedicationChart(admissionId: string, requestedDay?: str
     include: { prescription: { select: { createdAt: true, prescriptionCode: true, prescriber: staff } } }
   });
 
-  const dayStartMs = new Date(`${day}T00:00:00.000Z`).getTime();
+  const window = chartDayWindow(day);
   const recorded = await prisma.medicationAdministration.findMany({
-    where: { admissionId, OR: [{ scheduleDate: day }, { scheduleDate: null, administeredAt: { gte: new Date(dayStartMs), lt: new Date(dayStartMs + DAY_MS) } }] },
+    where: { admissionId, OR: [{ scheduleDate: day }, { scheduleDate: null, administeredAt: { gte: new Date(window.opens), lt: new Date(window.closes) } }] },
     orderBy: { administeredAt: 'asc' },
     include: { administeredBy: staff }
   });
@@ -170,7 +172,7 @@ export async function getMedicationChart(admissionId: string, requestedDay?: str
     patient: admission.patient,
     open: admission.status === AdmissionStatus.ADMITTED,
     day,
-    today: dayKey(new Date(now)),
+    today,
     blocks: BLOCKS.map((block) => ({ block, ...slotWindow(day, block) })),
     rows
   };
