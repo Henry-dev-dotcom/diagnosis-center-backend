@@ -89,6 +89,46 @@ describe('preparing a claim', () => {
   });
 });
 
+describe('the claims officer vets and corrects claims before they are sent', () => {
+  let claimId: string;
+  let lineId: string;
+
+  it('prepares a claim and cannot submit it until it has been vetted', async () => {
+    const { encounterId } = await claimableVisit('Vetted');
+    const made = await claim(encounterId, 'claims');
+    expect(made.status, made.text).toBe(201);
+    claimId = made.json.data.id;
+    lineId = made.json.data.lines[0].id;
+
+    const early = await post('/claims/submit', 'claims', { claimIds: [claimId] });
+    expect(early.status).toBe(409);
+    expect(early.json.code).toBe('CLAIM_NOT_VETTED');
+  });
+
+  it('editing a line recalculates the total, and any edit clears an earlier vetting', async () => {
+    const vetted = await post(`/claims/${claimId}/vet`, 'claims', { note: 'Card checked' });
+    expect(vetted.status, vetted.text).toBe(200);
+    expect(vetted.json.data.vetted).toBe(true);
+    expect(vetted.json.data.claim.vettedAt).toBeTruthy();
+
+    const edited = await call('PATCH', `/claims/${claimId}`, 'claims', { lines: [{ id: lineId, tariffCode: 'GDRG-OPD01', unitPrice: 45 }] });
+    expect(edited.status, edited.text).toBe(200);
+    expect(edited.json.data).toMatchObject({ claimedAmount: '45', vettedAt: null });
+    expect(edited.json.data.lines[0].tariffCode).toBe('GDRG-OPD01');
+
+    // The only line cannot be removed: cancel the claim instead.
+    const removeAll = await call('PATCH', `/claims/${claimId}`, 'claims', { removeLineIds: [lineId] });
+    expect(removeAll.json.code).toBe('CLAIM_NEEDS_LINES');
+  });
+
+  it('a vetted claim can then be submitted by the claims officer', async () => {
+    expect((await post(`/claims/${claimId}/vet`, 'claims')).json.data.vetted).toBe(true);
+    const sent = await post('/claims/submit', 'claims', { claimIds: [claimId] });
+    expect(sent.status, sent.text).toBe(200);
+    expect((await get(`/claims/${claimId}`, 'claims')).json.data.status).toBe('SUBMITTED');
+  });
+});
+
 describe('a claim from visit to payment', () => {
   let encounterId: string;
   let claimId: string;
@@ -216,42 +256,3 @@ describe('claims module', () => {
   });
 });
 
-describe('the claims officer vets and corrects claims before they are sent', () => {
-  let claimId: string;
-  let lineId: string;
-
-  it('prepares a claim and cannot submit it until it has been vetted', async () => {
-    const { encounterId } = await claimableVisit('Vetted');
-    const made = await claim(encounterId, 'claims');
-    expect(made.status, made.text).toBe(201);
-    claimId = made.json.data.id;
-    lineId = made.json.data.lines[0].id;
-
-    const early = await post('/claims/submit', 'claims', { claimIds: [claimId] });
-    expect(early.status).toBe(409);
-    expect(early.json.code).toBe('CLAIM_NOT_VETTED');
-  });
-
-  it('editing a line recalculates the total, and any edit clears an earlier vetting', async () => {
-    const vetted = await post(`/claims/${claimId}/vet`, 'claims', { note: 'Card checked' });
-    expect(vetted.status, vetted.text).toBe(200);
-    expect(vetted.json.data.vetted).toBe(true);
-    expect(vetted.json.data.claim.vettedAt).toBeTruthy();
-
-    const edited = await call('PATCH', `/claims/${claimId}`, 'claims', { lines: [{ id: lineId, tariffCode: 'GDRG-OPD01', unitPrice: 45 }] });
-    expect(edited.status, edited.text).toBe(200);
-    expect(edited.json.data).toMatchObject({ claimedAmount: '45', vettedAt: null });
-    expect(edited.json.data.lines[0].tariffCode).toBe('GDRG-OPD01');
-
-    // The only line cannot be removed: cancel the claim instead.
-    const removeAll = await call('PATCH', `/claims/${claimId}`, 'claims', { removeLineIds: [lineId] });
-    expect(removeAll.json.code).toBe('CLAIM_NEEDS_LINES');
-  });
-
-  it('a vetted claim can then be submitted by the claims officer', async () => {
-    expect((await post(`/claims/${claimId}/vet`, 'claims')).json.data.vetted).toBe(true);
-    const sent = await post('/claims/submit', 'claims', { claimIds: [claimId] });
-    expect(sent.status, sent.text).toBe(200);
-    expect((await get(`/claims/${claimId}`, 'claims')).json.data.status).toBe('SUBMITTED');
-  });
-});
