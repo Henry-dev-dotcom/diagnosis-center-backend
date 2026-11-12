@@ -15,5 +15,6 @@ export const DEMO_USERS = {
   scan: 'scan123',
   billing: 'billing123',
   nurse: 'nurse123',
-  pharmacist: 'pharmacist123'
+  pharmacist: 'pharmacist123',
+  claims: 'claims123'
 } as const;

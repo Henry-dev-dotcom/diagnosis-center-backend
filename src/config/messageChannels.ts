@@ -30,7 +30,7 @@ export const MESSAGE_CHANNELS: readonly MessageChannelDefinition[] = [
     description: 'Anything the whole building needs to know.',
     roles: [
       UserRole.ADMIN, UserRole.DOCTOR, UserRole.NURSE, UserRole.RECEPTIONIST,
-      UserRole.LAB_STAFF, UserRole.SCAN_STAFF, UserRole.BILLING_STAFF, UserRole.PHARMACIST
+      UserRole.LAB_STAFF, UserRole.SCAN_STAFF, UserRole.BILLING_STAFF, UserRole.PHARMACIST, UserRole.CLAIMS_OFFICER
     ],
     sortOrder: 1
   },
@@ -73,7 +73,7 @@ export const MESSAGE_CHANNELS: readonly MessageChannelDefinition[] = [
     key: MessageChannel.FINANCE,
     name: 'Finance',
     description: 'The cashier window and the books.',
-    roles: [UserRole.BILLING_STAFF],
+    roles: [UserRole.BILLING_STAFF, UserRole.CLAIMS_OFFICER],
     sortOrder: 7
   }
 ];
@@ -103,7 +103,8 @@ export function departmentForRole(role: UserRole): DirectMessageDepartmentKey | 
     case UserRole.RECEPTIONIST: return 'FRONT_OFFICE';
     case UserRole.LAB_STAFF: return 'LABORATORY';
     case UserRole.SCAN_STAFF: return 'IMAGING';
-    case UserRole.BILLING_STAFF: return 'FINANCE';
+    case UserRole.BILLING_STAFF:
+    case UserRole.CLAIMS_OFFICER: return 'FINANCE';
     case UserRole.PHARMACIST: return 'PHARMACY';
     default: return null;
   }

@@ -8,6 +8,7 @@ import {
   PaymentMethod,
   PaymentStatus,
   Prisma,
+  UserRole,
   type SchemeType
 } from '@prisma/client';
 import { prisma } from './prisma.service.js';
@@ -93,6 +94,7 @@ const claimInclude = {
   encounter: { select: { id: true, encounterCode: true, type: true, clinic: true, startedAt: true, completedAt: true } },
   batch: { select: { id: true, batchCode: true, period: true, status: true } },
   createdBy: staff,
+  vettedBy: staff,
   lines: { orderBy: { description: 'asc' as const }, include: { invoice: { select: { id: true, invoiceCode: true, status: true, balance: true } } } }
 } satisfies Prisma.ClaimInclude;
 
@@ -224,12 +226,97 @@ export async function cancelClaim(id: string, body: { reason: string }, req: Req
   return getClaim(id);
 }
 
+type ClaimDiagnosis = { code: string; description: string; type?: string | null };
+
+/**
+ * Corrects a draft (or queried) claim before it goes out: diagnoses and line details,
+ * lines the scheme should not see removed. Totals are recalculated; any edit clears vetting.
+ * A removed line hands its invoice back only when none of that invoice's lines remain on the claim.
+ */
+export async function updateClaim(
+  id: string,
+  body: { diagnoses?: ClaimDiagnosis[]; lines?: Array<{ id: string; description?: string; tariffCode?: string | null; quantity?: number; unitPrice?: number }>; removeLineIds?: string[] },
+  req: Request
+) {
+  const claim = await loadClaim(id, [ClaimStatus.DRAFT, ClaimStatus.QUERIED]);
+  const removeIds = new Set(body.removeLineIds ?? []);
+  if ([...removeIds].some((lineId) => !claim.lines.find((l) => l.id === lineId))) throw new AppError('A line to remove is not on this claim', 400, 'CLAIM_LINE_NOT_FOUND');
+  if (removeIds.size >= claim.lines.length) throw new AppError('A claim needs at least one line; cancel the claim instead', 409, 'CLAIM_NEEDS_LINES');
+  const edits = new Map((body.lines ?? []).map((l) => [l.id, l]));
+  if ([...edits.keys()].some((lineId) => !claim.lines.find((l) => l.id === lineId))) throw new AppError('A line to edit is not on this claim', 400, 'CLAIM_LINE_NOT_FOUND');
+
+  await prisma.$transaction(async (tx) => {
+    let total = 0;
+    for (const line of claim.lines) {
+      if (removeIds.has(line.id)) continue;
+      const edit = edits.get(line.id);
+      const quantity = edit?.quantity ?? line.quantity;
+      const unitPrice = edit?.unitPrice ?? Number(line.unitPrice);
+      const amount = roundMoney(quantity * unitPrice);
+      total += amount;
+      if (edit) {
+        await tx.claimLine.update({
+          where: { id: line.id },
+          data: { description: edit.description ?? line.description, tariffCode: edit.tariffCode === undefined ? line.tariffCode : edit.tariffCode, quantity, unitPrice, amount }
+        });
+      }
+    }
+    if (removeIds.size) {
+      await tx.claimLine.deleteMany({ where: { id: { in: [...removeIds] } } });
+      const remainingInvoices = new Set(claim.lines.filter((l) => !removeIds.has(l.id)).map((l) => l.invoiceId));
+      const freed = [...new Set(claim.lines.filter((l) => removeIds.has(l.id)).map((l) => l.invoiceId))].filter((invoiceId) => !remainingInvoices.has(invoiceId));
+      await releaseInvoices(tx, freed);
+    }
+    await tx.claim.update({
+      where: { id },
+      data: { claimedAmount: roundMoney(total), ...(body.diagnoses ? { diagnoses: body.diagnoses } : {}), vettedAt: null, vettedById: null, vetNote: null }
+    });
+  });
+  await audit(req, 'CLAIM_EDITED', id, { edited: [...edits.keys()], removed: [...removeIds], diagnoses: body.diagnoses?.length });
+  return getClaim(id);
+}
+
+/**
+ * The claims officer's check before a claim is sent: a valid membership on the day of the visit,
+ * at least one diagnosis, lines that add up and carry no zero amounts. Missing tariff codes are
+ * flagged but do not block. A claim that fails is left unvetted with the reasons returned.
+ */
+export async function vetClaim(id: string, body: { note?: string }, req: Request) {
+  const claim = await loadClaim(id, [ClaimStatus.DRAFT, ClaimStatus.QUERIED]);
+  const problems: string[] = [];
+  const warnings: string[] = [];
+  const membership = await activeMembership(claim.patientId, claim.schemeId, claim.attendanceDate);
+  if (!membership) problems.push(`No valid ${claim.scheme.name} membership on the day of the visit`);
+  else if (membership.policyNumber !== claim.membershipNumber) problems.push(`Membership number on the claim (${claim.membershipNumber}) differs from the one on file (${membership.policyNumber})`);
+  const diagnoses = Array.isArray(claim.diagnoses) ? (claim.diagnoses as unknown[]) : [];
+  if (diagnoses.length === 0) problems.push('The claim has no diagnosis');
+  if (claim.lines.length === 0) problems.push('The claim has no lines');
+  const sum = roundMoney(claim.lines.reduce((acc, l) => acc + Number(l.amount), 0));
+  if (sum !== money(claim.claimedAmount)) problems.push(`Lines add up to ${sum.toFixed(2)} but the claim says ${money(claim.claimedAmount).toFixed(2)}`);
+  for (const line of claim.lines) {
+    if (Number(line.amount) <= 0) problems.push(`"${line.description}" has a zero amount`);
+    if (!line.tariffCode) warnings.push(`"${line.description}" has no tariff code`);
+  }
+  if (problems.length) {
+    await audit(req, 'CLAIM_VET_FAILED', id, { problems });
+    return { vetted: false, problems, warnings, claim: await getClaim(id) };
+  }
+  await prisma.claim.update({ where: { id }, data: { vettedAt: new Date(), vettedById: req.user?.id ?? null, vetNote: body.note?.trim() || null } });
+  await audit(req, 'CLAIM_VETTED', id, { warnings });
+  return { vetted: true, problems, warnings, claim: await getClaim(id) };
+}
+
 /** Puts draft (or answered) claims into their scheme's batch for the month of attendance. */
 export async function submitClaims(body: { claimIds: string[] }, req: Request) {
   const claims = await prisma.claim.findMany({ where: { id: { in: body.claimIds } } });
   if (claims.length !== new Set(body.claimIds).size) throw new AppError('One of those claims was not found', 404, 'CLAIM_NOT_FOUND');
   const blocked = claims.find((c) => c.status !== ClaimStatus.DRAFT && c.status !== ClaimStatus.QUERIED);
   if (blocked) throw new AppError(`${blocked.claimCode} is ${blocked.status.toLowerCase()} and cannot be submitted`, 409, 'CLAIM_WRONG_STATUS');
+  // A claims officer sends only what has been vetted; any edit after vetting clears it.
+  if (req.user?.role === UserRole.CLAIMS_OFFICER) {
+    const unvetted = claims.find((c) => !c.vettedAt);
+    if (unvetted) throw new AppError(`${unvetted.claimCode} has not been vetted yet`, 409, 'CLAIM_NOT_VETTED');
+  }
 
   await prisma.$transaction(async (tx) => {
     for (const claim of claims) {

@@ -3,6 +3,8 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 import { sendCreated, sendSuccess } from '../utils/apiResponse.js';
 import {
   addMembership,
+  updateClaim,
+  vetClaim,
   adjudicateClaim,
   cancelClaim,
   claimCandidates,
@@ -29,6 +31,8 @@ export const listClaimsController = asyncHandler(async (req: Request, res: Respo
 export const candidatesController = asyncHandler(async (req: Request, res: Response) => sendSuccess(res, 'Claimable visits loaded', await claimCandidates(req.query as never)));
 export const getClaimController = asyncHandler(async (req: Request, res: Response) => sendSuccess(res, 'Claim loaded', await getClaim(req.params.id)));
 export const createClaimController = asyncHandler(async (req: Request, res: Response) => sendCreated(res, 'Claim prepared', await createClaim(req.body, req)));
+export const updateClaimController = asyncHandler(async (req: Request, res: Response) => sendSuccess(res, 'Claim updated', await updateClaim(req.params.id, req.body, req)));
+export const vetClaimController = asyncHandler(async (req: Request, res: Response) => sendSuccess(res, 'Claim vetting result', await vetClaim(req.params.id, req.body, req)));
 export const cancelClaimController = asyncHandler(async (req: Request, res: Response) => sendSuccess(res, 'Claim cancelled', await cancelClaim(req.params.id, req.body, req)));
 export const submitClaimsController = asyncHandler(async (req: Request, res: Response) => sendSuccess(res, 'Claims submitted', await submitClaims(req.body, req)));
 export const queryClaimController = asyncHandler(async (req: Request, res: Response) => sendSuccess(res, 'Query recorded', await queryClaim(req.params.id, req.body, req)));

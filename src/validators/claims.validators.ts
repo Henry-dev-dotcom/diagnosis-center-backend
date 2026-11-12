@@ -53,3 +53,19 @@ export const claimPaymentSchema = z.object({
   reference: z.string().trim().min(2, 'Enter the payment reference').max(80),
   paidAt: z.coerce.date().optional()
 });
+
+export const updateClaimSchema = z
+  .object({
+    diagnoses: z.array(z.object({ code: z.string().trim().min(1).max(20), description: z.string().trim().min(1).max(300), type: z.string().trim().max(40).nullish() })).min(1, 'Keep at least one diagnosis').max(30).optional(),
+    lines: z.array(z.object({
+      id: z.string().min(1),
+      description: z.string().trim().min(1).max(300).optional(),
+      tariffCode: z.string().trim().max(40).nullish().transform((v) => (v === '' ? null : v)),
+      quantity: z.coerce.number().int().min(1).max(10000).optional(),
+      unitPrice: z.coerce.number().min(0).max(10000000).optional()
+    })).max(500).optional(),
+    removeLineIds: z.array(z.string().min(1)).max(500).optional()
+  })
+  .refine((v) => v.diagnoses !== undefined || v.lines !== undefined || v.removeLineIds !== undefined, { message: 'Nothing to update' });
+
+export const vetClaimSchema = z.object({ note: z.string().trim().max(500).optional() });

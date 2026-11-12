@@ -3,7 +3,7 @@ import { dateRangeQuerySchema } from './common.validators.js';
 
 export const auditLogQuerySchema = dateRangeQuerySchema.and(z.object({
   actorId: z.string().trim().min(1).optional(),
-  actorRole: z.enum(['ADMIN', 'DOCTOR', 'RECEPTIONIST', 'LAB_STAFF', 'SCAN_STAFF', 'BILLING_STAFF']).optional(),
+  actorRole: z.enum(['ADMIN', 'DOCTOR', 'RECEPTIONIST', 'LAB_STAFF', 'SCAN_STAFF', 'BILLING_STAFF', 'NURSE', 'PHARMACIST', 'CLAIMS_OFFICER']).optional(),
   module: z.string().trim().max(80).optional(),
   action: z.string().trim().max(120).optional(),
   entityType: z.string().trim().max(80).optional(),

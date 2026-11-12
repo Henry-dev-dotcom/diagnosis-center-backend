@@ -17,7 +17,9 @@ import {
   membershipSchema,
   queryClaimSchema,
   submitClaimsSchema,
-  updateSchemeSchema
+  updateClaimSchema,
+  updateSchemeSchema,
+  vetClaimSchema
 } from '../validators/claims.validators.js';
 import {
   addMembershipController,
@@ -35,14 +37,16 @@ import {
   listSchemesController,
   queryClaimController,
   submitClaimsController,
-  updateSchemeController
+  updateClaimController,
+  updateSchemeController,
+  vetClaimController
 } from '../controllers/claims.controller.js';
 
 const P = PERMISSIONS;
 
 export const claimsRoutes = Router();
 // Reception records patients' scheme cards; the claims office prepares, submits and settles claims.
-claimsRoutes.use('/claims', requireAuth, requireModule('claims'), requireRole(UserRole.ADMIN, UserRole.BILLING_STAFF, UserRole.RECEPTIONIST));
+claimsRoutes.use('/claims', requireAuth, requireModule('claims'), requireRole(UserRole.ADMIN, UserRole.BILLING_STAFF, UserRole.RECEPTIONIST, UserRole.CLAIMS_OFFICER));
 claimsRoutes.get('/claims/schemes', requirePermission(P.CLAIMS_MEMBERSHIPS), listSchemesController);
 claimsRoutes.post('/claims/schemes', requirePermission(P.CLAIMS_SCHEMES_MANAGE), validateRequest({ body: createSchemeSchema }), createSchemeController);
 claimsRoutes.patch('/claims/schemes/:id', requirePermission(P.CLAIMS_SCHEMES_MANAGE), validateRequest({ params: idParamSchema, body: updateSchemeSchema }), updateSchemeController);
@@ -55,6 +59,8 @@ claimsRoutes.get('/claims', requirePermission(P.CLAIMS_READ), validateRequest({ 
 claimsRoutes.post('/claims', requirePermission(P.CLAIMS_MANAGE), validateRequest({ body: createClaimSchema }), createClaimController);
 claimsRoutes.post('/claims/submit', requirePermission(P.CLAIMS_MANAGE), validateRequest({ body: submitClaimsSchema }), submitClaimsController);
 claimsRoutes.get('/claims/:id', requirePermission(P.CLAIMS_READ), validateRequest({ params: idParamSchema }), getClaimController);
+claimsRoutes.patch('/claims/:id', requirePermission(P.CLAIMS_MANAGE), validateRequest({ params: idParamSchema, body: updateClaimSchema }), updateClaimController);
+claimsRoutes.post('/claims/:id/vet', requirePermission(P.CLAIMS_MANAGE), validateRequest({ params: idParamSchema, body: vetClaimSchema }), vetClaimController);
 claimsRoutes.post('/claims/:id/cancel', requirePermission(P.CLAIMS_MANAGE), validateRequest({ params: idParamSchema, body: cancelClaimSchema }), cancelClaimController);
 claimsRoutes.post('/claims/:id/query', requirePermission(P.CLAIMS_ADJUDICATE), validateRequest({ params: idParamSchema, body: queryClaimSchema }), queryClaimController);
 claimsRoutes.post('/claims/:id/decision', requirePermission(P.CLAIMS_ADJUDICATE), validateRequest({ params: idParamSchema, body: adjudicateSchema }), adjudicateClaimController);

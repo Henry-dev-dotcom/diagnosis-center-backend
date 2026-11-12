@@ -85,6 +85,42 @@ export async function listChannels(req: Request) {
   };
 }
 
+/**
+ * What others have said to this user lately, newest first: the group channels the role may use
+ * plus private department threads addressed to the user's department. Powers the notification
+ * bell; the user's own messages are left out.
+ */
+export async function listInbox(req: Request) {
+  const role = requireRole(req);
+  await removeExpired();
+  const channelKeys = channelsForRole(role).map((entry) => entry.key);
+  const ownDepartment = departmentForRole(role);
+  const rows = await prisma.staffMessage.findMany({
+    where: {
+      expiresAt: { gt: new Date() },
+      senderId: { not: req.user?.id },
+      OR: [
+        { recipientDepartment: null, channel: { in: channelKeys } },
+        ...(ownDepartment ? [{ recipientDepartment: ownDepartment }] : [])
+      ]
+    },
+    include: { sender: { select: senderSelect } },
+    orderBy: { createdAt: 'desc' },
+    take: 30
+  });
+  return {
+    items: rows.map((row) => ({
+      id: row.id,
+      kind: row.recipientDepartment ? 'direct' : 'channel',
+      channel: row.channel,
+      department: row.recipientDepartment ? row.senderDepartment : null,
+      senderName: row.sender.name,
+      preview: row.body.length > 140 ? `${row.body.slice(0, 137)}...` : row.body,
+      createdAt: row.createdAt
+    }))
+  };
+}
+
 /** One shared or role-limited channel's conversation, oldest first. */
 export async function listMessages(channel: string, query: Request['query'], req: Request) {
   const role = requireRole(req);

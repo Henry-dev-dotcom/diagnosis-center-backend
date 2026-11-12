@@ -60,6 +60,8 @@ const profileSchema = z.object({
   email: email.optional().or(z.literal('')),
   address: text(300).optional(),
   logoDataUrl: z.string().max(onboarding.MAX_LOGO_LENGTH, 'The logo is too large (200 KB at most)').nullable().optional(),
+  letterheadDataUrl: z.string().max(onboarding.MAX_LETTERHEAD_LENGTH, 'The letterhead is too large (300 KB at most)').nullable().optional(),
+  deltaCheckOptIn: z.boolean().optional(),
   allowSupportAccess: z.boolean().optional(),
   receptionConfirmsOrders: z.boolean().optional()
 }).refine((v) => Object.keys(v).length > 0, { message: 'Nothing to update' });

@@ -75,7 +75,7 @@ encountersRoutes.get('/encounters/formulary', requirePermission(P.PHARMACY_FORMU
 encountersRoutes.post('/encounters/emergency-arrivals', requirePermission(P.ENCOUNTERS_CREATE), validateRequest({ body: emergencyRegistrationSchema }), emergencyRegistrationController);
 encountersRoutes.get('/encounters/queue', requirePermission(P.ENCOUNTERS_READ), validateRequest({ query: queueQuerySchema }), clinicianQueueController);
 encountersRoutes.get('/encounters/:id', requirePermission(P.ENCOUNTERS_READ), validateRequest({ params: idParamSchema }), getEncounterController);
-encountersRoutes.post('/encounters/:id/vitals', requireAnyPermission(P.ENCOUNTERS_TRIAGE, P.ENCOUNTERS_CONSULT), validateRequest({ params: idParamSchema, body: vitalsSchema }), recordVitalsController);
+encountersRoutes.post('/encounters/:id/vitals', requirePermission(P.ENCOUNTERS_TRIAGE), validateRequest({ params: idParamSchema, body: vitalsSchema }), recordVitalsController);
 encountersRoutes.post('/encounters/:id/start-consultation', requirePermission(P.ENCOUNTERS_CONSULT), validateRequest({ params: idParamSchema }), startConsultationController);
 encountersRoutes.post('/encounters/:id/suspend', requirePermission(P.ENCOUNTERS_CONSULT), validateRequest({ params: idParamSchema }), suspendEncounterController);
 encountersRoutes.post('/encounters/:id/ping-diagnostics', requirePermission(P.ENCOUNTERS_CONSULT), validateRequest({ params: idParamSchema }), pingLabController);

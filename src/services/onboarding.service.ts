@@ -128,7 +128,7 @@ function facilityId() {
   return id;
 }
 
-const profileSelect = { id: true, code: true, name: true, phone: true, email: true, address: true, logoDataUrl: true, allowSupportAccess: true, receptionConfirmsOrders: true, onboardingCompletedAt: true, signupSource: true } as const;
+const profileSelect = { id: true, code: true, name: true, phone: true, email: true, address: true, logoDataUrl: true, letterheadDataUrl: true, deltaCheckOptIn: true, allowSupportAccess: true, receptionConfirmsOrders: true, onboardingCompletedAt: true, signupSource: true } as const;
 
 export async function onboardingStatus() {
   const facility = await prisma.facility.findUniqueOrThrow({ where: { id: facilityId() }, select: profileSelect });
@@ -150,10 +150,14 @@ export async function onboardingStatus() {
 
 const LOGO_PATTERN = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
 export const MAX_LOGO_LENGTH = 280_000; // about 200 KB of image
+export const MAX_LETTERHEAD_LENGTH = 420_000; // about 300 KB of image
 
-export async function updateProfile(body: { name?: string; phone?: string; email?: string; address?: string; logoDataUrl?: string | null; allowSupportAccess?: boolean; receptionConfirmsOrders?: boolean }, req: Request) {
+export async function updateProfile(body: { name?: string; phone?: string; email?: string; address?: string; logoDataUrl?: string | null; letterheadDataUrl?: string | null; deltaCheckOptIn?: boolean; allowSupportAccess?: boolean; receptionConfirmsOrders?: boolean }, req: Request) {
   if (body.logoDataUrl && (!LOGO_PATTERN.test(body.logoDataUrl) || body.logoDataUrl.length > MAX_LOGO_LENGTH)) {
     throw new AppError('The logo must be a PNG, JPEG or WebP image of at most 200 KB', 400, 'INVALID_LOGO');
+  }
+  if (body.letterheadDataUrl && (!LOGO_PATTERN.test(body.letterheadDataUrl) || body.letterheadDataUrl.length > MAX_LETTERHEAD_LENGTH)) {
+    throw new AppError('The letterhead must be a PNG, JPEG or WebP image of at most 300 KB', 400, 'INVALID_LETTERHEAD');
   }
   const id = facilityId();
   const after = await prisma.facility.update({
@@ -164,6 +168,8 @@ export async function updateProfile(body: { name?: string; phone?: string; email
       email: body.email === undefined ? undefined : body.email || null,
       address: body.address === undefined ? undefined : body.address || null,
       logoDataUrl: body.logoDataUrl === undefined ? undefined : body.logoDataUrl,
+      letterheadDataUrl: body.letterheadDataUrl === undefined ? undefined : body.letterheadDataUrl,
+      deltaCheckOptIn: body.deltaCheckOptIn,
       allowSupportAccess: body.allowSupportAccess,
       receptionConfirmsOrders: body.receptionConfirmsOrders
     },

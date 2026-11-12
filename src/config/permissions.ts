@@ -55,6 +55,8 @@ export const PERMISSIONS = {
   LAB_REVIEW_QUEUE_READ: 'lab:review-queue:read',
   LAB_TRENDS_READ: 'lab:trends:read',
   LAB_QC_MANAGE: 'lab:qc:manage',
+  LAB_TESTS_MANAGE: 'lab:tests:manage',
+  LAB_DELTA_CHECK: 'lab:delta-check',
   LAB_INVENTORY_MANAGE: 'lab:inventory:manage',
   // A signed-off (sent) lab result, pulled back by the lab itself to correct it.
   LAB_RESULTS_REVERSE: 'lab:results:reverse',
@@ -382,6 +384,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly
     PERMISSIONS.LAB_REVIEW_QUEUE_READ,
     PERMISSIONS.LAB_TRENDS_READ,
     PERMISSIONS.LAB_QC_MANAGE,
+    PERMISSIONS.LAB_TESTS_MANAGE,
+    PERMISSIONS.LAB_DELTA_CHECK,
     PERMISSIONS.LAB_INVENTORY_MANAGE,
     // The bench sets up its own analyzers and fixes their test-code mapping.
     PERMISSIONS.LAB_ANALYZERS_READ,
@@ -463,6 +467,25 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[] | readonly
     PERMISSIONS.STORES_ISSUE,
     PERMISSIONS.STORES_REQUEST,
     // See the duty rota and ask for leave (HR module).
+    PERMISSIONS.HR_ROTA_READ,
+    PERMISSIONS.HR_LEAVE_REQUEST
+  ],
+  [UserRole.CLAIMS_OFFICER]: [
+    PERMISSIONS.SYSTEM_READ,
+    PERMISSIONS.MESSAGES_READ,
+    PERMISSIONS.MESSAGES_SEND,
+    PERMISSIONS.PATIENTS_READ,
+    PERMISSIONS.ORDERS_READ,
+    PERMISSIONS.BILLING_INVOICES_READ,
+    PERMISSIONS.NOTIFICATIONS_READ,
+    PERMISSIONS.PRICING_READ,
+    // The claims office (Claims module): memberships, vetting, entry, submission and settlement.
+    PERMISSIONS.CLAIMS_READ,
+    PERMISSIONS.CLAIMS_MANAGE,
+    PERMISSIONS.CLAIMS_ADJUDICATE,
+    PERMISSIONS.CLAIMS_MEMBERSHIPS,
+    PERMISSIONS.CLAIMS_SCHEMES_MANAGE,
+    PERMISSIONS.REPORTS_FINANCE_READ,
     PERMISSIONS.HR_ROTA_READ,
     PERMISSIONS.HR_LEAVE_REQUEST
   ]

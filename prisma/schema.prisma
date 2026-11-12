@@ -44,6 +44,10 @@ model Facility {
   currency                String         @default("GHS")
   /// Small logo shown in the app header (a PNG/JPEG/WebP data URL, at most ~200 KB).
   logoDataUrl             String?
+  /// Wide banner printed at the top of every result the facility issues (PNG/JPEG/WebP data URL, at most ~300 KB).
+  letterheadDataUrl       String?
+  /// Takes part in cross-facility delta check sharing (asks, and may be asked).
+  deltaCheckOptIn         Boolean        @default(false)
   /// SELF_SERVICE (signed up on the website) or PLATFORM (created by the operator).
   signupSource            String         @default("PLATFORM")
   /// Set when the administrator finishes (or skips) the setup checklist.
@@ -64,6 +68,8 @@ model Facility {
   sequences                 FacilitySequence[]
   facilityRoles             FacilityRole[]
   users                     User[]
+  deltaRequestsSent         DeltaCheckRequest[] @relation("DeltaRequester")
+  deltaRequestsReceived     DeltaCheckRequest[] @relation("DeltaOwner")
   hospitals                 Hospital[]
   doctorProfiles            DoctorProfile[]
   patients                  Patient[]
@@ -187,6 +193,7 @@ enum UserRole {
   BILLING_STAFF
   NURSE
   PHARMACIST
+  CLAIMS_OFFICER
 }
 
 enum UserStatus {
@@ -427,6 +434,7 @@ enum NotificationType {
   PAYMENT_UPDATE
   SYSTEM_ALERT
   DELIVERY_EVENT
+  DELTA_CHECK
 }
 
 enum AppointmentStatus {
@@ -540,6 +548,7 @@ model User {
   immunizationsGiven     Immunization[]             @relation("ImmunizationGivenBy")
   immunizationsVoided    Immunization[]             @relation("ImmunizationVoidedBy")
   claimsCreated          Claim[]                    @relation("ClaimCreatedBy")
+  claimsVetted           Claim[]                    @relation("ClaimVettedBy")
   purchaseOrdersRaised   PurchaseOrder[]            @relation("PoRaisedBy")
   purchaseOrdersApproved PurchaseOrder[]            @relation("PoApprovedBy")
   goodsReceived          GoodsReceipt[]             @relation("GoodsReceivedBy")
@@ -3325,6 +3334,10 @@ model Claim {
   paymentReference String?
   queryNote        String?
   rejectionReason  String?
+  /// Set when a claims officer has checked the claim (membership, diagnoses, lines) and found it ready to send.
+  vettedAt         DateTime?
+  vettedById       String?
+  vetNote          String?
   submittedAt      DateTime?
   decidedAt        DateTime?
   paidAt           DateTime?
@@ -3338,6 +3351,7 @@ model Claim {
   encounter Encounter       @relation(fields: [encounterId], references: [id])
   batch     ClaimBatch?     @relation(fields: [batchId], references: [id])
   createdBy User?           @relation("ClaimCreatedBy", fields: [createdById], references: [id])
+  vettedBy  User?           @relation("ClaimVettedBy", fields: [vettedById], references: [id])
   lines     ClaimLine[]
 
   @@unique([facilityId, claimCode])
@@ -4362,4 +4376,53 @@ model StaffMessage {
   @@index([facilityId, senderDepartment, recipientDepartment, expiresAt], map: "StaffMessage_direct_sender_idx")
   @@index([facilityId, recipientDepartment, senderDepartment, expiresAt], map: "StaffMessage_direct_recipient_idx")
   @@index([facilityId])
+}
+
+// ---------------------------------------------------------------------------
+// Delta check across facilities. A laboratory asks another facility for a
+// patient's earlier results of named tests; the other laboratory approves or
+// declines, and on approval a snapshot of signed-off values is shared for a
+// limited time. Deliberately has no facilityId: the row belongs to two
+// facilities, and every query states which side it is. See
+// src/services/deltaCheck.service.ts.
+// ---------------------------------------------------------------------------
+
+enum DeltaCheckStatus {
+  PENDING
+  APPROVED
+  DECLINED
+  NO_MATCH
+  CANCELLED
+}
+
+model DeltaCheckRequest {
+  id                  String           @id @default(cuid())
+  requesterFacilityId String
+  ownerFacilityId     String
+  requesterName       String
+  /// The patient's id in the requesting facility; never shown to the owner.
+  patientLocalId      String
+  /// "34-year-old female": all the owner is told about who this is.
+  patientSummary      String
+  /// How the owner finds the patient: normalised national ID, confirmed by date of birth when both sides have one.
+  matchNationalId     String
+  patientDob          DateTime?
+  parameters          String[]         @default([])
+  lookbackDays        Int              @default(365)
+  reason              String
+  status              DeltaCheckStatus @default(PENDING)
+  responderName       String?
+  responseNote        String?
+  respondedAt         DateTime?
+  /// Snapshot taken when the owner approved: [{ parameter, value, numericValue, unit, flag, referenceRange, date }].
+  sharedData          Json?
+  /// While pending, when the request lapses; once approved, when the shared values stop being viewable.
+  expiresAt           DateTime
+  createdAt           DateTime         @default(now())
+
+  requesterFacility Facility @relation("DeltaRequester", fields: [requesterFacilityId], references: [id])
+  ownerFacility     Facility @relation("DeltaOwner", fields: [ownerFacilityId], references: [id])
+
+  @@index([requesterFacilityId, createdAt])
+  @@index([ownerFacilityId, status, createdAt])
 }

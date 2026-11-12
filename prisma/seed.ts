@@ -84,7 +84,8 @@ const DEMO_PASSWORDS: Record<string, string> = {
   scan: 'scan123',
   billing: 'billing123',
   nurse: 'nurse123',
-  pharmacist: 'pharmacist123'
+  pharmacist: 'pharmacist123',
+  claims: 'claims123'
 };
 
 function date(value: string) {
@@ -492,7 +493,8 @@ export async function seedUsersAndDoctors() {
     { id: 'USR-004', username: 'scan', name: 'Ama Boateng', email: 'scan@sunkwa.local', role: UserRole.SCAN_STAFF },
     { id: 'USR-005', username: 'billing', name: 'Kofi Danquah', email: 'billing@sunkwa.local', role: UserRole.BILLING_STAFF },
     { id: 'USR-008', username: 'nurse', name: 'Efua Asante', email: 'nurse@sunkwa.local', role: UserRole.NURSE },
-    { id: 'USR-009', username: 'pharmacist', name: 'Yaw Owusu', email: 'pharmacist@sunkwa.local', role: UserRole.PHARMACIST }
+    { id: 'USR-009', username: 'pharmacist', name: 'Yaw Owusu', email: 'pharmacist@sunkwa.local', role: UserRole.PHARMACIST },
+    { id: 'USR-010', username: 'claims', name: 'Akosua Frimpong', email: 'claims@sunkwa.local', role: UserRole.CLAIMS_OFFICER }
   ];
 
   for (const user of users) {
