@@ -165,7 +165,9 @@ export function applyGlobalMiddleware(app: Express) {
   // An explicitly configured LOG_LEVEL always wins. Without one, production
   // logs method + path only - never the query string, because signed download
   // links and one-time tokens travel in query strings and must not be written
-  // to logs. (morgan's :path token excludes the query string; :url would not.)
+  // to logs. morgan has no :path token of its own (:url includes the query
+  // string), so it is defined here as the URL with the query string cut off.
+  morgan.token('path', (req) => String((req as { originalUrl?: string }).originalUrl ?? req.url ?? '').split('?')[0]);
   const accessLogFormat = env.LOG_LEVEL ?? (isProduction ? ':remote-addr :method :path :status :res[content-length] - :response-time ms' : 'dev');
   app.use(morgan(accessLogFormat));
 }
