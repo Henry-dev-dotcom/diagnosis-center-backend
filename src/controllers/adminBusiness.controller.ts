@@ -38,12 +38,12 @@ export const createUserController = asyncHandler(async (req: Request, res: Respo
 });
 
 export const updateUserController = asyncHandler(async (req: Request, res: Response) => {
-  const user = await updateUser(req.params.id, req.body, req);
+  const user = await updateUser((req.params.id as string), req.body, req);
   return sendSuccess(res, 'User updated successfully', user);
 });
 
 export const deactivateUserController = asyncHandler(async (req: Request, res: Response) => {
-  const user = await deactivateUser(req.params.id, req);
+  const user = await deactivateUser((req.params.id as string), req);
   return sendSuccess(res, 'User status updated successfully', user);
 });
 
@@ -58,7 +58,7 @@ export const createHospitalController = asyncHandler(async (req: Request, res: R
 });
 
 export const updateHospitalController = asyncHandler(async (req: Request, res: Response) => {
-  const hospital = await updateHospital(req.params.id, req.body, req);
+  const hospital = await updateHospital((req.params.id as string), req.body, req);
   return sendSuccess(res, 'Hospital updated successfully', hospital);
 });
 
@@ -73,7 +73,7 @@ export const createDoctorController = asyncHandler(async (req: Request, res: Res
 });
 
 export const updateDoctorController = asyncHandler(async (req: Request, res: Response) => {
-  const doctor = await updateDoctor(req.params.id, req.body, req);
+  const doctor = await updateDoctor((req.params.id as string), req.body, req);
   return sendSuccess(res, 'Doctor profile updated successfully', doctor);
 });
 
@@ -88,7 +88,7 @@ export const createCatalogItemController = asyncHandler(async (req: Request, res
 });
 
 export const updateCatalogItemController = asyncHandler(async (req: Request, res: Response) => {
-  const item = await updateCatalogItem(req.params.id, req.body, req);
+  const item = await updateCatalogItem((req.params.id as string), req.body, req);
   return sendSuccess(res, 'Catalog item updated successfully', item);
 });
 
@@ -103,7 +103,7 @@ export const createReferenceRangeController = asyncHandler(async (req: Request, 
 });
 
 export const updateReferenceRangeController = asyncHandler(async (req: Request, res: Response) => {
-  const range = await updateReferenceRange(req.params.id, req.body, req);
+  const range = await updateReferenceRange((req.params.id as string), req.body, req);
   return sendSuccess(res, 'Reference range updated successfully', range);
 });
 
@@ -118,7 +118,7 @@ export const createDepartmentController = asyncHandler(async (req: Request, res:
 });
 
 export const updateDepartmentController = asyncHandler(async (req: Request, res: Response) => {
-  const department = await updateDepartment(req.params.id, req.body, req);
+  const department = await updateDepartment((req.params.id as string), req.body, req);
   return sendSuccess(res, 'Department updated successfully', department);
 });
 
@@ -133,7 +133,7 @@ export const createEquipmentController = asyncHandler(async (req: Request, res: 
 });
 
 export const updateEquipmentController = asyncHandler(async (req: Request, res: Response) => {
-  const equipment = await updateEquipment(req.params.id, req.body, req);
+  const equipment = await updateEquipment((req.params.id as string), req.body, req);
   return sendSuccess(res, 'Equipment updated successfully', equipment);
 });
 

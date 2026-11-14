@@ -28,7 +28,7 @@ export const listAnalyzerDevicesController = asyncHandler(async (req: Request, r
 });
 
 export const getAnalyzerDeviceController = asyncHandler(async (req: Request, res: Response) => {
-  const result = await getAnalyzerDevice(req.params.id);
+  const result = await getAnalyzerDevice((req.params.id as string));
   return sendSuccess(res, 'Analyzer loaded successfully', result);
 });
 
@@ -39,12 +39,12 @@ export const createAnalyzerDeviceController = asyncHandler(async (req: Request, 
 });
 
 export const updateAnalyzerDeviceController = asyncHandler(async (req: Request, res: Response) => {
-  const result = await updateAnalyzerDevice(req.params.id, req.body, req);
+  const result = await updateAnalyzerDevice((req.params.id as string), req.body, req);
   return sendSuccess(res, 'Analyzer updated successfully', result);
 });
 
 export const rotateAnalyzerDeviceKeyController = asyncHandler(async (req: Request, res: Response) => {
-  const result = await rotateAnalyzerDeviceKey(req.params.id, req);
+  const result = await rotateAnalyzerDeviceKey((req.params.id as string), req);
   return sendSuccess(res, 'A new key was issued. The old one stopped working immediately.', result);
 });
 
@@ -61,7 +61,7 @@ export const upsertAnalyzerTestMapController = asyncHandler(async (req: Request,
 });
 
 export const deleteAnalyzerTestMapController = asyncHandler(async (req: Request, res: Response) => {
-  const result = await deleteAnalyzerTestMap(req.params.id, req);
+  const result = await deleteAnalyzerTestMap((req.params.id as string), req);
   return sendSuccess(res, 'Test mapping removed successfully', result);
 });
 
@@ -78,17 +78,17 @@ export const listAnalyzerMessagesController = asyncHandler(async (req: Request, 
 });
 
 export const getAnalyzerMessageController = asyncHandler(async (req: Request, res: Response) => {
-  const result = await getAnalyzerMessage(req.params.id);
+  const result = await getAnalyzerMessage((req.params.id as string));
   return sendSuccess(res, 'Analyzer message loaded successfully', result);
 });
 
 export const replayAnalyzerMessageController = asyncHandler(async (req: Request, res: Response) => {
-  const result = await replayAnalyzerMessage(req.params.id, req);
+  const result = await replayAnalyzerMessage((req.params.id as string), req);
   return sendSuccess(res, 'Analyzer message processed again', result);
 });
 
 export const discardAnalyzerMessageController = asyncHandler(async (req: Request, res: Response) => {
-  const result = await discardAnalyzerMessage(req.params.id, req.body, req);
+  const result = await discardAnalyzerMessage((req.params.id as string), req.body, req);
   return sendSuccess(res, 'Analyzer message discarded', result);
 });
 

@@ -16,5 +16,5 @@ export const createMaintenanceRequestController = asyncHandler(async (req: Reque
   sendCreated(res, 'Analyzer maintenance request recorded for follow-up', await requests.createMaintenanceRequest(req.body, req))
 );
 export const updateGustavRequestStatusController = asyncHandler(async (req: Request, res: Response) =>
-  sendSuccess(res, 'Gustav Biomed request updated', await requests.updateGustavRequestStatus(req.params.id, req.body, req))
+  sendSuccess(res, 'Gustav Biomed request updated', await requests.updateGustavRequestStatus((req.params.id as string), req.body, req))
 );

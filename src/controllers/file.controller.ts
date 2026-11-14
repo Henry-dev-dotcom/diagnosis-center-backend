@@ -22,18 +22,18 @@ export const uploadFileMetadataController = asyncHandler(async (req: Request, re
 });
 
 export const getFileMetadataController = asyncHandler(async (req: Request, res: Response) => {
-  const result = await getFileMetadata(req.params.id, req);
+  const result = await getFileMetadata((req.params.id as string), req);
   return sendSuccess(res, 'File metadata loaded successfully', result);
 });
 
 export const downloadFileController = asyncHandler(async (req: Request, res: Response) => {
-  const result = await getFileDownload(req.params.id, req.query, req);
+  const result = await getFileDownload((req.params.id as string), req.query, req);
   res.setHeader('Content-Type', result.fileType);
   return res.download(result.absolutePath, result.fileName);
 });
 
 export const deleteFileMetadataController = asyncHandler(async (req: Request, res: Response) => {
-  const result = await deleteFileMetadata(req.params.id, req);
+  const result = await deleteFileMetadata((req.params.id as string), req);
   return sendSuccess(res, 'File deleted successfully', result);
 });
 
@@ -43,6 +43,6 @@ export const listDicomStudiesController = asyncHandler(async (req: Request, res:
 });
 
 export const getDicomStudyController = asyncHandler(async (req: Request, res: Response) => {
-  const result = await getDicomStudy(req.params.studyUid);
+  const result = await getDicomStudy((req.params.studyUid as string));
   return sendSuccess(res, 'DICOM study loaded successfully', result);
 });

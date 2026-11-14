@@ -22,9 +22,9 @@ export const createRoleController = asyncHandler(async (req: Request, res: Respo
 });
 
 export const updateRoleController = asyncHandler(async (req: Request, res: Response) => {
-  return sendSuccess(res, 'Role updated successfully', await updateFacilityRole(req.params.id, req.body, req));
+  return sendSuccess(res, 'Role updated successfully', await updateFacilityRole((req.params.id as string), req.body, req));
 });
 
 export const deleteRoleController = asyncHandler(async (req: Request, res: Response) => {
-  return sendSuccess(res, 'Role deleted successfully', await deleteFacilityRole(req.params.id, req));
+  return sendSuccess(res, 'Role deleted successfully', await deleteFacilityRole((req.params.id as string), req));
 });

@@ -16,19 +16,19 @@ export const listPartnersController = asyncHandler(async (_req: Request, res: Re
 
 export const createInvitationController = asyncHandler(async (req: Request, res: Response) => {
   if (!req.user) throw new AppError('Platform administrator sign-in is required', 401, 'AUTH_REQUIRED');
-  const result = await portal.createVendorInvitation(req.params.id, req.body, req.user.id, requestContext(req));
+  const result = await portal.createVendorInvitation((req.params.id as string), req.body, req.user.id, requestContext(req));
   return sendCreated(res, 'Vendor setup invitation created. Copy and share the one-time link securely.', result);
 });
 
 export const setVendorUserStatusController = asyncHandler(async (req: Request, res: Response) => {
   if (!req.user) throw new AppError('Platform administrator sign-in is required', 401, 'AUTH_REQUIRED');
-  const result = await portal.setVendorPortalUserStatus(req.params.userId, req.body.status as UserStatus, requestContext(req), req.user.id);
+  const result = await portal.setVendorPortalUserStatus((req.params.userId as string), req.body.status as UserStatus, requestContext(req), req.user.id);
   return sendSuccess(res, 'Vendor account status updated', result);
 });
 
 export const deleteVendorUserController = asyncHandler(async (req: Request, res: Response) => {
   if (!req.user) throw new AppError('Platform administrator sign-in is required', 401, 'AUTH_REQUIRED');
-  const result = await portal.deleteVendorPortalUser(req.params.userId, requestContext(req), req.user.id);
+  const result = await portal.deleteVendorPortalUser((req.params.userId as string), requestContext(req), req.user.id);
   return sendSuccess(res, 'Vendor login deleted; request and audit history retained', result);
 });
 
@@ -76,10 +76,10 @@ export const listRequestsController = asyncHandler(async (req: Request, res: Res
 
 export const getRequestController = asyncHandler(async (req: Request, res: Response) => {
   if (!req.vendorUser) throw new AppError('Vendor sign-in is required', 401, 'VENDOR_AUTH_REQUIRED');
-  return sendSuccess(res, 'Vendor request loaded', await portal.getVendorRequest(req.vendorUser, req.params.id));
+  return sendSuccess(res, 'Vendor request loaded', await portal.getVendorRequest(req.vendorUser, (req.params.id as string)));
 });
 
 export const updateRequestStatusController = asyncHandler(async (req: Request, res: Response) => {
   if (!req.vendorUser) throw new AppError('Vendor sign-in is required', 401, 'VENDOR_AUTH_REQUIRED');
-  return sendSuccess(res, 'Vendor request updated', await portal.updateVendorRequestStatus(req.vendorUser, req.params.id, req.body, requestContext(req)));
+  return sendSuccess(res, 'Vendor request updated', await portal.updateVendorRequestStatus(req.vendorUser, (req.params.id as string), req.body, requestContext(req)));
 });

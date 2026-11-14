@@ -29,7 +29,7 @@ export function auditAction(options?: { module?: string; action?: string; entity
         module: options?.module,
         action: options?.action,
         entityType: options?.entityType,
-        entityId: options?.entityIdParam ? req.params[options.entityIdParam] : undefined,
+        entityId: options?.entityIdParam ? (req.params[options.entityIdParam] as string | undefined) : undefined,
         details: options?.details
       });
     });

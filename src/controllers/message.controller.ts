@@ -9,12 +9,12 @@ export const listMessageChannelsController = asyncHandler(async (req: Request, r
 });
 
 export const listMessagesController = asyncHandler(async (req: Request, res: Response) => {
-  const result = await listMessages(req.params.channel, req.query, req);
+  const result = await listMessages((req.params.channel as string), req.query, req);
   return sendSuccess(res, 'Messages loaded successfully', result);
 });
 
 export const listDepartmentMessagesController = asyncHandler(async (req: Request, res: Response) => {
-  const result = await listDepartmentMessages(req.params.department, req.query, req);
+  const result = await listDepartmentMessages((req.params.department as string), req.query, req);
   return sendSuccess(res, 'Department conversation loaded successfully', result);
 });
 

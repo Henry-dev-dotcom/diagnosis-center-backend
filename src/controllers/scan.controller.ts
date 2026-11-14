@@ -23,7 +23,7 @@ export const acceptScansController = asyncHandler(async (req: Request, res: Resp
 });
 
 export const acceptScanOrderController = asyncHandler(async (req: Request, res: Response) => {
-  const result = await acceptScans(req.body, req, req.params.orderId);
+  const result = await acceptScans(req.body, req, (req.params.orderId as string));
   return sendSuccess(res, 'Scan order accepted successfully', result, 201);
 });
 
@@ -53,12 +53,12 @@ export const submitScanResultReviewController = asyncHandler(async (req: Request
 });
 
 export const signOffScanResultController = asyncHandler(async (req: Request, res: Response) => {
-  const result = await signOffScanResult(req.params.id, req.body, req);
+  const result = await signOffScanResult((req.params.id as string), req.body, req);
   return sendSuccess(res, 'Scan report review decision saved successfully', result);
 });
 
 export const reverseScanResultController = asyncHandler(async (req: Request, res: Response) => {
-  const result = await reverseScanResult(req.params.id, req.body, req);
+  const result = await reverseScanResult((req.params.id as string), req.body, req);
   return sendSuccess(res, 'Sent scan report reversed for correction', result);
 });
 
@@ -78,11 +78,11 @@ export const listRejectedRetakeScansController = asyncHandler(async (req: Reques
 });
 
 export const attachScanResultFilesController = asyncHandler(async (req: Request, res: Response) => {
-  const result = await attachScanResultFiles(req.params.id, req.body, req);
+  const result = await attachScanResultFiles((req.params.id as string), req.body, req);
   return sendSuccess(res, 'Scan image/DICOM metadata attached successfully', result, 201);
 });
 
 export const listPriorScansController = asyncHandler(async (req: Request, res: Response) => {
-  const result = await listPriorScans(req.params.patientId, req.query);
+  const result = await listPriorScans((req.params.patientId as string), req.query);
   return sendSuccess(res, 'Prior scan comparison history loaded successfully', result);
 });

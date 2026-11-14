@@ -33,7 +33,7 @@ export const createAppointmentController = asyncHandler(async (req: Request, res
 });
 
 export const updateAppointmentController = asyncHandler(async (req: Request, res: Response) => {
-  const appointment = await updateAppointment(req.params.id, req.body, req);
+  const appointment = await updateAppointment((req.params.id as string), req.body, req);
   return sendSuccess(res, 'Appointment updated successfully', appointment);
 });
 
@@ -48,6 +48,6 @@ export const listReceptionResultsInboxController = asyncHandler(async (req: Requ
 });
 
 export const sendReceptionResultNoticeController = asyncHandler(async (req: Request, res: Response) => {
-  const result = await sendReceptionResultNotice(req.params.id, req.body, req);
+  const result = await sendReceptionResultNotice((req.params.id as string), req.body, req);
   return sendCreated(res, 'Privacy-safe result notice sent successfully', result);
 });

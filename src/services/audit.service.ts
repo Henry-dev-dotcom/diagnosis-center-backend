@@ -194,7 +194,7 @@ export function auditSuccessfulRequest(req: Request, res: Response, options?: { 
     action: actionForRequest(req, options?.action),
     module: options?.module ?? moduleNameForPath(req.originalUrl),
     entityType: options?.entityType ?? inferEntityType(req.originalUrl),
-    entityId: options?.entityId ?? req.params.id ?? req.params.orderId ?? req.params.patientId ?? req.params.catalogItemId ?? null,
+    entityId: options?.entityId ?? ((req.params.id ?? req.params.orderId ?? req.params.patientId ?? req.params.catalogItemId) as string | undefined) ?? null,
     details: {
       method: req.method,
       path: req.originalUrl,

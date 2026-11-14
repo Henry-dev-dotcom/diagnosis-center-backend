@@ -20,23 +20,23 @@ export const createDrugController = asyncHandler(async (req: Request, res: Respo
   sendCreated(res, 'Drug added', await createDrug(req.body, req))
 );
 export const updateDrugController = asyncHandler(async (req: Request, res: Response) =>
-  sendSuccess(res, 'Drug updated', await updateDrug(req.params.id, req.body, req))
+  sendSuccess(res, 'Drug updated', await updateDrug((req.params.id as string), req.body, req))
 );
 export const receiveBatchController = asyncHandler(async (req: Request, res: Response) =>
-  sendCreated(res, 'Stock received', await receiveBatch(req.params.id, req.body, req))
+  sendCreated(res, 'Stock received', await receiveBatch((req.params.id as string), req.body, req))
 );
 export const adjustStockController = asyncHandler(async (req: Request, res: Response) =>
-  sendSuccess(res, 'Stock adjusted', await adjustStock(req.params.id, req.body, req))
+  sendSuccess(res, 'Stock adjusted', await adjustStock((req.params.id as string), req.body, req))
 );
 export const listMovementsController = asyncHandler(async (req: Request, res: Response) =>
-  sendSuccess(res, 'Stock movements loaded', await listMovements(req.params.id))
+  sendSuccess(res, 'Stock movements loaded', await listMovements((req.params.id as string)))
 );
 export const dispensingQueueController = asyncHandler(async (req: Request, res: Response) =>
   sendSuccess(res, 'Prescriptions loaded', await dispensingQueue((req.query.status as 'PENDING' | 'DISPENSED') ?? 'PENDING'))
 );
 export const getPrescriptionController = asyncHandler(async (req: Request, res: Response) =>
-  sendSuccess(res, 'Prescription loaded', await getPrescriptionForDispensing(req.params.id))
+  sendSuccess(res, 'Prescription loaded', await getPrescriptionForDispensing((req.params.id as string)))
 );
 export const dispenseController = asyncHandler(async (req: Request, res: Response) =>
-  sendCreated(res, 'Dispensed', await dispense(req.params.id, req.body, req))
+  sendCreated(res, 'Dispensed', await dispense((req.params.id as string), req.body, req))
 );

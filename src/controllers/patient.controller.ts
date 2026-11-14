@@ -22,22 +22,22 @@ export const createPatientController = asyncHandler(async (req: Request, res: Re
 });
 
 export const getPatientController = asyncHandler(async (req: Request, res: Response) => {
-  const patient = await getPatient(req.params.id, req.user);
+  const patient = await getPatient((req.params.id as string), req.user);
   return sendSuccess(res, 'Patient profile loaded successfully', patient);
 });
 
 export const updatePatientController = asyncHandler(async (req: Request, res: Response) => {
-  const patient = await updatePatient(req.params.id, req.body, req);
+  const patient = await updatePatient((req.params.id as string), req.body, req);
   return sendSuccess(res, 'Patient updated successfully', patient);
 });
 
 export const patientOrdersController = asyncHandler(async (req: Request, res: Response) => {
-  const result = await getPatientOrders(req.params.id, req.query, req.user);
+  const result = await getPatientOrders((req.params.id as string), req.query, req.user);
   return sendSuccess(res, 'Patient orders loaded successfully', result);
 });
 
 export const patientTrendsController = asyncHandler(async (req: Request, res: Response) => {
-  const trends = await getPatientTrends(req.params.id ?? req.params.patientId, req.query, req.user);
+  const trends = await getPatientTrends((req.params.id as string) ?? req.params.patientId, req.query, req.user);
   return sendSuccess(res, 'Patient trends loaded successfully', trends);
 });
 

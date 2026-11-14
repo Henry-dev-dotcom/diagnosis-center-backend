@@ -25,12 +25,12 @@ export const createNotificationController = asyncHandler(async (req: Request, re
 });
 
 export const markNotificationReadController = asyncHandler(async (req: Request, res: Response) => {
-  const result = await markNotificationRead(req.params.id, req);
+  const result = await markNotificationRead((req.params.id as string), req);
   return sendSuccess(res, 'Notification marked as read successfully', result);
 });
 
 export const markNotificationUnreadController = asyncHandler(async (req: Request, res: Response) => {
-  const result = await markNotificationUnread(req.params.id, req);
+  const result = await markNotificationUnread((req.params.id as string), req);
   return sendSuccess(res, 'Notification marked as unread successfully', result);
 });
 
@@ -40,7 +40,7 @@ export const markAllNotificationsReadController = asyncHandler(async (req: Reque
 });
 
 export const deliverNotificationController = asyncHandler(async (req: Request, res: Response) => {
-  const result = await deliverNotification(req.params.id, req.body, req);
+  const result = await deliverNotification((req.params.id as string), req.body, req);
   return sendSuccess(res, 'Notification delivery recorded successfully', result);
 });
 
@@ -50,7 +50,7 @@ export const listNotificationLogsController = asyncHandler(async (req: Request, 
 });
 
 export const retryNotificationLogController = asyncHandler(async (req: Request, res: Response) => {
-  const result = await retryNotificationLog(req.params.id, req);
+  const result = await retryNotificationLog((req.params.id as string), req);
   return sendSuccess(res, 'Notification delivery retry recorded successfully', result);
 });
 

@@ -114,10 +114,10 @@ onboardingRoutes.post('/onboarding/complete', ...admin, ok('Setup finished', (re
 const platform = [requireAuth, requireRole(UserRole.PLATFORM_ADMIN)];
 onboardingRoutes.get('/platform/metrics', ...platform, requirePermission(P.PLATFORM_BILLING_MANAGE), ok('Metrics loaded', () => platformMetrics()));
 onboardingRoutes.get('/platform/demo-requests', ...platform, requirePermission(P.PLATFORM_FACILITIES_READ), validateRequest({ query: z.object({ status: z.nativeEnum(DemoRequestStatus).optional() }) }), ok('Requests loaded', (req) => onboarding.listDemoRequests(req.query as { status?: DemoRequestStatus })));
-onboardingRoutes.patch('/platform/demo-requests/:id', ...platform, requirePermission(P.PLATFORM_FACILITIES_MANAGE), validateRequest({ params: idParamSchema, body: z.object({ status: z.nativeEnum(DemoRequestStatus).optional(), notes: text(2000).optional() }) }), ok('Request updated', (req) => onboarding.updateDemoRequest(req.params.id, req.body, req)));
+onboardingRoutes.patch('/platform/demo-requests/:id', ...platform, requirePermission(P.PLATFORM_FACILITIES_MANAGE), validateRequest({ params: idParamSchema, body: z.object({ status: z.nativeEnum(DemoRequestStatus).optional(), notes: text(2000).optional() }) }), ok('Request updated', (req) => onboarding.updateDemoRequest((req.params.id as string), req.body, req)));
 // Replaces the operator's browser session with the support session; signing out ends it.
 onboardingRoutes.post('/platform/facilities/:id/support-session', ...platform, requirePermission(P.PLATFORM_SUPPORT_SESSION), validateRequest({ params: idParamSchema, body: z.object({ reason: z.string().trim().min(10, 'Say why support needs to look (at least 10 characters)').max(500) }) }), asyncHandler(async (req: Request, res: Response) => {
-  const result = await startSupportSession(req.params.id, req.body.reason, req);
+  const result = await startSupportSession((req.params.id as string), req.body.reason, req);
   setAuthCookies(res, result);
   return sendCreated(res, 'Support session started', result);
 }));

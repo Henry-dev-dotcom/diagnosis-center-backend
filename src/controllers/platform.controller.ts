@@ -8,7 +8,7 @@ export const listModulesController = asyncHandler(async (_req: Request, res: Res
 });
 
 export const setFacilityModulesController = asyncHandler(async (req: Request, res: Response) => {
-  return sendSuccess(res, 'Facility modules updated successfully', await setFacilityModules(req.params.id, req.body.modules, req));
+  return sendSuccess(res, 'Facility modules updated successfully', await setFacilityModules((req.params.id as string), req.body.modules, req));
 });
 
 export const listFacilitiesController = asyncHandler(async (_req: Request, res: Response) => {
@@ -16,7 +16,7 @@ export const listFacilitiesController = asyncHandler(async (_req: Request, res: 
 });
 
 export const getFacilityController = asyncHandler(async (req: Request, res: Response) => {
-  return sendSuccess(res, 'Facility loaded successfully', await getFacility(req.params.id));
+  return sendSuccess(res, 'Facility loaded successfully', await getFacility((req.params.id as string)));
 });
 
 export const createFacilityController = asyncHandler(async (req: Request, res: Response) => {
@@ -24,5 +24,5 @@ export const createFacilityController = asyncHandler(async (req: Request, res: R
 });
 
 export const updateFacilityController = asyncHandler(async (req: Request, res: Response) => {
-  return sendSuccess(res, 'Facility updated successfully', await updateFacility(req.params.id, req.body, req));
+  return sendSuccess(res, 'Facility updated successfully', await updateFacility((req.params.id as string), req.body, req));
 });

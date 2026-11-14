@@ -39,32 +39,32 @@ export const listReceptionIncomingOrdersController = asyncHandler(async (req: Re
 });
 
 export const getOrderController = asyncHandler(async (req: Request, res: Response) => {
-  const order = await getOrder(req.params.id, req.user);
+  const order = await getOrder((req.params.id as string), req.user);
   return sendSuccess(res, 'Order loaded successfully', order);
 });
 
 export const updateOrderStatusController = asyncHandler(async (req: Request, res: Response) => {
-  const order = await updateOrderStatus(req.params.id, req.body, req);
+  const order = await updateOrderStatus((req.params.id as string), req.body, req);
   return sendSuccess(res, 'Order status updated successfully', order);
 });
 
 export const transitionOrderController = asyncHandler(async (req: Request, res: Response) => {
-  const order = await updateOrderStatus(req.params.id, req.body, req);
+  const order = await updateOrderStatus((req.params.id as string), req.body, req);
   return sendSuccess(res, 'Order transition completed successfully', order);
 });
 
 export const cancelOrderController = asyncHandler(async (req: Request, res: Response) => {
-  const order = await cancelOrder(req.params.id, req.body, req);
+  const order = await cancelOrder((req.params.id as string), req.body, req);
   return sendSuccess(res, 'Order cancelled successfully', order);
 });
 
 export const getOrderTimelineController = asyncHandler(async (req: Request, res: Response) => {
-  const timeline = await getOrderTimeline(req.params.id, req.user);
+  const timeline = await getOrderTimeline((req.params.id as string), req.user);
   return sendSuccess(res, 'Order timeline loaded successfully', timeline);
 });
 
 export const confirmReceptionOrderController = asyncHandler(async (req: Request, res: Response) => {
-  const result = await confirmReceptionOrder(req.params.id, req.body, req);
+  const result = await confirmReceptionOrder((req.params.id as string), req.body, req);
   return sendSuccess(res, 'Order confirmed successfully', result);
 });
 

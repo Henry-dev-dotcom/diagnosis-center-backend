@@ -52,7 +52,7 @@ subscriptionRoutes.post('/public/quote', validateRequest({ body: selection }), o
 subscriptionRoutes.use('/subscription', requireAuth, requireRole(UserRole.ADMIN), requirePermission(P.SUBSCRIPTION_MANAGE));
 subscriptionRoutes.get('/subscription', ok('Subscription loaded', () => billing.mySubscription()));
 subscriptionRoutes.post('/subscription/checkout', validateRequest({ body: selection.extend({ billingEmail: z.string().trim().email('Give a billing email address') }) }), ok('Checkout started', (req) => billing.startCheckout(req.body, req)));
-subscriptionRoutes.post('/subscription/invoices/:id/pay', validateRequest({ params: idParamSchema }), ok('Checkout started', (req) => billing.payInvoice(req.params.id, req)));
+subscriptionRoutes.post('/subscription/invoices/:id/pay', validateRequest({ params: idParamSchema }), ok('Checkout started', (req) => billing.payInvoice((req.params.id as string), req)));
 subscriptionRoutes.post('/subscription/confirm', validateRequest({ body: z.object({ reference: z.string().trim().min(4).max(120) }) }), ok('Payment checked', async (req) => ({ ...(await billing.confirmPayment(req.body.reference, req)), subscription: await billing.mySubscription() })));
 subscriptionRoutes.post('/subscription/change', validateRequest({ body: selection }), ok('Plan change recorded', (req) => billing.changePlan(req.body, req)));
 subscriptionRoutes.post('/subscription/cancel', ok('Cancellation scheduled', (req) => billing.cancelSubscription(req)));
@@ -62,9 +62,9 @@ subscriptionRoutes.post('/subscription/resume', ok('Subscription resumed', (req)
 const platform = [requireAuth, requireRole(UserRole.PLATFORM_ADMIN), requirePermission(P.PLATFORM_BILLING_MANAGE)];
 subscriptionRoutes.get('/platform/plans', ...platform, ok('Plans loaded', () => billing.listPlans({ includeInactive: true })));
 subscriptionRoutes.post('/platform/plans', ...platform, validateRequest({ body: createPlanSchema }), asyncHandler(async (req: Request, res: Response) => sendCreated(res, 'Plan created', await billing.createPlan(req.body, req))));
-subscriptionRoutes.patch('/platform/plans/:id', ...platform, validateRequest({ params: idParamSchema, body: updatePlanSchema }), ok('Plan updated', (req) => billing.updatePlan(req.params.id, req.body, req)));
+subscriptionRoutes.patch('/platform/plans/:id', ...platform, validateRequest({ params: idParamSchema, body: updatePlanSchema }), ok('Plan updated', (req) => billing.updatePlan((req.params.id as string), req.body, req)));
 subscriptionRoutes.get('/platform/module-prices', ...platform, ok('Prices loaded', () => billing.listModulePrices()));
-subscriptionRoutes.put('/platform/module-prices/:key', ...platform, validateRequest({ params: z.object({ key: z.enum(MODULE_KEYS) }), body: z.object({ monthlyPrice: z.coerce.number().min(0).max(10_000_000) }) }), ok('Price saved', (req) => billing.setModulePrice(req.params.key, req.body.monthlyPrice, req)));
+subscriptionRoutes.put('/platform/module-prices/:key', ...platform, validateRequest({ params: z.object({ key: z.enum(MODULE_KEYS) }), body: z.object({ monthlyPrice: z.coerce.number().min(0).max(10_000_000) }) }), ok('Price saved', (req) => billing.setModulePrice((req.params.key as string), req.body.monthlyPrice, req)));
 subscriptionRoutes.get('/platform/subscriptions', ...platform, ok('Subscriptions loaded', () => billing.listSubscriptions()));
 subscriptionRoutes.post('/platform/billing/run', ...platform, validateRequest({ body: z.object({ at: z.coerce.date().optional() }) }), ok('Billing cycle run', (req) => billing.runBillingCycle(req.body.at ?? new Date())));
 
@@ -118,12 +118,12 @@ function fakeOnly() {
 }
 subscriptionRoutes.get('/billing/fake-checkout/:reference', asyncHandler(async (req: Request, res: Response) => {
   const g = fakeOnly();
-  const t = g.transactions.get(req.params.reference);
+  const t = g.transactions.get((req.params.reference as string));
   if (!t) throw new AppError('Unknown payment', 404, 'GATEWAY_REFERENCE_UNKNOWN');
-  const ref = escapeHtml(req.params.reference);
+  const ref = escapeHtml((req.params.reference as string));
   const back = safeReturn(req.query.return).toString();
   // Plain links (GET), like following Paystack's own pages: no cross-origin form post.
-  const done = (outcome: string) => `${env.API_PREFIX}/billing/fake-checkout/${encodeURIComponent(req.params.reference)}/complete?outcome=${outcome}&return=${encodeURIComponent(back)}`;
+  const done = (outcome: string) => `${env.API_PREFIX}/billing/fake-checkout/${encodeURIComponent((req.params.reference as string))}/complete?outcome=${outcome}&return=${encodeURIComponent(back)}`;
   res.type('html').send(`<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Test payment</title><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="font-family:system-ui;max-width:420px;margin:48px auto;padding:0 16px">
 <h1 style="font-size:20px">Test payment (no real money)</h1>
@@ -134,10 +134,10 @@ subscriptionRoutes.get('/billing/fake-checkout/:reference', asyncHandler(async (
 subscriptionRoutes.get('/billing/fake-checkout/:reference/complete', asyncHandler(async (req: Request, res: Response) => {
   const g = fakeOnly();
   const outcome = req.query.outcome === 'success' ? 'success' : 'failed';
-  g.complete(req.params.reference, outcome);
+  g.complete((req.params.reference as string), outcome);
   // Like Paystack: the payment is confirmed by the gateway's own notification, not by the browser.
-  if (outcome === 'success') await billing.confirmPaymentByReference(req.params.reference);
+  if (outcome === 'success') await billing.confirmPaymentByReference((req.params.reference as string));
   const target = safeReturn(req.query.return);
-  target.searchParams.set('reference', req.params.reference);
+  target.searchParams.set('reference', (req.params.reference as string));
   res.redirect(303, target.toString());
 }));

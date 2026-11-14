@@ -24,7 +24,7 @@ export const startShiftController = asyncHandler(async (req: Request, res: Respo
 });
 
 export const closeShiftController = asyncHandler(async (req: Request, res: Response) => {
-  const shift = await closeShift(req.params.id, req.body, req);
+  const shift = await closeShift((req.params.id as string), req.body, req);
   return sendSuccess(res, 'Cashier shift closed successfully', shift);
 });
 
@@ -59,17 +59,17 @@ export const createExpenseController = asyncHandler(async (req: Request, res: Re
 });
 
 export const updateExpenseController = asyncHandler(async (req: Request, res: Response) => {
-  const expense = await updateExpense(req.params.id, req.body, req);
+  const expense = await updateExpense((req.params.id as string), req.body, req);
   return sendSuccess(res, 'Expense updated successfully', expense);
 });
 
 export const recordExpensePaymentController = asyncHandler(async (req: Request, res: Response) => {
-  const result = await recordExpensePayment(req.params.id, req.body, req);
+  const result = await recordExpensePayment((req.params.id as string), req.body, req);
   return sendSuccess(res, 'Expense payment recorded successfully', result, 201);
 });
 
 export const writeOffExpenseController = asyncHandler(async (req: Request, res: Response) => {
-  const expense = await writeOffExpense(req.params.id, req.body, req);
+  const expense = await writeOffExpense((req.params.id as string), req.body, req);
   return sendSuccess(res, 'Expense written off successfully', expense);
 });
 

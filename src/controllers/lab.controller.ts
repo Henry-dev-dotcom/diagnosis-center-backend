@@ -27,7 +27,7 @@ export const acceptLabSamplesController = asyncHandler(async (req: Request, res:
 });
 
 export const acceptLabOrderSamplesController = asyncHandler(async (req: Request, res: Response) => {
-  const result = await acceptLabSamples(req.body, req, req.params.orderId);
+  const result = await acceptLabSamples(req.body, req, (req.params.orderId as string));
   return sendSuccess(res, 'Lab order samples accepted successfully', result, 201);
 });
 
@@ -47,22 +47,22 @@ export const submitLabResultReviewController = asyncHandler(async (req: Request,
 });
 
 export const signOffLabResultController = asyncHandler(async (req: Request, res: Response) => {
-  const result = await signOffLabResult(req.params.id, req.body, req);
+  const result = await signOffLabResult((req.params.id as string), req.body, req);
   return sendSuccess(res, 'Lab result review decision saved successfully', result);
 });
 
 export const reverseLabResultController = asyncHandler(async (req: Request, res: Response) => {
-  const result = await reverseLabResult(req.params.id, req.body, req);
+  const result = await reverseLabResult((req.params.id as string), req.body, req);
   return sendSuccess(res, 'Sent lab result reversed for correction', result);
 });
 
 export const attachLabResultFilesController = asyncHandler(async (req: Request, res: Response) => {
-  const result = await attachLabResultFiles(req.params.id, req);
+  const result = await attachLabResultFiles((req.params.id as string), req);
   return sendSuccess(res, 'Lab result file upload processed successfully', result);
 });
 
 export const rejectLabSampleController = asyncHandler(async (req: Request, res: Response) => {
-  const result = await rejectLabSample(req.params.id, req.body, req);
+  const result = await rejectLabSample((req.params.id as string), req.body, req);
   return sendSuccess(res, 'Lab sample rejection saved successfully', result);
 });
 
@@ -77,12 +77,12 @@ export const listRejectedRetestSamplesController = asyncHandler(async (req: Requ
 });
 
 export const getReferenceRangesController = asyncHandler(async (req: Request, res: Response) => {
-  const result = await getReferenceRanges(req.params.catalogItemId);
+  const result = await getReferenceRanges((req.params.catalogItemId as string));
   return sendSuccess(res, 'Lab reference ranges loaded successfully', result);
 });
 
 export const getLabPatientTrendsController = asyncHandler(async (req: Request, res: Response) => {
-  const result = await getLabPatientTrends(req.params.patientId, req.query);
+  const result = await getLabPatientTrends((req.params.patientId as string), req.query);
   return sendSuccess(res, 'Lab patient trends loaded successfully', result);
 });
 
@@ -107,6 +107,6 @@ export const createInventoryItemController = asyncHandler(async (req: Request, r
 });
 
 export const recordInventoryTransactionController = asyncHandler(async (req: Request, res: Response) => {
-  const result = await recordInventoryTransaction(req.params.id, req.body, req);
+  const result = await recordInventoryTransaction((req.params.id as string), req.body, req);
   return sendSuccess(res, 'Lab inventory transaction recorded successfully', result, 201);
 });

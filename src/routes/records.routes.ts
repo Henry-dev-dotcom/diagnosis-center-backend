@@ -50,22 +50,22 @@ const ok = (message: string, fn: (req: Request) => Promise<unknown>) => asyncHan
 export const recordsRoutes = Router();
 recordsRoutes.use('/records', requireAuth, requireModule('medical_records'), requireRole(UserRole.ADMIN, UserRole.DOCTOR, UserRole.NURSE, UserRole.RECEPTIONIST));
 recordsRoutes.get('/records/patients', requirePermission(P.RECORDS_CHART_READ), validateRequest({ query: searchQuerySchema }), ok('Patients found', (req) => records.searchPatients(req.query as never)));
-recordsRoutes.get('/records/patients/:id/chart', requirePermission(P.RECORDS_CHART_READ), validateRequest({ params: idParamSchema, query: chartQuerySchema }), ok('Chart loaded', (req) => records.patientChart(req.params.id, req.query as never, req)));
-recordsRoutes.get('/records/patients/:id/access-log', requirePermission(P.RECORDS_AUDIT), validateRequest({ params: idParamSchema }), ok('Access log loaded', (req) => records.accessLog(req.params.id)));
+recordsRoutes.get('/records/patients/:id/chart', requirePermission(P.RECORDS_CHART_READ), validateRequest({ params: idParamSchema, query: chartQuerySchema }), ok('Chart loaded', (req) => records.patientChart((req.params.id as string), req.query as never, req)));
+recordsRoutes.get('/records/patients/:id/access-log', requirePermission(P.RECORDS_AUDIT), validateRequest({ params: idParamSchema }), ok('Access log loaded', (req) => records.accessLog((req.params.id as string))));
 recordsRoutes.get('/records/requests', requirePermission(P.RECORDS_RELEASE), validateRequest({ query: requestQuerySchema }), ok('Requests loaded', (req) => records.listRequests(req.query as never)));
 recordsRoutes.post('/records/requests', requirePermission(P.RECORDS_RELEASE), validateRequest({ body: requestSchema }), asyncHandler(async (req: Request, res: Response) => sendCreated(res, 'Request logged', await records.logRequest(req.body, req))));
-recordsRoutes.post('/records/requests/:id/decision', requirePermission(P.RECORDS_APPROVE), validateRequest({ params: idParamSchema, body: decisionSchema }), ok('Decision recorded', (req) => records.decideRequest(req.params.id, req.body, req)));
-recordsRoutes.post('/records/requests/:id/release', requirePermission(P.RECORDS_RELEASE), validateRequest({ params: idParamSchema, body: releaseSchema }), ok('Release recorded', (req) => records.releaseRequest(req.params.id, req.body, req)));
+recordsRoutes.post('/records/requests/:id/decision', requirePermission(P.RECORDS_APPROVE), validateRequest({ params: idParamSchema, body: decisionSchema }), ok('Decision recorded', (req) => records.decideRequest((req.params.id as string), req.body, req)));
+recordsRoutes.post('/records/requests/:id/release', requirePermission(P.RECORDS_RELEASE), validateRequest({ params: idParamSchema, body: releaseSchema }), ok('Release recorded', (req) => records.releaseRequest((req.params.id as string), req.body, req)));
 
 // The directory: finding a patient. Reading what is in their record goes through the chart, which logs it.
 recordsRoutes.get('/records/directory', requirePermission(P.RECORDS_CHART_READ), validateRequest({ query: directoryQuerySchema }), ok('Directory loaded', (req) => listDirectory(req.query as never)));
-recordsRoutes.get('/records/patients/:id/encounters/:encounterId', requirePermission(P.RECORDS_CHART_READ), validateRequest({ params: visitParamsSchema, query: chartQuerySchema }), ok('Visit loaded', (req) => getVisitRecord(req.params.id, req.params.encounterId, req.query as never, req)));
+recordsRoutes.get('/records/patients/:id/encounters/:encounterId', requirePermission(P.RECORDS_CHART_READ), validateRequest({ params: visitParamsSchema, query: chartQuerySchema }), ok('Visit loaded', (req) => getVisitRecord((req.params.id as string), (req.params.encounterId as string), req.query as never, req)));
 
 // The document vault.
-recordsRoutes.get('/records/patients/:id/documents', requirePermission(P.RECORDS_CHART_READ), validateRequest({ params: idParamSchema }), ok('Documents loaded', (req) => listDocuments(req.params.id)));
-recordsRoutes.post('/records/patients/:id/documents', requirePermission(P.RECORDS_DOCUMENTS_WRITE), validateRequest({ params: idParamSchema, body: documentSchema }), asyncHandler(async (req: Request, res: Response) => sendCreated(res, 'Document filed', await uploadDocument(req.params.id, req.body, req))));
+recordsRoutes.get('/records/patients/:id/documents', requirePermission(P.RECORDS_CHART_READ), validateRequest({ params: idParamSchema }), ok('Documents loaded', (req) => listDocuments((req.params.id as string))));
+recordsRoutes.post('/records/patients/:id/documents', requirePermission(P.RECORDS_DOCUMENTS_WRITE), validateRequest({ params: idParamSchema, body: documentSchema }), asyncHandler(async (req: Request, res: Response) => sendCreated(res, 'Document filed', await uploadDocument((req.params.id as string), req.body, req))));
 recordsRoutes.get('/records/documents/:id/download', requirePermission(P.RECORDS_CHART_READ), validateRequest({ params: idParamSchema }), asyncHandler(async (req: Request, res: Response) => {
-  const doc = await downloadDocument(req.params.id, req);
+  const doc = await downloadDocument((req.params.id as string), req);
   // Served as a download of a file whose type was read from its bytes, and told never to be guessed at or run.
   res.setHeader('Content-Type', doc.mimeType);
   res.setHeader('Content-Disposition', `attachment; filename="${doc.fileName.replace(/"/g, '')}"`);
