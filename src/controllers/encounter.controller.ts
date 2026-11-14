@@ -106,10 +106,10 @@ export const saveDraftController = asyncHandler(async (req: Request, res: Respon
   sendSuccess(res, 'Draft saved', await saveDraft((req.params.id as string), req.body.data, req))
 );
 export const curataAiNoteFormattingStatusController = asyncHandler(async (req: Request, res: Response) =>
-  sendSuccess(res, 'CurataAI note formatting status loaded', await getNoteFormattingStatus(req.params.id))
+  sendSuccess(res, 'CurataAI note formatting status loaded', await getNoteFormattingStatus(req.params.id as string))
 );
 export const curataAiNoteFormattingController = asyncHandler(async (req: Request, res: Response) =>
-  sendSuccess(res, 'CurataAI note formatting unavailable', await requestNoteFormatting(req.params.id, req.body, req))
+  sendSuccess(res, 'CurataAI note formatting unavailable', await requestNoteFormatting(req.params.id as string, req.body, req))
 );
 export const deleteDraftController = asyncHandler(async (req: Request, res: Response) =>
   sendSuccess(res, 'Draft discarded', await deleteDraft((req.params.id as string), req))
