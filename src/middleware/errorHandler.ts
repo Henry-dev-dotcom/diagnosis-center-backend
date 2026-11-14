@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from 'express';
 import { Prisma } from '@prisma/client';
 import { ZodError } from 'zod';
 import { AppError } from '../utils/appError.js';
+import { uniqueTarget } from '../utils/prismaErrors.js';
 import { isProduction } from '../config/env.js';
 import type { ApiError } from '../types/api.js';
 import { auditAccessFailure } from './audit.js';
@@ -33,7 +34,7 @@ function handlePrismaError(err: Prisma.PrismaClientKnownRequestError, req: Reque
   if (err.code === 'P2002') {
     const payload: ApiError = {
       ...baseError(req, 'A record with this value already exists', 'UNIQUE_CONSTRAINT_FAILED'),
-      errors: [{ field: Array.isArray(err.meta?.target) ? err.meta.target.join('.') : undefined, message: 'Duplicate value is not allowed' }],
+      errors: [{ field: uniqueTarget(err).join('.') || undefined, message: 'Duplicate value is not allowed' }],
       details: isProduction ? undefined : err.meta
     };
     return res.status(409).json(payload);

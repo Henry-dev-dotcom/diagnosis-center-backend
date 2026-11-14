@@ -16,6 +16,7 @@ import { readdirSync } from 'node:fs';
 import path from 'node:path';
 import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
 import { libpqUrl, sha256, tool } from './db-backup.mjs';
 
 dotenv.config();
@@ -30,7 +31,7 @@ function run(name, args) {
 }
 
 async function counts(url) {
-  const client = new PrismaClient({ datasources: { db: { url } } });
+  const client = new PrismaClient({ adapter: new PrismaPg({ connectionString: url }) });
   try {
     const out = {};
     for (const table of KEY_TABLES) {

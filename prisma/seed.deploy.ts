@@ -24,11 +24,12 @@
   restart never wipes what someone was in the middle of looking at.
 */
 import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
 import { runAsSystem } from '../src/services/tenantContext.js';
 import { DEMO_FACILITY, ensureDemoScanFileBytes, seedDemoSubscription, seedFacility, seedPlans } from './seed.js';
 import { DEMO_VENDOR_LOGIN, seedDemoVendorPortal } from './seed.vendor-demo.js';
 
-const plain = new PrismaClient();
+const plain = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
 
 function wantsDemoData() {
   const enabled = String(process.env.SEED_DEMO_DATA ?? '').trim().toLowerCase() === 'true';

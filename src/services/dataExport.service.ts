@@ -26,7 +26,7 @@ type ModelInfo = { name: string; delegate: string; hasId: boolean };
 export function exportableModels(): ModelInfo[] {
   return Prisma.dmmf.datamodel.models
     .filter((m) => m.fields.some((f) => f.name === 'facilityId' && f.kind === 'scalar'))
-    .map((m) => ({ name: m.name, delegate: m.name[0].toLowerCase() + m.name.slice(1), hasId: m.fields.some((f) => f.name === 'id' && f.isId) }));
+    .map((m) => ({ name: m.name, delegate: m.name[0].toLowerCase() + m.name.slice(1), hasId: m.fields.some((f) => f.name === 'id' && f.kind === 'scalar') }));
 }
 
 function redact(row: Record<string, unknown>) {

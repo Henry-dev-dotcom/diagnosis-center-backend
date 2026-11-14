@@ -13,7 +13,7 @@
     "format": "prettier --write .",
     "health:local": "node scripts/check-health.mjs",
     "qa": "prisma validate && npm run typecheck && npm run lint && npm test && npm run test:integration && npm run build && node scripts/check-production-readiness.mjs",
-    "prisma:generate": "prisma generate",
+    "prisma:generate": "prisma generate && node scripts/gen-owning-relations.mjs",
     "prisma:migrate": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:seed": "tsx prisma/seed.ts",
@@ -46,7 +46,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "qa:legacy-docs": "node scripts/check-phase10.mjs && node scripts/check-business-stage1.mjs && node scripts/check-business-stage2.mjs && node scripts/check-business-stage3.mjs && node scripts/check-business-stage4.mjs && node scripts/check-business-stage5.mjs && node scripts/check-business-stage6.mjs && node scripts/check-business-stage7.mjs && node scripts/check-business-stage8.mjs && node scripts/check-business-stage9.mjs && node scripts/check-business-stage10.mjs && node scripts/check-production-readiness.mjs",
-    "db:drift": "prisma migrate diff --from-schema-datasource prisma/schema.prisma --to-schema-datamodel prisma/schema.prisma --exit-code",
+    "db:drift": "prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "db:backup": "node scripts/db-backup.mjs",
     "db:restore-check": "node scripts/db-restore-check.mjs",
@@ -54,7 +54,8 @@
     "test:load": "node scripts/load-test.mjs"
   },
   "dependencies": {
-    "@prisma/client": "^5.22.0",
+    "@prisma/adapter-pg": "^7.10.1",
+    "@prisma/client": "^7.10.1",
     "bcryptjs": "^3.0.3",
     "compression": "^1.7.4",
     "cookie-parser": "^1.4.7",
@@ -64,7 +65,7 @@
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
-    "prisma": "^5.22.0",
+    "prisma": "^7.10.1",
     "swagger-ui-express": "^5.0.1",
     "zod": "^4.6.5"
   },
@@ -87,10 +88,7 @@
     "typescript": "^5.7.2",
     "vitest": "^5.0.3"
   },
-  "prisma": {
-    "seed": "tsx prisma/seed.ts"
-  },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=20.19.0"
   }
 }
