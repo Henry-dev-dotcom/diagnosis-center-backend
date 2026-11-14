@@ -5,6 +5,7 @@ import { nextCode } from './codeSequence.service.js';
 import { isModuleEnabled } from './facilityAccess.service.js';
 import { createAuditLog, getRequestAuditContext } from './audit.service.js';
 import { AppError } from '../utils/appError.js';
+import { uniqueTarget } from '../utils/prismaErrors.js';
 
 /*
   Mortuary (Phase 4D). The deceased register holds every body in the
@@ -136,7 +137,7 @@ export async function registerDeceased(
     return getDeceased(id);
   } catch (error) {
     if (uniqueViolation(error)) {
-      const target = String((error as Prisma.PrismaClientKnownRequestError).meta?.target ?? '');
+      const target = uniqueTarget(error).join(',');
       if (target.includes('bodyTag')) throw new AppError('That body tag is already in use', 409, 'TAG_TAKEN');
       if (target.includes('patientId')) throw new AppError('This patient is already on the deceased register', 409, 'ALREADY_REGISTERED');
       throw new AppError('That slot is already occupied', 409, 'SLOT_OCCUPIED');

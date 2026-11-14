@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
 import { isDevelopment } from '../config/env.js';
 import { tenantExtension } from './tenantContext.js';
 import { accessCacheExtension } from './accessCache.js';
@@ -10,7 +11,9 @@ declare global {
 // The tenant extension only rewrites query arguments at runtime, so the client
 // keeps the plain PrismaClient type and every existing call site stays valid.
 function createPrismaClient() {
+  // Prisma 7 talks to Postgres through node-postgres; this is the pooled address.
   return new PrismaClient({
+    adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
     log: isDevelopment ? ['query', 'warn', 'error'] : ['warn', 'error']
   })
     .$extends(tenantExtension)

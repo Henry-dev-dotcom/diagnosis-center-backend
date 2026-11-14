@@ -35,6 +35,7 @@ import {
   UserRole,
   VisitStatus
 } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
 import { currentFacilityId, runAsSystem, runWithFacility, tenantExtension } from '../src/services/tenantContext.js';
 import { MODULE_KEYS } from '../src/config/modules.js';
 
@@ -73,7 +74,7 @@ const seedIdPrefixExtension = Prisma.defineExtension({
   }
 });
 
-export const prisma = new PrismaClient().$extends(tenantExtension).$extends(seedIdPrefixExtension) as unknown as PrismaClient;
+export const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) }).$extends(tenantExtension).$extends(seedIdPrefixExtension) as unknown as PrismaClient;
 
 const DEMO_PASSWORDS: Record<string, string> = {
   admin: 'admin123',

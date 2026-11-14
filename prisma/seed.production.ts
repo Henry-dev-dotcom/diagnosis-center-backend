@@ -8,11 +8,12 @@
   touching data, so it is safe to run on every deploy.
 */
 import { PrismaClient, UserRole } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
 import { hashPassword } from '../src/utils/password.js';
 
 // Only facility-less platform users are touched here, so the tenant extension
 // is not needed; a plain client keeps this script independent of app config.
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
 
 async function main() {
   const existing = await prisma.user.findFirst({ where: { role: UserRole.PLATFORM_ADMIN, facilityId: null } });

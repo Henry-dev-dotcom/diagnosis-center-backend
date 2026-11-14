@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { Prisma } from '@prisma/client';
 import { AppError } from '../utils/appError.js';
+import { OWNING_RELATIONS } from '../generated/owningRelations.js';
 
 /**
  * Multi-tenant isolation.
@@ -68,21 +69,19 @@ const tenantModels = new Set<string>();
 const relationsByModel = new Map<string, RelationMap>();
 // Relation fields that hold a foreign key on this model (e.g. Order.patient).
 // Only these distinguish Prisma's "checked" create input from the "unchecked"
-// one; back-relation lists (Order.items) are accepted by both.
+// one; back-relation lists (Order.items) are accepted by both. Prisma 7's
+// runtime DMMF has no relationFromFields, so this comes from the schema via
+// scripts/gen-owning-relations.mjs.
 const owningRelationsByModel = new Map<string, Set<string>>();
 
 for (const model of Prisma.dmmf.datamodel.models) {
   const relations: RelationMap = new Map();
-  const owning = new Set<string>();
   for (const field of model.fields) {
-    if (field.kind === 'object') {
-      relations.set(field.name, field.type);
-      if (field.relationFromFields?.length) owning.add(field.name);
-    }
+    if (field.kind === 'object') relations.set(field.name, field.type);
     if (field.name === 'facilityId') tenantModels.add(model.name);
   }
   relationsByModel.set(model.name, relations);
-  owningRelationsByModel.set(model.name, owning);
+  owningRelationsByModel.set(model.name, new Set(OWNING_RELATIONS[model.name] ?? []));
 }
 
 /** Log tables may be written before a facility is known (e.g. failed logins). */
