@@ -31,8 +31,9 @@ Roughly 20 minutes, most of it waiting for a build.
 **Why two.** A connection pooler multiplexes many clients onto few server
 connections, which is exactly what a small web service wants. But migrations take
 advisory locks and issue DDL that a pooler in transaction mode cannot carry, so
-Prisma needs a direct line for those. `schema.prisma` declares both: `url` for
-the app, `directUrl` for migrations.
+Prisma needs a direct line for those. The app connects with `DATABASE_URL`
+(through the `@prisma/adapter-pg` driver adapter); the Prisma CLI reads
+`prisma.config.ts`, which uses `DIRECT_URL` for migrations.
 
 ---
 
