@@ -95,7 +95,7 @@ export function buildOpenApiDocument(router: Router) {
       title: 'LHIMS API',
       version: '3.0.0',
       description: [
-        'Hospital management API. Every facility\'s data is separate: staff act only inside their own facility.',
+        'Health facility management API (hospitals, clinics, health centres, maternity homes and diagnostic centres). Every facility\'s data is separate: staff act only inside their own facility.',
         'Browsers authenticate with the httpOnly session cookie set by POST /auth/login; other clients may send the access token as a Bearer header.',
         'All responses use the envelope { success, message, data } or { success: false, message, code, errors }.',
         'Writes return 402 while a facility\'s subscription is unpaid, and 403 during a read-only support session.'
